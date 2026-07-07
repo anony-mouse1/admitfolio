@@ -1,0 +1,21 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Keep the template
+!.env.example
+
+# Dependencies / noise
+node_modules/
+*.log
+.DS_Store
+
+# Seller submission data & uploaded essays — contains PII, never commit
+listings.json
+waitlist.json
+essays/
+
+# Local tooling & throwaway
+.claude/
+index-indigo.html

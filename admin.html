@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admitfolio · Review console</title>
+<style>
+  :root { --accent:#7d1d2d; --ink:#1b1a17; --muted:#56524a; --faint:#8a857b; --bg:#faf8f4; --line:#e7e3da; --card:#fff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--ink);
+    background: radial-gradient(1100px 560px at 72% -120px, rgba(125,29,45,0.08), transparent 62%), var(--bg); }
+  .serif { font-family: ui-serif, Georgia, 'Times New Roman', serif; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:18px 28px; background:rgba(250,248,244,.82); backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  .logo { font-weight:800; font-size:20px; letter-spacing:-.02em; }
+  .logo b { color:var(--accent); }
+  .sub { color:var(--faint); font-size:13px; font-weight:600; }
+  .wrap { max-width:960px; margin:0 auto; padding:28px 24px 80px; }
+
+  /* Login gate */
+  .gate { max-width:380px; margin:14vh auto 0; background:var(--card); border:1px solid var(--line);
+    border-radius:20px; padding:32px; box-shadow:0 20px 60px rgba(20,18,15,.10); text-align:center; }
+  .gate h1 { font-size:22px; margin:0 0 6px; letter-spacing:-.02em; }
+  .gate p { color:var(--muted); font-size:14px; margin:0 0 20px; line-height:1.5; }
+  input[type=password], textarea { width:100%; font-size:15px; font-family:inherit; color:var(--ink);
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; outline:none; }
+  input[type=password]:focus, textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(125,29,45,.15); }
+  .btn { font-family:inherit; font-weight:700; font-size:15px; color:#fff; background:var(--accent);
+    border:none; border-radius:999px; padding:12px 22px; cursor:pointer; transition:opacity .15s, background .15s; }
+  .btn:hover { opacity:.92; } .btn:disabled { opacity:.5; cursor:default; }
+  .btn.ghost { background:none; color:var(--muted); border:1px solid var(--line); }
+  .btn.ghost:hover { border-color:var(--ink); color:var(--ink); opacity:1; }
+  .btn.reject { background:#c0392b; }
+  .err { color:#c0392b; font-size:13px; font-weight:600; margin-top:10px; min-height:16px; }
+
+  /* Toolbar */
+  .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+  .filters { display:flex; gap:6px; }
+  .chip { font-size:13px; font-weight:600; color:var(--muted); background:var(--card); border:1px solid var(--line);
+    border-radius:999px; padding:7px 15px; cursor:pointer; }
+  .chip.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .count { margin-left:auto; color:var(--faint); font-size:13px; font-weight:600; }
+
+  /* Cards */
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px 22px;
+    margin-bottom:16px; box-shadow:0 8px 26px rgba(20,18,15,.05); }
+  .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .card h3 { margin:0; font-size:17px; letter-spacing:-.01em; }
+  .card .who { color:var(--muted); font-size:13.5px; margin-top:3px; }
+  .status { font-size:11.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+    padding:5px 11px; border-radius:999px; white-space:nowrap; }
+  .status.pending { color:#8a6d00; background:#fff3d0; }
+  .status.approved { color:#1c7c43; background:#dcf5e6; }
+  .status.rejected { color:#a5281f; background:#fbe0dd; }
+  .meta { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0; }
+  .tag { font-size:12px; font-weight:600; color:var(--muted); background:#f3f1ec; border-radius:8px; padding:5px 10px; }
+  .tag b { color:var(--ink); }
+  .essays { border-top:1px solid var(--line); padding-top:14px; margin-top:6px; }
+  .essay-line { display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--muted); padding:4px 0; }
+  .pdf-link { font-weight:700; color:var(--accent); text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
+  .pdf-link:hover { text-decoration:underline; }
+  .no-file { color:var(--faint); font-style:italic; }
+  .actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .note-in { display:none; margin-top:12px; }
+  .note-in textarea { min-height:56px; resize:vertical; }
+  .empty { text-align:center; color:var(--faint); padding:60px 20px; font-size:15px; }
+  .loading { text-align:center; color:var(--faint); padding:40px; }
+</style>
+</head>
+<body>
+
+<!-- Sign-in gate — verify your admin email with a 6-digit code (same OTP as the site) -->
+<div id="gate" class="gate">
+  <h1 class="serif">Review console</h1>
+
+  <!-- Step 1: email -->
+  <div id="gateEmailStep">
+    <p>Sign in with your admin email to review essay submissions.</p>
+    <input type="email" id="gateEmail" placeholder="you@example.com" autocomplete="email" spellcheck="false">
+    <div class="err" id="gateErr"></div>
+    <button class="btn" id="sendCode" style="width:100%;margin-top:8px">Send code</button>
+  </div>
+
+  <!-- Step 2: code -->
+  <div id="gateCodeStep" style="display:none">
+    <p>Enter the 6-digit code we emailed to <b id="gateEmailShown"></b>.</p>
+    <input type="text" id="gateCode" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+    <div class="err" id="gateCodeErr"></div>
+    <button class="btn" id="verifyCode" style="width:100%;margin-top:8px">Verify &amp; enter</button>
+    <button class="btn ghost" id="gateBack" style="width:100%;margin-top:8px">← Use a different email</button>
+  </div>
+</div>
+
+<!-- Console -->
+<div id="app" style="display:none">
+  <header>
+    <div class="logo serif">admitfolio<b>.</b> <span class="sub" style="font-family:inherit">review console</span></div>
+    <button class="btn ghost" id="logout">Log out</button>
+  </header>
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="filters" id="filters">
+        <div class="chip active" data-f="all">All</div>
+        <div class="chip" data-f="pending">Pending</div>
+        <div class="chip" data-f="approved">Approved</div>
+        <div class="chip" data-f="rejected">Rejected</div>
+      </div>
+      <button class="btn ghost" id="refresh" style="padding:7px 15px;font-size:13px">↻ Refresh</button>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="list"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+  let listings = [];
+  let filter = 'all';
+
+  const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+
+  // Auth rides on the HttpOnly session cookie the server sets after you verify
+  // your admin email — same-origin requests send it automatically.
+  async function api(path, opts = {}) {
+    return fetch(path, Object.assign({ credentials: 'same-origin' }, opts));
+  }
+
+  async function load() {
+    document.getElementById('list').innerHTML = '<div class="loading">Loading…</div>';
+    const resp = await api('/api/admin/listings');
+    if (resp.status === 401) { logout('Your session expired — sign in again.'); return; }
+    const data = await resp.json().catch(() => ({}));
+    listings = (data.listings || []).slice().reverse(); // newest first
+    render();
+  }
+
+  function render() {
+    const shown = listings.filter(l => filter === 'all' || (l.status || 'pending') === filter);
+    document.getElementById('count').textContent = `${shown.length} of ${listings.length} submission${listings.length === 1 ? '' : 's'}`;
+    if (!shown.length) { document.getElementById('list').innerHTML = '<div class="empty">No ' + (filter === 'all' ? '' : filter + ' ') + 'submissions yet.</div>'; return; }
+    document.getElementById('list').innerHTML = shown.map(cardHTML).join('');
+  }
+
+  function cardHTML(l) {
+    const st = l.status || 'pending';
+    const schools = (l.admittedSchools || []).map(esc).join(', ') || '—';
+    const files = l.files || [];
+    const essayRows = files.length
+      ? files.map(f => `<div class="essay-line"><a class="pdf-link" href="/api/admin/essay?id=${encodeURIComponent(l.id)}&n=${f.n}" target="_blank">📄 Essay ${f.n}</a><span>${esc(f.name)}</span></div>`).join('')
+      : `<div class="essay-line no-file">No PDF was uploaded with this submission.</div>`;
+    const actions = st === 'pending'
+      ? `<button class="btn" data-approve="${l.id}">✓ Approve &amp; email seller</button>
+         <button class="btn reject" data-reject="${l.id}">✕ Reject</button>`
+      : `<span class="sub">Reviewed ${l.reviewedAt ? new Date(l.reviewedAt).toLocaleString() : ''}${l.reviewNote ? ' · “' + esc(l.reviewNote) + '”' : ''}</span>`;
+    return `
+      <div class="card">
+        <div class="card-top">
+          <div>
+            <h3>${esc(schools)}</h3>
+            <div class="who">${esc(l.email || '—')} · ${esc(l.university || '')}</div>
+          </div>
+          <span class="status ${st}">${st}</span>
+        </div>
+        <div class="meta">
+          <span class="tag">Tier: <b>${esc(l.tier || '—')}</b></span>
+          <span class="tag">Price: <b>${l.pricingMode === 'Separate' ? 'per-essay' : '$' + esc(l.price || '—')}</b></span>
+          <span class="tag">App: <b>${esc(l.applicationSystem || '—')}</b></span>
+          <span class="tag">Name: <b>${esc(l.anonMode || '—')}</b></span>
+          <span class="tag">Submitted: <b>${l.submittedAt ? new Date(l.submittedAt).toLocaleDateString() : '—'}</b></span>
+        </div>
+        <div class="essays">${essayRows}</div>
+        <div class="note-in" id="note-${l.id}"><textarea placeholder="Optional note to the seller (included in the email)…"></textarea></div>
+        <div class="actions">${actions}</div>
+      </div>`;
+  }
+
+  async function decide(id, decision, note) {
+    const resp = await api('/api/admin/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, decision, note: note || '' }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) { alert(data.error || 'Something went wrong.'); return; }
+    await load();
+  }
+
+  // Event delegation for card buttons
+  document.getElementById('list').addEventListener('click', (e) => {
+    const ap = e.target.closest('[data-approve]');
+    const rj = e.target.closest('[data-reject]');
+    if (ap) { decide(ap.dataset.approve, 'approve'); }
+    else if (rj) {
+      // First click reveals the note field; second click (button now says Confirm) submits.
+      const box = document.getElementById('note-' + rj.dataset.reject);
+      if (box.style.display !== 'block') { box.style.display = 'block'; rj.textContent = '✕ Confirm rejection'; box.querySelector('textarea').focus(); }
+      else { decide(rj.dataset.reject, 'reject', box.querySelector('textarea').value.trim()); }
+    }
+  });
+
+  document.getElementById('filters').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-f]'); if (!chip) return;
+    filter = chip.dataset.f;
+    document.querySelectorAll('#filters .chip').forEach(c => c.classList.toggle('active', c === chip));
+    render();
+  });
+  document.getElementById('refresh').addEventListener('click', load);
+
+  // --- Auth gate (email + 6-digit code → 30-day session cookie) ---
+  const $ = id => document.getElementById(id);
+  let pendingEmail = '';
+
+  function showApp() { $('gate').style.display = 'none'; $('app').style.display = 'block'; load(); }
+  function showEmailStep() {
+    $('gateCodeStep').style.display = 'none';
+    $('gateEmailStep').style.display = 'block';
+    $('gateErr').textContent = '';
+    $('gateCode').value = '';
+  }
+  function logout(msg) {
+    $('app').style.display = 'none';
+    $('gate').style.display = 'block';
+    showEmailStep();
+    $('gateErr').textContent = msg || '';
+  }
+
+  async function sendCode() {
+    const email = $('gateEmail').value.trim();
+    $('gateErr').textContent = '';
+    if (!email) { $('gateErr').textContent = 'Enter your email first.'; return; }
+    $('sendCode').disabled = true; $('sendCode').textContent = 'Sending…';
+    try {
+      const resp = await api('/api/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { $('gateErr').textContent = data.error || 'Could not send a code.'; return; }
+      pendingEmail = email;
+      $('gateEmailShown').textContent = email;
+      $('gateEmailStep').style.display = 'none';
+      $('gateCodeStep').style.display = 'block';
+      $('gateCodeErr').textContent = '';
+      $('gateCode').focus();
+    } catch { $('gateErr').textContent = 'Network error — try again.'; }
+    finally { $('sendCode').disabled = false; $('sendCode').textContent = 'Send code'; }
+  }
+
+  async function verifyCode() {
+    const code = $('gateCode').value.trim();
+    $('gateCodeErr').textContent = '';
+    if (!code) { $('gateCodeErr').textContent = 'Enter the 6-digit code.'; return; }
+    $('verifyCode').disabled = true; $('verifyCode').textContent = 'Verifying…';
+    try {
+      const resp = await api('/api/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: pendingEmail, code }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { $('gateCodeErr').textContent = data.error || 'That code is incorrect.'; return; }
+      if (!data.admin) { $('gateCodeErr').textContent = "That email isn't an admin — sign in with your admin address."; return; }
+      showApp();  // the server just set the session cookie
+    } catch { $('gateCodeErr').textContent = 'Network error — try again.'; }
+    finally { $('verifyCode').disabled = false; $('verifyCode').textContent = 'Verify & enter'; }
+  }
+
+  $('sendCode').addEventListener('click', sendCode);
+  $('gateEmail').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(); });
+  $('verifyCode').addEventListener('click', verifyCode);
+  $('gateCode').addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
+  $('gateBack').addEventListener('click', showEmailStep);
+  $('logout').addEventListener('click', async () => {
+    try { await api('/api/admin/logout', { method: 'POST' }); } catch {}
+    logout();
+  });
+
+  // Auto-enter if the session cookie is still valid (lasts 30 days).
+  api('/api/admin/listings').then(r => { if (r.ok) showApp(); }).catch(() => {});
+</script>
+</body>
+</html>

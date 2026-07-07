@@ -1,0 +1,2729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admitfolio, Read the essays that got them in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&family=Geist:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,600&family=Inter+Tight:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,600&family=Source+Sans+3:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== Theme tokens =====
+     Mirrors the design component's prop system.
+     accentTheme: indigo | forest | plum
+     fontScheme:  editorial | clean-sans | literary | warm-classic | grotesk  */
+  :root {
+    --accent: #7d1d2d;            /* burgundy / wine */
+    --serif: 'Geist', sans-serif; /* clean-sans scheme, Geist for display */
+    --sans: 'Geist', sans-serif;
+
+    --ink: #1b1a17;
+    --muted: #56524a;
+    --faint: #8a857b;
+    --line: #ece8e0;
+    --card-line: #efece5;
+    --bg: #FAF8F4;
+  }
+
+  * { box-sizing: border-box; }
+  /* Smooth in-page scrolling; scroll-padding offsets the sticky nav so section
+     headings aren't hidden underneath it when jumped to from the navbar. */
+  html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-family: var(--sans);
+    color: var(--ink);
+    background: radial-gradient(1100px 560px at 72% -120px, rgba(125,29,45,0.10), transparent 62%), var(--bg);
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+
+  @keyframes floatA { 0%,100%{transform:translateY(0) rotate(-3.5deg)} 50%{transform:translateY(-15px) rotate(-3.5deg)} }
+  @keyframes floatB { 0%,100%{transform:translateY(0) rotate(2.5deg)} 50%{transform:translateY(-19px) rotate(2.5deg)} }
+  @keyframes floatC { 0%,100%{transform:translateY(0) rotate(4deg)} 50%{transform:translateY(-11px) rotate(4deg)} }
+  @keyframes revUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes drawLine { from{stroke-dashoffset:1500} to{stroke-dashoffset:0} }
+
+  /* ---- Nav ---- */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding: 16px 40px;
+    background: rgba(250,248,244,0.82);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .logo { display: flex; align-items: flex-end; gap: 5px; }
+  .logo-word { font-family: var(--serif); font-size: 25px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); line-height: 1; }
+  .logo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-bottom: 4px; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a { font-size: 15px; font-weight: 500; color: var(--muted); text-decoration: none; cursor: pointer; transition: color .2s; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta { display: flex; align-items: center; gap: 20px; }
+  .nav-cta .login { font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; cursor: pointer; }
+
+  .btn-primary {
+    font-weight: 600; color: #fff; background: var(--accent);
+    border: none; border-radius: 999px; text-decoration: none; cursor: pointer;
+    transition: transform .2s, filter .2s;
+  }
+  .btn-primary:hover { filter: brightness(0.92); transform: translateY(-2px); }
+  .btn-ghost {
+    font-weight: 600; color: var(--ink); background: #fff;
+    border: 1px solid #ddd9d0; border-radius: 999px; text-decoration: none; cursor: pointer;
+    transition: transform .2s, border-color .2s;
+  }
+  .btn-ghost:hover { border-color: var(--ink); transform: translateY(-2px); }
+
+  /* ---- Hero ---- */
+  .hero {
+    max-width: 1200px; margin: 0 auto; padding: 74px 40px 48px;
+    display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 9px; padding: 7px 14px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--muted);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .hero h1 {
+    font-family: var(--serif); font-size: 62px; line-height: 1.04; font-weight: 700;
+    letter-spacing: -0.025em; color: var(--ink); margin: 22px 0 0; text-wrap: balance;
+  }
+  .hero h1 em { color: var(--accent); font-style: italic; }
+  .hero p { font-size: 18px; line-height: 1.62; color: var(--muted); max-width: 478px; margin: 24px 0 0; }
+  .hero-actions { display: flex; align-items: center; gap: 14px; margin-top: 32px; }
+  .hero-actions a { font-size: 16px; padding: 14px 26px; }
+  .hero-stats { display: flex; align-items: center; gap: 22px; margin-top: 34px; }
+  .stat-num { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--ink); }
+  .stat-lbl { font-size: 13px; color: var(--faint); margin-top: 1px; }
+  .stat-div { width: 1px; height: 30px; background: #e4e0d7; }
+
+  /* ---- Floating hero cards ---- */
+  .hero-art { position: relative; height: 520px; }
+  .float-card {
+    position: absolute; background: #fff; border: 1px solid var(--card-line); border-radius: 18px; padding: 18px;
+  }
+  .fc-top { top: 6px; left: 0; width: 288px; box-shadow: 0 22px 48px rgba(20,18,15,0.12); animation: floatA 6s ease-in-out infinite; z-index: 2; }
+  .fc-mid { top: 170px; right: 4px; width: 286px; box-shadow: 0 26px 54px rgba(20,18,15,0.14); animation: floatB 7s ease-in-out infinite; z-index: 3; }
+  .fc-bot { bottom: 0; left: 32px; width: 270px; padding: 16px; box-shadow: 0 18px 40px rgba(20,18,15,0.10); animation: floatC 6.5s ease-in-out infinite; z-index: 1; }
+  .fc-head { display: flex; align-items: center; gap: 11px; }
+  .badge { position: relative; overflow: hidden; color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-weight: 700; flex: none; border-radius: 50%; }
+  /* Real university logo overlays the colored monogram; if it fails to load the
+     onerror handler removes the <img>, revealing the letter fallback. */
+  .badge-logo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 6px; background: #fff; }
+  .badge.has-logo { background: #fff !important; border: 1px solid var(--card-line, #e7e3da); }
+  .fc-school { font-size: 14px; font-weight: 600; }
+  .fc-year { font-size: 12px; color: var(--faint); }
+  .fc-rating { font-size: 12.5px; font-weight: 600; }
+  .fc-rating .star, .star { color: var(--accent); }
+  .fc-prompt { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; color: var(--accent); text-transform: uppercase; margin-top: 13px; }
+  .fc-hook { font-family: var(--serif); font-size: 16px; line-height: 1.3; font-weight: 600; margin-top: 5px; }
+  .skel { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
+  .skel div { height: 8px; border-radius: 4px; background: #ece9e2; }
+  .fc-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+  .price { font-family: var(--serif); font-weight: 700; }
+  .unlock-pill { font-size: 12px; font-weight: 600; color: #fff; background: var(--accent); padding: 6px 13px; border-radius: 999px; }
+
+  /* ---- Trust bar ---- */
+  .trust { max-width: 1200px; margin: 0 auto; padding: 24px 40px 36px; }
+  .trust-label { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); text-transform: uppercase; }
+  .trust-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 30px; margin-top: 20px; }
+  .trust-row span { font-family: var(--serif); font-size: 21px; font-weight: 600; color: #a8a298; cursor: default; transition: color .2s; }
+  .trust-row span:hover { color: var(--ink); }
+
+  /* ---- Featured ---- */
+  .featured { max-width: 1200px; margin: 0 auto; padding: 80px 40px 40px; }
+  .featured-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .featured-head h2 { font-family: var(--serif); font-size: 42px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  .featured-head p { font-size: 17px; line-height: 1.6; color: var(--muted); margin: 14px 0 0; max-width: 480px; }
+  .view-all { font-size: 15px; font-weight: 600; color: var(--accent); text-decoration: none; cursor: pointer; white-space: nowrap; }
+
+  .chips { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
+  .chip {
+    padding: 9px 17px; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600;
+    white-space: nowrap; transition: all .2s; border: 1px solid #e4e0d7; background: #fff; color: var(--muted);
+  }
+  .chip.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+  .grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; margin-top: 28px; }
+  .ecard {
+    background: #fff; border: 1px solid var(--card-line); border-radius: 18px; padding: 22px;
+    box-shadow: 0 1px 2px rgba(20,18,15,0.04);
+    transition: transform .25s, box-shadow .25s, border-color .25s; cursor: pointer;
+    display: flex; flex-direction: column;
+  }
+  .ecard:hover { transform: translateY(-6px); box-shadow: 0 22px 48px rgba(20,18,15,0.13); border-color: #e4e0d7; }
+  .ecard-head { display: flex; align-items: center; gap: 12px; }
+  .ecard-school { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .ecard-meta { font-size: 12.5px; color: var(--faint); margin-top: 1px; }
+  .ecard-rating { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
+  .ecard-prompt { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; margin-top: 18px; }
+  .ecard-hook { font-family: var(--serif); font-size: 19px; line-height: 1.3; font-weight: 600; color: var(--ink); margin-top: 7px; }
+  .ecard-body { position: relative; margin-top: 16px; }
+  .ecard-skel { display: flex; flex-direction: column; gap: 9px; }
+  .ecard-skel div { height: 9px; border-radius: 5px; background: #ece9e2; }
+  .ecard-lock {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg);
+    border: 1px solid #e8e4dc; padding: 5px 13px; border-radius: 999px; white-space: nowrap;
+  }
+  .ecard-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f0ede6; }
+  .ecard-price { display: flex; align-items: baseline; gap: 7px; }
+  .ecard-price .p { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--ink); }
+  .ecard-price .w { font-size: 12.5px; color: var(--faint); }
+  .ecard-unlock { font-size: 13px; font-weight: 600; color: #fff; background: var(--accent); padding: 8px 17px; border-radius: 999px; transition: filter .2s; }
+  .ecard-unlock:hover { filter: brightness(0.92); }
+
+  /* ---- Releasing soon / notify banner ---- */
+  .notify-banner {
+    position: relative; overflow: hidden;
+    margin-top: 30px; padding: 40px 40px;
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 28px;
+    background: #1b1a17; border-radius: 24px;
+  }
+  .notify-glow { position: absolute; top: -120px; right: -60px; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(125,29,45,0.5), transparent 65%); }
+  .notify-text { position: relative; }
+  .notify-eyebrow { display: inline-flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: #e0a1aa; text-transform: uppercase; }
+  .notify-eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: #e0a1aa; box-shadow: 0 0 0 0 rgba(224,161,170,.6); animation: pulseDot 2s infinite; }
+  @keyframes pulseDot { 0%{box-shadow:0 0 0 0 rgba(224,161,170,.5)} 70%{box-shadow:0 0 0 8px rgba(224,161,170,0)} 100%{box-shadow:0 0 0 0 rgba(224,161,170,0)} }
+  .notify-text h3 { font-family: var(--serif); font-size: clamp(32px, 4.6vw, 48px); line-height: 1.06; font-weight: 700; letter-spacing: -0.025em; color: #fff; margin: 16px 0 0; text-wrap: balance; }
+  .notify-text p { font-size: 17.5px; line-height: 1.55; color: #c2bdb4; margin: 16px auto 0; max-width: 480px; }
+  .notify-form { position: relative; width: 100%; max-width: 460px; }
+  .notify-row { display: flex; gap: 10px; }
+  .notify-row input {
+    flex: 1; min-width: 0; font-family: var(--sans); font-size: 16.5px; color: var(--ink); background: #fff;
+    border: 1px solid transparent; border-radius: 999px; padding: 16px 22px; outline: none; transition: box-shadow .2s;
+  }
+  .notify-row input:focus { box-shadow: 0 0 0 3px rgba(224,161,170,0.5); }
+  .notify-row .btn-primary { padding: 16px 28px; font-size: 16.5px; white-space: nowrap; }
+  .notify-msg { font-size: 13.5px; font-weight: 600; margin-top: 12px; min-height: 18px; }
+  .notify-msg.ok { color: #e0a1aa; }
+  .notify-msg.err { color: #ff9b8a; }
+
+  .sneak-label { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); text-transform: uppercase; margin-top: 56px; }
+
+  /* Blurred teaser grid — preview only, not interactive */
+  .preview-wrap { position: relative; margin-top: 22px; }
+  .grid.coming-soon {
+    filter: blur(3px) grayscale(18%); opacity: 0.55; pointer-events: none; user-select: none;
+    margin-top: 0; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent);
+  }
+  .preview-lock { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .preview-badge {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    border: 1px solid var(--card-line); border-radius: 999px; padding: 12px 20px;
+    box-shadow: 0 18px 44px rgba(20,18,15,0.16);
+    font-family: var(--serif); font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
+  }
+  .preview-badge svg { color: var(--accent); flex: none; }
+  .preview-dots { display: inline-flex; align-items: center; gap: 4px; }
+  .preview-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: dotPulse 1.4s infinite ease-in-out both; }
+  .preview-dots i:nth-child(2) { animation-delay: .2s; }
+  .preview-dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes dotPulse { 0%,80%,100%{ opacity:.25; transform:translateY(0) } 40%{ opacity:1; transform:translateY(-3px) } }
+
+  /* ---- Combined "Releasing soon" stage ---- */
+  .release-stage { position: relative; margin-top: 28px; }
+  .release-essays .grid.coming-soon { margin-top: 0; }
+  .release-overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  /* Default (backdrop): dark card floats centered over the blurred essays */
+  .release-overlay .notify-banner {
+    width: 100%; max-width: 580px; margin-top: 0; padding: 48px 48px;
+    box-shadow: 0 36px 84px rgba(20,18,15,0.36);
+  }
+
+  /* Variant ?layout=frame: one dark frame — card on top, essays below */
+  body.layout-frame .release-stage {
+    display: flex; flex-direction: column;
+    background: #1b1a17; border-radius: 26px; padding: 36px 36px 10px; overflow: hidden;
+  }
+  body.layout-frame .release-overlay { position: static; order: 1; padding: 0; }
+  body.layout-frame .release-essays { order: 2; margin-top: 28px; }
+  body.layout-frame .release-overlay .notify-banner {
+    max-width: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
+  }
+  body.layout-frame .release-overlay .notify-glow { display: none; }
+  body.layout-frame .grid.coming-soon { opacity: 0.45; }
+  @media (max-width: 560px) {
+    .release-overlay { padding: 12px; }
+  }
+
+  /* Softer backdrop variant (?bg=soft): calmer bokeh wash + unifying scrim */
+  body.bg-soft .release-essays { position: relative; }
+  body.bg-soft .grid.coming-soon { filter: blur(7px) grayscale(45%); opacity: 0.45; }
+  body.bg-soft .release-essays::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      radial-gradient(120% 90% at 72% 0%, rgba(125,29,45,0.10), transparent 58%),
+      linear-gradient(to bottom, rgba(250,248,244,0.42), rgba(250,248,244,0.0) 55%);
+  }
+
+  /* On phones the floating backdrop buries the signup, so switch to the
+     contained "frame" layout automatically (desktop keeps the backdrop). */
+  @media (max-width: 700px) {
+    .release-stage {
+      display: flex; flex-direction: column;
+      background: #1b1a17; border-radius: 24px; padding: 28px 22px 10px; overflow: hidden;
+    }
+    .release-overlay { position: static; order: 1; padding: 0; }
+    .release-essays { order: 2; margin-top: 24px; }
+    .release-overlay .notify-banner {
+      max-width: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
+    }
+    .release-overlay .notify-glow { display: none; }
+    .grid.coming-soon { opacity: 0.5; }
+  }
+
+  /* Stack the email field + button so the button never clips on narrow screens */
+  @media (max-width: 560px) {
+    .notify-row { flex-direction: column; align-items: stretch; }
+    .notify-row .btn-primary { width: 100%; }
+  }
+
+  /* ---- Scroll-triggered waitlist modal ---- */
+  #waitlistModal .modal-eyebrow { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #waitlistModal .wl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulseDot 2s infinite; }
+  #waitlistModal .field { margin-top: 22px; }
+  #waitlistModal .modal-btn { margin-top: 14px; }
+  .wl-msg { text-align: center; min-height: 18px; margin-top: 12px; }
+  .wl-msg.ok { color: var(--accent); }
+  .wl-msg.err { color: #c0392b; }
+
+  /* ---- Sticky floating waitlist button (centered, above page bottom) ---- */
+  .wl-fab {
+    position: fixed; left: 50%; bottom: 26px; z-index: 90;
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--sans); font-size: 15px; font-weight: 700; letter-spacing: -0.01em;
+    color: #fff; background: var(--accent); border: none; border-radius: 999px;
+    padding: 14px 26px; cursor: pointer;
+    box-shadow: 0 14px 34px rgba(125,29,45,0.42), 0 2px 6px rgba(20,18,15,0.18);
+    opacity: 0; visibility: hidden; transform: translateX(-50%) translateY(16px);
+    transition: opacity .3s ease, transform .3s cubic-bezier(.22,.61,.36,1), background .2s ease, box-shadow .2s ease;
+  }
+  .wl-fab.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+  .wl-fab:hover { background: #5e1522; box-shadow: 0 18px 42px rgba(125,29,45,0.52), 0 2px 6px rgba(20,18,15,0.2); }
+  .wl-fab .wl-fab-pulse { width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(255,255,255,.7); animation: pulseDot 2s infinite; }
+  @media (max-width: 560px) { .wl-fab { bottom: 18px; padding: 13px 22px; font-size: 14px; } }
+
+  /* ---- How it works ---- */
+  .how { }
+  .how-inner { max-width: 1120px; margin: 0 auto; padding: 88px 40px; text-align: center; }
+  .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.09em; color: var(--accent); text-transform: uppercase; }
+  .how h2 { font-family: var(--serif); font-size: 42px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin: 14px auto 0; max-width: 680px; text-wrap: balance; }
+  .how > .how-inner > p, .how-sub { font-size: 17px; line-height: 1.6; color: var(--muted); max-width: 560px; margin: 16px auto 0; }
+  .steps-wrap { position: relative; margin-top: 62px; }
+  .steps-line { position: absolute; top: 0; left: 12.5%; width: 75%; height: 72px; z-index: 0; overflow: visible; }
+  .steps { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4,1fr); gap: 24px; }
+  .step { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .step-icon-wrap { position: relative; }
+  .step-icon {
+    width: 72px; height: 72px; border-radius: 20px; background: #fff; border: 1px solid var(--card-line);
+    box-shadow: 0 10px 26px rgba(20,18,15,0.10); display: flex; align-items: center; justify-content: center;
+    transition: transform .25s, box-shadow .25s;
+  }
+  .step-icon:hover { transform: translateY(-5px); box-shadow: 0 18px 36px rgba(20,18,15,0.16); }
+  .step-num {
+    position: absolute; left: 50%; bottom: -13px; transform: translateX(-50%);
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border: 3px solid #fff;
+  }
+  .step-title { font-family: var(--serif); font-size: 19px; font-weight: 700; margin-top: 26px; }
+  .step p { font-size: 14.5px; line-height: 1.55; color: var(--muted); margin: 9px 0 0; max-width: 215px; }
+
+  /* ---- Why / comparison ---- */
+  .why { background: transparent; }
+  .why-inner { max-width: 1040px; margin: 0 auto; padding: 88px 40px; }
+  .why h2 { font-family: var(--serif); font-size: 42px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin: 14px auto 0; max-width: 560px; text-wrap: balance; }
+  .why-sub { font-size: 17px; line-height: 1.6; color: var(--muted); max-width: 520px; margin: 16px auto 0; }
+  .compare { margin-top: 52px; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; align-items: stretch; }
+  .cmp-spacer { padding: 18px 16px; }
+  .cmp-mine-head { padding: 20px 16px; text-align: center; background: color-mix(in srgb, var(--accent) 9%, #fff); border-radius: 20px 20px 0 0; display: flex; align-items: flex-end; justify-content: center; }
+  .cmp-mine-logo { display: flex; align-items: flex-end; gap: 4px; }
+  .cmp-mine-logo span.w { font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .cmp-mine-logo span.d { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-bottom: 4px; }
+  .cmp-col-head { padding: 20px 16px; text-align: center; font-size: 14.5px; font-weight: 700; color: var(--muted); display: flex; align-items: flex-end; justify-content: center; }
+  .cmp-label { padding: 16px; font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: center; border-top: 1px solid #f0ede6; }
+  .cmp-mine { padding: 16px; background: color-mix(in srgb, var(--accent) 9%, #fff); display: flex; align-items: center; justify-content: center; }
+  .cmp-mine .txt { font-size: 14.5px; font-weight: 700; color: var(--accent); }
+  .cmp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .cmp-alt { padding: 16px; text-align: center; font-size: 14px; color: var(--faint); display: flex; align-items: center; justify-content: center; border-top: 1px solid #f0ede6; }
+  .cmp-foot-spacer { padding: 24px 16px; }
+  .cmp-foot-mine { padding: 14px 16px 24px; background: color-mix(in srgb, var(--accent) 9%, #fff); border-radius: 0 0 20px 20px; display: flex; justify-content: center; }
+  .cmp-foot-mine a { font-size: 14.5px; padding: 11px 22px; white-space: nowrap; }
+
+  /* ---- Seller band ---- */
+  .seller { max-width: 1200px; margin: 0 auto; padding: 48px 40px 88px; }
+  .seller-card {
+    border-radius: 26px; background: #1b1a17; padding: 56px;
+    display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 40px; align-items: center;
+    position: relative; overflow: hidden;
+  }
+  .seller-glow { position: absolute; top: -120px; right: -80px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(125,29,45,0.45), transparent 65%); }
+  .seller-text { position: relative; }
+  .seller-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.09em; color: #e0a1aa; text-transform: uppercase; }
+  .seller h2 { font-family: var(--serif); font-size: 38px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; color: #fff; margin: 14px 0 0; text-wrap: balance; }
+  .seller p { font-size: 17px; line-height: 1.6; color: #b8b3aa; margin: 16px 0 0; max-width: 520px; }
+  .seller-actions { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+  .seller-actions a { font-size: 16px; font-weight: 600; color: #1b1a17; background: #fff; padding: 15px 28px; border-radius: 999px; text-decoration: none; cursor: pointer; transition: transform .2s; }
+  .seller-actions a:hover { transform: translateY(-2px); }
+  .seller-actions .note { font-size: 13.5px; color: var(--faint); }
+
+  /* ---- Footer ---- */
+  footer { background: #1b1a17; color: #cfccc4; }
+  .foot-inner { max-width: 1200px; margin: 0 auto; padding: 64px 40px 40px; }
+  .foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 40px; }
+  .foot-logo { display: flex; align-items: flex-end; gap: 5px; }
+  .foot-logo .w { font-family: var(--serif); font-size: 24px; font-weight: 700; color: #fff; line-height: 1; }
+  .foot-logo .d { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-bottom: 4px; }
+  .foot-tag { font-family: var(--serif); font-size: 18px; line-height: 1.4; color: var(--faint); margin: 18px 0 0; max-width: 300px; }
+  .foot-col-title { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--faint); text-transform: uppercase; }
+  .foot-links { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+  .foot-links a { font-size: 15px; color: #cfccc4; text-decoration: none; cursor: pointer; transition: color .2s; }
+  .foot-links a:hover { color: #fff; }
+  .foot-bottom { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 48px; padding-top: 24px; border-top: 1px solid #312e2a; }
+  .foot-bottom span { font-size: 13.5px; color: var(--faint); }
+
+  /* ---- Scroll reveal ---- */
+  .reveal { opacity: 0; transform: translateY(26px); }
+  .reveal.in { animation: revUp .85s cubic-bezier(.22,.61,.36,1) both; }
+  .steps-path { stroke-dasharray: 1500; stroke-dashoffset: 1500; }
+  .steps-path.in { animation: drawLine 1.8s ease both; }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero-art { height: 460px; margin: 0 auto; }
+    .hero h1 { font-size: 48px; }
+    .grid { grid-template-columns: 1fr 1fr; }
+    .steps { grid-template-columns: 1fr 1fr; gap: 40px 24px; }
+    .steps-line { display: none; }
+    .compare { grid-template-columns: 1fr; }
+    .compare > .cmp-spacer, .compare > .cmp-mine-head, .compare > .cmp-col-head,
+    .compare > .cmp-foot-spacer { display: none; }
+    .cmp-label { border-top: 1px solid #f0ede6; }
+    .cmp-mine, .cmp-alt { justify-content: flex-start; }
+    .cmp-foot-mine { border-radius: 0 0 16px 16px; justify-content: flex-start; }
+    .notify-banner { grid-template-columns: 1fr; gap: 24px; padding: 32px 28px; }
+    .seller-card { grid-template-columns: 1fr; padding: 40px 32px; }
+    .foot-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+    .nav-links { display: none; }
+  }
+  @media (max-width: 560px) {
+    .nav { padding: 14px 20px; }
+    .hero { padding: 48px 20px 40px; }
+    .hero h1 { font-size: 38px; }
+    .featured, .trust, .seller { padding-left: 20px; padding-right: 20px; }
+    .how-inner, .why-inner, .foot-inner { padding-left: 20px; padding-right: 20px; }
+    .grid { grid-template-columns: 1fr; }
+    .foot-grid { grid-template-columns: 1fr; }
+    .featured-head h2, .how h2, .why h2 { font-size: 32px; }
+  }
+
+  /* ===== Sell-your-essay onboarding modal ===== */
+  @keyframes overlayIn { from{opacity:0} to{opacity:1} }
+  @keyframes sheetIn { from{opacity:0;transform:translateY(20px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    background: rgba(27,26,23,0.42); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    animation: overlayIn .25s ease both;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    position: relative; width: 100%; max-width: 460px; background: #fff;
+    border: 1px solid var(--card-line); border-radius: 22px; padding: 32px;
+    box-shadow: 0 30px 70px rgba(20,18,15,0.28); animation: sheetIn .3s cubic-bezier(.22,.61,.36,1) both;
+    max-height: calc(100vh - 48px); overflow-y: auto;
+  }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 50%;
+    border: none; background: #f3f0ea; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s;
+  }
+  .modal-close:hover { background: #e9e5dd; color: var(--ink); }
+
+  .modal-logo { display: flex; justify-content: center; align-items: flex-end; gap: 4px; margin-bottom: 18px; }
+  .modal-logo .w { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; }
+  .modal-logo .d { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-bottom: 3px; }
+
+  .modal-steps { display: flex; align-items: center; gap: 7px; margin-bottom: 24px; }
+  .modal-steps .seg { height: 4px; flex: 1; border-radius: 999px; background: #ece9e2; transition: background .3s; }
+  .modal-steps .seg.done { background: var(--accent); }
+
+  /* Centered header funnel; form fields stay left-aligned for readability */
+  .modal-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; text-align: center; }
+  .modal h3 { font-family: var(--serif); font-size: 26px; line-height: 1.18; font-weight: 700; letter-spacing: -0.02em; margin: 10px 0 0; color: var(--ink); text-align: center; }
+  .modal .sub { font-size: 14.5px; line-height: 1.6; color: var(--muted); margin: 11px auto 0; text-align: center; max-width: 360px; }
+
+  /* small gap before the first form control after a centered header */
+  .modal-eyebrow + h3 + .sub + .field,
+  .modal-eyebrow + h3 + .field { margin-top: 22px; }
+
+  .field { margin-top: 18px; text-align: left; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 7px; }
+  .field input, .field select {
+    width: 100%; font-family: var(--sans); font-size: 15px; color: var(--ink); background: #fff;
+    border: 1px solid #ddd9d0; border-radius: 12px; padding: 12px 14px; outline: none; transition: border-color .2s, box-shadow .2s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-hint { font-size: 12.5px; color: var(--faint); margin-top: 7px; }
+  .field-error { font-size: 12.5px; font-weight: 600; color: #c0392b; margin-top: 7px; display: none; }
+  .field-error.show { display: block; }
+
+  .price-wrap { position: relative; }
+  .price-wrap span { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 15px; font-weight: 600; color: var(--muted); }
+  .price-wrap input { padding-left: 28px; }
+
+  .modal-btn {
+    width: 100%; margin-top: 24px; font-family: var(--sans); font-size: 15.5px; font-weight: 600; color: #fff;
+    background: var(--accent); border: none; border-radius: 999px; padding: 14px; cursor: pointer;
+    transition: filter .2s, transform .2s;
+  }
+  .modal-btn:hover { filter: brightness(0.92); transform: translateY(-1px); }
+  .modal-back { background: none; border: none; color: var(--muted); font-family: var(--sans); font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; padding: 4px; }
+  .modal-back:hover { color: var(--ink); }
+
+  .code-inputs { display: flex; gap: 9px; margin-top: 18px; }
+  .code-inputs input {
+    width: 100%; text-align: center; font-family: var(--sans); font-size: 22px; font-weight: 600; color: var(--ink);
+    border: 1px solid #ddd9d0; border-radius: 12px; padding: 12px 0; outline: none; transition: border-color .2s, box-shadow .2s;
+  }
+  .code-inputs input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+
+  .verified-pill { display: flex; width: fit-content; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 9%, #fff); color: var(--accent); font-size: 13px; font-weight: 600; margin: 16px auto 0; }
+
+  .success-check {
+    width: 64px; height: 64px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 12%, #fff);
+    display: flex; align-items: center; justify-content: center; margin: 4px auto 0;
+  }
+  .modal-center { text-align: center; }
+  .modal-center h3 { margin-top: 18px; }
+
+  .step-pane { display: none; }
+  .step-pane.active { display: block; }
+
+  /* secondary outline button (add essay / add listing) */
+  .add-btn {
+    width: 100%; margin-top: 12px; font-family: var(--sans); font-size: 14px; font-weight: 600;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, #fff);
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, #fff); border-radius: 12px; padding: 11px; cursor: pointer;
+    transition: background .2s, border-color .2s;
+  }
+  .add-btn:hover { background: color-mix(in srgb, var(--accent) 12%, #fff); border-color: var(--accent); }
+
+  /* requirement hint */
+  .req-hint {
+    display: none; margin-top: 9px; font-size: 12.5px; line-height: 1.45; font-weight: 500;
+    color: var(--muted); background: color-mix(in srgb, var(--accent) 7%, #fff);
+    border-radius: 10px; padding: 9px 12px;
+  }
+  .req-hint.show { display: block; }
+  .req-hint b { color: var(--accent); }
+
+  /* admit tags input */
+  .tag-input-wrap {
+    display: flex; flex-wrap: wrap; gap: 7px; align-items: center;
+    border: 1px solid #ddd9d0; border-radius: 12px; padding: 8px 10px; transition: border-color .2s, box-shadow .2s;
+  }
+  .tag-input-wrap.focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .tag-input-wrap input { flex: 1; min-width: 130px; border: none; outline: none; font-family: var(--sans); font-size: 14.5px; padding: 4px 2px; background: transparent; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, #fff); border-radius: 999px; padding: 5px 6px 5px 11px;
+  }
+  .tag button { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; opacity: .7; }
+  .tag button:hover { opacity: 1; }
+
+  /* essay row */
+  .essay-row { border: 1px solid #ece9e2; border-radius: 14px; padding: 14px; margin-top: 12px; background: #fcfbf9; }
+  .essay-row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .essay-row-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+  .essay-remove { border: none; background: none; color: var(--faint); font-family: var(--sans); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .essay-remove:hover { color: #c0392b; }
+  .essay-row select { width: 100%; font-family: var(--sans); font-size: 14.5px; color: var(--ink); background: #fff; border: 1px solid #ddd9d0; border-radius: 10px; padding: 11px 12px; outline: none; transition: border-color .2s, box-shadow .2s; }
+  .essay-row select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+
+  /* Custom dropdown caret, positioned inset from the right edge (moved left) */
+  .field select, .essay-row select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356524a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 20px center;
+    background-size: 12px;
+    padding-right: 44px;
+  }
+
+  /* custom essay question (shown when "Other" is selected) */
+  .essay-question {
+    display: none; width: 100%; margin-top: 10px;
+    font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff;
+    border: 1px solid #ddd9d0; border-radius: 10px; padding: 11px 12px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .essay-question.show { display: block; }
+  .essay-question:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+
+  /* PDF upload drop */
+  .file-drop {
+    position: relative;
+    display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; cursor: pointer;
+    border: 1px dashed #ccc6ba; border-radius: 10px; padding: 12px; background: #fff;
+    font-size: 13.5px; font-weight: 500; color: var(--muted); line-height: 1;
+    transition: border-color .2s, background .2s, color .2s;
+  }
+  .file-drop:hover { border-color: var(--accent); color: var(--accent); }
+  .file-drop svg { flex: none; width: 16px; height: 16px; display: block; }
+  .file-drop .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-drop.has-file { border-style: solid; border-color: color-mix(in srgb, var(--accent) 40%, #fff); background: color-mix(in srgb, var(--accent) 6%, #fff); color: var(--accent); }
+
+  /* hover tooltip on the upload box */
+  .file-drop[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    width: max-content; max-width: 250px; text-align: left;
+    background: #1b1a17; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.45;
+    padding: 9px 11px; border-radius: 9px; box-shadow: 0 8px 20px rgba(20,18,15,0.22);
+    opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 10;
+  }
+  .file-drop[data-tip]::before {
+    content: ""; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: #1b1a17;
+    opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 10;
+  }
+  .file-drop[data-tip]:hover::after, .file-drop[data-tip]:hover::before { opacity: 1; }
+
+  .essay-price-wrap { margin-top: 10px; }
+
+  /* pricing toggle */
+  .price-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .price-opt {
+    display: flex; flex-direction: column; gap: 2px; cursor: pointer; text-align: center;
+    border: 1px solid #ddd9d0; border-radius: 12px; padding: 12px 10px; transition: border-color .2s, background .2s;
+  }
+  .price-opt input { display: none; }
+  .price-opt .po-title { display: block; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+  .price-opt small { display: block; font-size: 11.5px; color: var(--faint); line-height: 1.35; margin-top: 3px; }
+  .price-opt.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, #fff); }
+  .price-opt.active .po-title { color: var(--accent); }
+
+  /* anonymity / name-visibility toggle (step 3) */
+  .anon-toggle { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .anon-opt {
+    display: flex; align-items: flex-start; gap: 11px; cursor: pointer; text-align: left;
+    border: 1px solid #ddd9d0; border-radius: 12px; padding: 12px 14px; transition: border-color .2s, background .2s;
+  }
+  .anon-opt input { display: none; }
+  .anon-opt-body { flex: 1; }
+  .anon-opt .ao-title { display: block; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+  .anon-opt small { display: block; font-size: 11.5px; color: var(--faint); line-height: 1.35; margin-top: 2px; }
+  .anon-opt.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, #fff); }
+  .anon-opt.active .ao-title { color: var(--accent); }
+
+  /* smart pricing: auto-suggested tier → floor (step 4) */
+  .tier-suggest {
+    display: flex; align-items: center; gap: 8px; margin: 2px 0 10px;
+    font-size: 12.5px; line-height: 1.4; color: var(--muted);
+    background: color-mix(in srgb, var(--accent) 6%, #fff); border: 1px solid color-mix(in srgb, var(--accent) 20%, #fff);
+    border-radius: 10px; padding: 9px 12px;
+  }
+  .tier-suggest b { color: var(--accent); }
+  .tier-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .tier-card {
+    display: flex; align-items: center; gap: 11px; cursor: pointer; text-align: left;
+    border: 1px solid #ddd9d0; border-radius: 12px; padding: 12px 14px; transition: border-color .2s, background .2s;
+  }
+  .tier-card input { display: none; }
+  .tc-body { flex: 1; }
+  .tier-card .tc-title { display: block; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+  .tier-card small { display: block; font-size: 11.5px; color: var(--faint); line-height: 1.35; margin-top: 2px; }
+  .tier-card .tc-floor { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .tier-card.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, #fff); }
+  .tier-card.active .tc-title, .tier-card.active .tc-floor { color: var(--accent); }
+  .tier-card.suggested .tc-title::after { content: ' · suggested'; font-weight: 600; font-size: 11px; color: var(--accent); letter-spacing: .01em; }
+  .tier-warn { display: none; margin-top: 9px; font-size: 12px; line-height: 1.45; color: #b26b00; background: #fff6e6; border: 1px solid #f0dcae; border-radius: 10px; padding: 9px 12px; }
+  .tier-warn.show { display: block; }
+  .floor-hint { font-weight: 600; color: var(--accent); font-size: 12px; }
+
+  /* pricing visibility by mode */
+  .step-pane[data-step="4"] .essay-price-wrap { display: none; }
+  .step-pane[data-step="4"].mode-separate .essay-price-wrap { display: block; }
+  .step-pane[data-step="4"].mode-separate #packagePriceField { display: none; }
+
+  /* ===== Buyer checkout ===== */
+  .buy-summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-top: 20px; padding: 16px 18px; border-radius: 14px;
+    background: color-mix(in srgb, var(--accent) 7%, #fff);
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, #fff);
+  }
+  .buy-summary-school { font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--ink); }
+  .buy-summary-hook { font-size: 13px; line-height: 1.45; color: var(--muted); margin-top: 3px; }
+  .buy-summary-price { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--accent); flex: none; }
+  .buy-secure {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin-top: 16px; font-size: 12.5px; font-weight: 500; color: var(--faint);
+  }
+  .buy-secure svg { color: var(--accent); }
+
+  /* ===== Seller login modal ===== */
+  /* Small nudge below "Send code" — routes first-timers to the sell onboarding flow */
+  .sl-signup-nudge {
+    text-align: center; margin-top: 20px;
+    font-size: 13.5px; color: var(--muted); line-height: 1.5;
+  }
+  .sl-signup-link {
+    color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: opacity .15s;
+  }
+  .sl-signup-link:hover { opacity: .72; }
+  .sl-links { text-align: center; margin-top: 14px; }
+  .sl-forgot-link {
+    font-size: 13px; color: var(--muted); font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: color .15s;
+  }
+  .sl-forgot-link:hover { color: var(--accent); }
+
+  /* ===== Seller dashboard — full-page fixed overlay sits above everything ===== */
+  .dash-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg); display: none; overflow-y: auto;
+  }
+  .dash-overlay.open { display: block; }
+
+  /* Dashboard nav — mirrors the site nav visually */
+  .dash-nav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 40px;
+    background: rgba(250,248,244,0.92);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .dash-nav-logo { display: flex; align-items: flex-end; gap: 5px; }
+  .dash-nav-center {
+    font-family: var(--sans); font-size: 13px; font-weight: 700;
+    color: var(--faint); letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .dash-nav-right { display: flex; align-items: center; gap: 14px; }
+  .dash-seller-email { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .dash-logout {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--muted);
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 16px; cursor: pointer; transition: border-color .2s, color .2s;
+  }
+  .dash-logout:hover { border-color: var(--ink); color: var(--ink); }
+  .dash-footer { display: flex; justify-content: center; margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--line); }
+  @media (max-width: 600px) {
+    .dash-nav { padding: 12px 20px; }
+    .dash-nav-center { display: none; }
+  }
+
+  /* Dashboard body */
+  .dash-body { max-width: 960px; margin: 0 auto; padding: 48px 40px 80px; }
+  @media (max-width: 600px) { .dash-body { padding: 28px 20px 60px; } }
+
+  .dash-section { margin-top: 52px; }
+  .dash-section:first-child { margin-top: 0; }
+  .dash-section-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap; margin-bottom: 22px;
+  }
+  .dash-h2 {
+    font-family: var(--serif); font-size: 26px; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--ink); margin: 0;
+  }
+  /* Shows current fee split at a glance — updates whenever SELLER_SHARE changes */
+  .dash-fee-badge {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 9%, #fff);
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, #fff);
+    border-radius: 999px; padding: 6px 14px;
+  }
+
+  /* ---- Stat cards ---- */
+  .dash-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 720px) { .dash-stats-row { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 400px) { .dash-stats-row { grid-template-columns: 1fr; } }
+  .dash-stat-card {
+    background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
+    padding: 20px 22px; box-shadow: 0 1px 3px rgba(20,18,15,0.04);
+  }
+  .dash-stat-label {
+    font-size: 11px; font-weight: 700; color: var(--faint);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .dash-stat-value {
+    font-family: var(--serif); font-size: 30px; font-weight: 700;
+    color: var(--ink); margin-top: 8px; letter-spacing: -0.02em;
+  }
+  .dash-stat-sub { font-size: 12px; color: var(--faint); margin-top: 4px; }
+
+  /* ---- Revenue breakdown card ---- */
+  /* Labels each figure: gross / platform fee / your payout — never ambiguous */
+  .dash-revenue-card {
+    background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
+    padding: 22px 24px; margin-top: 18px; box-shadow: 0 1px 3px rgba(20,18,15,0.04);
+  }
+  .dash-revenue-title {
+    font-size: 11px; font-weight: 700; color: var(--faint);
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 16px;
+  }
+  .dash-rev-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 0; border-bottom: 1px solid #f3f0ea; font-size: 14.5px;
+  }
+  .dash-rev-row:last-child { border-bottom: none; }
+  .dash-rev-label { color: var(--muted); font-weight: 500; }
+  .dash-rev-value { font-family: var(--serif); font-weight: 700; color: var(--ink); }
+  .dash-rev-row.fee .dash-rev-value { color: var(--faint); }
+  /* Net row gets accent color — your actual payout is always visually distinct */
+  .dash-rev-row.net .dash-rev-label { color: var(--ink); font-weight: 700; }
+  .dash-rev-row.net .dash-rev-value { color: var(--accent); font-size: 18px; }
+
+  /* ---- Per-essay breakdown table ---- */
+  .dash-table {
+    background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(20,18,15,0.04);
+  }
+  .dash-table-head, .dash-table-row {
+    display: grid; grid-template-columns: 1fr 64px 78px 100px; gap: 8px;
+    padding: 12px 20px; align-items: center;
+  }
+  .dash-table-head {
+    border-bottom: 1px solid var(--line);
+    font-size: 11px; font-weight: 700; color: var(--faint);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .dash-table-row { border-bottom: 1px solid #f5f3ee; }
+  .dash-table-row:last-child { border-bottom: none; }
+  .dash-table-essay { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .dash-table-school { font-size: 11.5px; color: var(--faint); margin-top: 2px; }
+  .dash-table-num { font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--ink); }
+  .dash-table-rev { font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--accent); }
+
+  /* ---- Listings management ---- */
+  .dash-status-group { margin-top: 26px; }
+  .dash-status-group:first-child { margin-top: 0; }
+  .dash-status-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--faint); display: flex; align-items: center; gap: 8px;
+    padding-bottom: 10px;
+  }
+  .dash-status-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .dash-status-dot.published { background: #22c55e; }
+  .dash-status-dot.pending   { background: #f59e0b; }
+  .dash-status-dot.draft     { background: #94a3b8; }
+
+  .dash-listing-card {
+    background: #fff; border: 1px solid var(--card-line); border-radius: 14px;
+    padding: 15px 20px; margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap; box-shadow: 0 1px 2px rgba(20,18,15,0.04);
+  }
+  .dash-listing-info { flex: 1; min-width: 0; }
+  .dash-listing-title { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+  .dash-listing-meta { font-size: 12px; color: var(--faint); margin-top: 3px; }
+  .dash-listing-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .dash-listing-status {
+    font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px;
+  }
+  .dash-listing-status.published { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  .dash-listing-status.pending   { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+  .dash-listing-status.draft     { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+  .dash-action-btn {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; transition: all .18s; white-space: nowrap;
+    border: 1px solid var(--line); background: #fff; color: var(--muted);
+  }
+  .dash-action-btn:hover { border-color: #b0aaa0; color: var(--ink); }
+  .dash-action-btn.danger { color: #c0392b; border-color: #f5c6c0; }
+  .dash-action-btn.danger:hover { background: #fef2f2; border-color: #c0392b; }
+
+  .dash-empty-state {
+    text-align: center; padding: 20px; color: var(--faint);
+    font-size: 13.5px; font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="logo">
+      <div class="logo-word">admitfolio</div>
+      <div class="logo-dot"></div>
+    </div>
+    <div class="nav-links">
+      <a href="#browse">Browse essays</a>
+      <a href="#how">How it works</a>
+      <a href="#sell">Sell yours</a>
+    </div>
+    <div class="nav-cta">
+      <a class="login">Seller login</a>
+      <a class="btn-primary" style="padding:10px 20px;font-size:15px">Sell your essay</a>
+    </div>
+  </nav>
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <div>
+      <div class="pill"><span class="dot"></span>For inspiration, never to copy</div>
+      <h1>Read the essays that <em>got them in</em>.</h1>
+      <p>Admitfolio is a marketplace of real college admissions essays, written by the students who got accepted. Browse by school and prompt, see why each one worked, and find the angle only you can write.</p>
+      <div class="hero-actions">
+        <a class="btn-primary">Browse essays</a>
+        <a class="btn-ghost">Sell your essay</a>
+      </div>
+      <div class="hero-stats">
+        <div><div class="stat-num">100%</div><div class="stat-lbl">verified admits</div></div>
+      </div>
+    </div>
+
+    <div class="hero-art">
+      <div class="float-card fc-top">
+        <div class="fc-head">
+          <div class="badge" style="width:38px;height:38px;background:#8C1515;font-size:18px">S</div>
+          <div style="flex:1;min-width:0"><div class="fc-school">Stanford</div><div class="fc-year">Class of '27</div></div>
+          <div class="fc-rating"><span class="star">★</span> 4.9</div>
+        </div>
+        <div class="fc-prompt">Common App</div>
+        <div class="fc-hook">The summer I taught my grandfather's old radio to sing again.</div>
+        <div class="skel"><div style="width:100%"></div><div style="width:84%;opacity:.6"></div></div>
+        <div class="fc-foot"><span class="price" style="font-size:18px">$14</span><span class="unlock-pill">Unlock</span></div>
+      </div>
+
+      <div class="float-card fc-mid">
+        <div class="fc-head">
+          <div class="badge" style="width:38px;height:38px;background:#A51C30;font-size:18px">H</div>
+          <div style="flex:1;min-width:0"><div class="fc-school">Harvard</div><div class="fc-year">Class of '25</div></div>
+          <div class="fc-rating"><span class="star">★</span> 5.0</div>
+        </div>
+        <div class="fc-prompt">Personal Statement</div>
+        <div class="fc-hook">Translating for my mother at the DMV, one form at a time.</div>
+        <div class="skel"><div style="width:100%"></div><div style="width:72%;opacity:.6"></div></div>
+        <div class="fc-foot"><span class="price" style="font-size:18px">$15</span><span class="unlock-pill">Unlock</span></div>
+      </div>
+
+      <div class="float-card fc-bot">
+        <div class="fc-head">
+          <div class="badge" style="width:36px;height:36px;background:#00356B;font-size:17px">Y</div>
+          <div style="flex:1;min-width:0"><div class="fc-school">Yale</div><div class="fc-year">Class of '26</div></div>
+          <div class="fc-rating"><span class="star">★</span> 4.8</div>
+        </div>
+        <div class="fc-prompt">Why Yale</div>
+        <div class="fc-hook" style="font-size:15px">I found home in the margins of a 200-year-old library book.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Trust bar ===== -->
+  <section class="trust">
+    <div class="trust-label">Real essays from students now at</div>
+    <div class="trust-row">
+      <span>Harvard</span><span>Stanford</span><span>Yale</span><span>Princeton</span>
+      <span>MIT</span><span>Columbia</span><span>Brown</span><span>Penn</span>
+    </div>
+  </section>
+
+  <!-- ===== Featured ===== -->
+  <section class="featured" id="browse">
+    <div class="featured-head">
+      <div>
+        <h2>Releasing soon</h2>
+        <p>We're collecting verified essays from this year's admits right now. Be the first to read them the moment they go live.</p>
+      </div>
+    </div>
+
+    <div class="chips" id="chips" style="display:none"></div>
+
+    <!-- Combined stage: blurred essays + the "Releasing soon" dark card -->
+    <div class="release-stage">
+      <div class="release-essays">
+        <div class="grid coming-soon" id="grid" aria-hidden="true"></div>
+      </div>
+      <div class="release-overlay">
+        <div class="notify-banner">
+          <div class="notify-glow"></div>
+          <div class="notify-text">
+            <div class="notify-eyebrow"><span class="dot"></span>Coming soon</div>
+            <h3>Real admit essays are on the way.</h3>
+            <p>Drop your email and we'll tell you the moment essays become public — no spam, just one heads-up when they're live.</p>
+          </div>
+          <form class="notify-form" id="notifyForm" autocomplete="on">
+            <div class="notify-row">
+              <input type="email" id="notifyEmail" placeholder="you@email.com" autocomplete="email" spellcheck="false" aria-label="Email address">
+              <button type="submit" class="btn-primary" id="notifyBtn">Notify me</button>
+            </div>
+            <div class="notify-msg" id="notifyMsg"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== How it works ===== -->
+  <section class="how" id="how">
+    <div class="how-inner">
+      <div class="eyebrow">How it works</div>
+      <h2 class="reveal">From locked to admitted, in four steps</h2>
+      <p class="how-sub">Every listing is from a verified admit. Find what worked, then write something that's unmistakably yours.</p>
+
+      <div class="steps-wrap">
+        <svg class="steps-line" viewBox="0 0 1000 100" preserveAspectRatio="none">
+          <path class="steps-path" d="M0,50 C125,8 220,92 333,50 C446,8 553,92 666,50 C780,8 875,92 1000,50"
+            fill="none" stroke="color-mix(in srgb, var(--accent) 32%, #fff)" stroke-width="2.5" stroke-linecap="round"></path>
+        </svg>
+
+        <div class="steps">
+          <div class="step reveal">
+            <div class="step-icon-wrap">
+              <div class="step-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+              </div>
+              <div class="step-num">1</div>
+            </div>
+            <div class="step-title">Browse essays</div>
+            <p>Filter by school, prompt, or major. Every listing is from a verified admit.</p>
+          </div>
+
+          <div class="step reveal">
+            <div class="step-icon-wrap">
+              <div class="step-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </div>
+              <div class="step-num">2</div>
+            </div>
+            <div class="step-title">See why it worked</div>
+            <p>Each essay shows the schools it got into, the prompt, and margin notes.</p>
+          </div>
+
+          <div class="step reveal">
+            <div class="step-icon-wrap">
+              <div class="step-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.8-1.3"></path></svg>
+              </div>
+              <div class="step-num">3</div>
+            </div>
+            <div class="step-title">Unlock &amp; read</div>
+            <p>Buy a single essay, the full text reveals instantly after checkout.</p>
+          </div>
+
+          <div class="step reveal">
+            <div class="step-icon-wrap">
+              <div class="step-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+              </div>
+              <div class="step-num">4</div>
+            </div>
+            <div class="step-title">Write your own</div>
+            <p>Study the voice and structure to write something unmistakably you.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Why admitfolio / comparison ===== -->
+  <section class="why">
+    <div class="why-inner">
+      <div style="text-align:center">
+        <div class="eyebrow">Why admitfolio</div>
+        <h2 class="reveal">The smarter way to start your essay</h2>
+        <p class="why-sub">A verified essay costs less than lunch, and shows you exactly what worked.</p>
+      </div>
+
+      <div class="compare reveal" id="compare">
+        <div class="cmp-spacer"></div>
+        <div class="cmp-mine-head">
+          <div class="cmp-mine-logo"><span class="w">admitfolio</span><span class="d"></span></div>
+        </div>
+        <div class="cmp-col-head">Going it alone</div>
+        <div class="cmp-col-head">Hiring a counselor</div>
+        <!-- rows injected by JS -->
+        <div class="cmp-foot-spacer"></div>
+        <div class="cmp-foot-mine"><a class="btn-primary">Browse essays</a></div>
+        <div class="cmp-foot-spacer"></div>
+        <div class="cmp-foot-spacer"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Seller band ===== -->
+  <section class="seller" id="sell">
+    <div class="seller-card">
+      <div class="seller-glow"></div>
+      <div class="seller-text">
+        <div class="seller-eyebrow">For college students</div>
+        <h2>Got in somewhere great? Get paid for it.</h2>
+        <p>List the Common App and college essays that worked, and earn every time a student learns from your story.</p>
+      </div>
+      <div class="seller-actions">
+        <a>Sell your essay</a>
+        <span class="note">Free to list · You set the price · Paid out weekly</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer>
+    <div class="foot-inner">
+      <div class="foot-grid">
+        <div>
+          <div class="foot-logo"><span class="w">admitfolio</span><span class="d"></span></div>
+          <p class="foot-tag">Read the essays that got them in.</p>
+        </div>
+        <div>
+          <div class="foot-col-title">Product</div>
+          <div class="foot-links"><a>Browse essays</a><a>How it works</a><a>Sell your essay</a></div>
+        </div>
+        <div>
+          <div class="foot-col-title">Company</div>
+          <div class="foot-links"><a>About</a><a>Our standards</a><a>Contact</a></div>
+        </div>
+        <div>
+          <div class="foot-col-title">Legal</div>
+          <div class="foot-links"><a>Academic integrity</a><a>Privacy</a><a>Terms</a></div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 Admitfolio. For inspiration, never to copy.</span>
+        <span>Made for the overwhelmed applicant.</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== Sell-your-essay onboarding modal ===== -->
+  <div class="modal-overlay" id="sellModal" role="dialog" aria-modal="true" aria-labelledby="sellTitle">
+    <div class="modal">
+      <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+      <div class="modal-logo"><span class="w">admitfolio</span><span class="d"></span></div>
+      <div class="modal-steps" id="modalSteps">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+
+      <!-- Step 1: email -->
+      <div class="step-pane active" data-step="1">
+        <div class="modal-eyebrow">Step 1 of 4 · Verify you're a student</div>
+        <h3 id="sellTitle">Sell your essay</h3>
+        <p class="sub">Only verified college students can list essays. Enter your school email, it must end in <strong>.edu</strong>.</p>
+        <div class="field">
+          <label for="eduEmail">School email</label>
+          <input type="email" id="eduEmail" placeholder="you@university.edu" autocomplete="email" spellcheck="false">
+          <div class="field-error" id="emailError">Please enter a valid .edu email address.</div>
+          <div class="field-hint">We'll send a 6-digit verification code.</div>
+        </div>
+        <button class="modal-btn" id="sendCode">Send code</button>
+      </div>
+
+      <!-- Step 2: code + create password -->
+      <div class="step-pane" data-step="2">
+        <div class="modal-eyebrow">Step 2 of 4 · Confirm your email &amp; set a password</div>
+        <h3>Enter your code</h3>
+        <p class="sub">We sent a 6-digit code to <strong id="codeEmailLabel">your email</strong>. <span style="color:var(--faint)">(Demo: enter any 6 digits.)</span></p>
+        <div class="code-inputs" id="codeInputs">
+          <input maxlength="1" inputmode="numeric" pattern="[0-9]"><input maxlength="1" inputmode="numeric" pattern="[0-9]"><input maxlength="1" inputmode="numeric" pattern="[0-9]"><input maxlength="1" inputmode="numeric" pattern="[0-9]"><input maxlength="1" inputmode="numeric" pattern="[0-9]"><input maxlength="1" inputmode="numeric" pattern="[0-9]">
+        </div>
+        <div class="field-error" id="codeError">Please enter all 6 digits.</div>
+        <div class="field" style="margin-top:20px">
+          <label for="signupPassword">Create a password</label>
+          <input type="password" id="signupPassword" placeholder="At least 8 characters" autocomplete="new-password">
+          <div class="field-hint">You'll log in with this email + password next time.</div>
+        </div>
+        <div class="field">
+          <label for="signupPassword2">Confirm password</label>
+          <input type="password" id="signupPassword2" placeholder="Re-enter your password" autocomplete="new-password">
+          <div class="field-error" id="passwordError">Passwords must match and be at least 8 characters.</div>
+        </div>
+        <button class="modal-btn" id="verifyCode">Verify &amp; continue</button>
+        <button class="modal-back" data-back="1">← Use a different email</button>
+      </div>
+
+      <!-- Step 3: current university -->
+      <div class="step-pane" data-step="3">
+        <div class="modal-eyebrow">Step 3 of 4 · Your school</div>
+        <h3>Where do you go?</h3>
+        <div class="verified-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Student verified</div>
+        <p class="sub">The school you're currently enrolled at, this shows on your seller profile.</p>
+        <div class="field">
+          <label for="currentUni">Current university</label>
+          <input type="text" id="currentUni" placeholder="Stanford University">
+          <div class="field-error" id="uniError">Please enter the university you're attending.</div>
+        </div>
+
+        <div class="field">
+          <label>How should your name appear on listings?</label>
+          <div class="anon-toggle" id="anonToggle">
+            <label class="anon-opt"><input type="radio" name="anonMode" value="anonymous"><div class="anon-opt-body"><span class="ao-title">Always anonymous</span><small>Your name is never shown — not even after a purchase.</small></div></label>
+            <label class="anon-opt"><input type="radio" name="anonMode" value="reveal"><div class="anon-opt-body"><span class="ao-title">Anonymous until bought</span><small>Anonymous on the listing; buyers see your real name once they've bought.</small></div></label>
+            <label class="anon-opt active"><input type="radio" name="anonMode" value="public" checked><div class="anon-opt-body"><span class="ao-title">Show my name publicly</span><small>Your name appears on the listing for everyone to see.</small></div></label>
+          </div>
+          <div class="field-hint">Showing your real name adds credibility — buyers tend to trust named sellers more. Anonymous listings sell well too.</div>
+        </div>
+
+        <button class="modal-btn" id="uniNext">Continue</button>
+        <button class="modal-back" data-back="2">← Back</button>
+      </div>
+
+      <!-- Step 4: listing builder -->
+      <div class="step-pane mode-package" data-step="4">
+        <div class="modal-eyebrow">Step 4 of 4 · Build a listing</div>
+        <h3>Add your essays</h3>
+        <p class="sub">Pick the application system your essays came from, then add every essay in that application so buyers get the complete set.</p>
+
+        <div class="field">
+          <label for="targetSchool">Which application are these essays from?</label>
+          <select id="targetSchool">
+            <option value="">Pick an application type…</option>
+            <optgroup label="Multi-school platforms">
+              <option value="commonapp">Common App</option>
+              <option value="coalition">Coalition App</option>
+            </optgroup>
+            <optgroup label="School-specific portals">
+              <option value="uc">UC Application (University of California)</option>
+              <option value="mit">MIT Application</option>
+              <option value="other">Other single school</option>
+            </optgroup>
+          </select>
+          <div class="req-hint" id="reqHint"></div>
+        </div>
+
+        <div class="field">
+          <label for="admitInput">Schools you got into with these essays</label>
+          <div class="tag-input-wrap" id="admitWrap">
+            <input type="text" id="admitInput" placeholder="Type a school, press Enter" autocomplete="off">
+          </div>
+          <div class="field-hint">Add every school these essays helped you get into.</div>
+        </div>
+
+        <div class="field">
+          <label>Essays in this application</label>
+          <div id="essayList"></div>
+          <button class="add-btn" id="addEssay" type="button">+ Add another essay</button>
+        </div>
+
+        <!-- Smart pricing: auto-suggested tier sets the floor price -->
+        <div class="field">
+          <label>Your price tier</label>
+          <div class="tier-suggest" id="tierSuggest">💡 Add the schools you got into above and we'll suggest your tier automatically.</div>
+          <div class="tier-cards" id="tierCards">
+            <label class="tier-card" data-tier="1"><input type="radio" name="tier" value="1"><div class="tc-body"><span class="tc-title">Tier 1 · Top</span><small>HYPSM, Ivies &amp; equivalents</small></div><span class="tc-floor" data-floor="1"></span></label>
+            <label class="tier-card" data-tier="2"><input type="radio" name="tier" value="2"><div class="tc-body"><span class="tc-title">Tier 2 · Strong</span><small>Highly selective · top 20–50</small></div><span class="tc-floor" data-floor="2"></span></label>
+            <label class="tier-card" data-tier="3"><input type="radio" name="tier" value="3"><div class="tc-body"><span class="tc-title">Tier 3 · Standard</span><small>State school · fewer selective admits</small></div><span class="tc-floor" data-floor="3"></span></label>
+          </div>
+          <div class="tier-warn" id="tierWarn"></div>
+        </div>
+
+        <div class="field">
+          <label>How do you want to sell them?</label>
+          <div class="price-toggle" id="priceToggle">
+            <label class="price-opt active"><input type="radio" name="pricing" value="package" checked><span class="po-title">Package deal</span><small>One price, whole set</small></label>
+            <label class="price-opt"><input type="radio" name="pricing" value="separate"><span class="po-title">Sell separately</span><small>Price each essay</small></label>
+          </div>
+          <div class="field" id="packagePriceField">
+            <label for="packagePrice">Package price <span id="packageFloorHint" class="floor-hint"></span></label>
+            <div class="price-wrap"><span>$</span><input type="number" id="packagePrice" min="1" max="399" placeholder="29"></div>
+          </div>
+        </div>
+
+        <div class="field-error" id="detailsError">Please complete every field and upload a PDF for each essay.</div>
+        <button class="modal-btn" id="submitListing">Submit for review</button>
+        <button class="modal-back" data-back="3">← Back</button>
+      </div>
+
+      <!-- Step 5: success -->
+      <div class="step-pane modal-center" data-step="5">
+        <div class="success-check">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3 id="successTitle">Listing submitted!</h3>
+        <p class="sub">Thanks! Every essay is <strong>manually reviewed</strong> by our team to keep quality high. We'll email <strong id="successEmailLabel">you</strong> as soon as it's approved, usually within 2 business days.</p>
+        <button class="modal-btn" id="addMore">+ Add another listing</button>
+        <button class="modal-back" id="doneBtn">Done for now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Buyer checkout (credit card) modal ===== -->
+  <div class="modal-overlay" id="buyModal" role="dialog" aria-modal="true" aria-labelledby="buyTitle">
+    <div class="modal">
+      <button class="modal-close" id="buyClose" aria-label="Close">&times;</button>
+      <div class="modal-logo"><span class="w">admitfolio</span><span class="d"></span></div>
+
+      <!-- Checkout -->
+      <div class="step-pane active" data-buy="1">
+        <div class="modal-eyebrow">Checkout · No account needed</div>
+        <h3 id="buyTitle">Unlock this essay</h3>
+        <div class="buy-summary" id="buySummary">
+          <div class="buy-summary-essay">
+            <div class="buy-summary-school" id="buySchool">Stanford</div>
+            <div class="buy-summary-hook" id="buyHook">The full essay, stats &amp; margin notes.</div>
+          </div>
+          <div class="buy-summary-price" id="buyPrice">$14</div>
+        </div>
+
+        <div class="field">
+          <label for="buyEmail">Email to send it to</label>
+          <input type="email" id="buyEmail" placeholder="you@email.com" inputmode="email" autocomplete="email" spellcheck="false">
+          <div class="field-hint">We'll send the full essay &amp; receipt here — no account needed.</div>
+        </div>
+
+        <div class="field">
+          <label for="cardName">Name on card</label>
+          <input type="text" id="cardName" placeholder="Jordan Lee" autocomplete="cc-name">
+        </div>
+        <div class="field">
+          <label for="cardNumber">Card number</label>
+          <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" inputmode="numeric" autocomplete="cc-number" maxlength="19">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="cardExpiry">Expiry</label>
+            <input type="text" id="cardExpiry" placeholder="MM / YY" inputmode="numeric" autocomplete="cc-exp" maxlength="7">
+          </div>
+          <div class="field">
+            <label for="cardCvc">CVC</label>
+            <input type="text" id="cardCvc" placeholder="123" inputmode="numeric" autocomplete="cc-csc" maxlength="4">
+          </div>
+        </div>
+        <div class="field">
+          <label for="cardZip">Billing ZIP</label>
+          <input type="text" id="cardZip" placeholder="94305" inputmode="numeric" autocomplete="postal-code" maxlength="10">
+        </div>
+
+        <div class="field-error" id="buyError">Please fill in your full card details.</div>
+        <button class="modal-btn" id="payBtn">Pay <span id="payAmount">$14</span> &amp; unlock</button>
+        <div class="buy-secure">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          Encrypted &amp; secure · One-time charge
+        </div>
+      </div>
+
+      <!-- Success -->
+      <div class="step-pane modal-center" data-buy="2">
+        <div class="success-check">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3>Essay unlocked!</h3>
+        <p class="sub">Payment received 🎉 We've emailed the full essay, stats, and margin notes — plus your receipt — to <strong id="buySentTo">your inbox</strong>. Check your email!</p>
+        <button class="modal-btn" id="buyRead">Read the essay</button>
+        <button class="modal-back" id="buyDone">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Sticky floating waitlist button ===== -->
+  <button class="wl-fab" id="wlFab" type="button" aria-label="Join the waitlist">
+    <span class="wl-fab-pulse"></span>Join the waitlist
+  </button>
+
+  <!-- ===== Scroll-triggered waitlist modal ===== -->
+  <div class="modal-overlay" id="waitlistModal" role="dialog" aria-modal="true" aria-labelledby="wlTitle">
+    <div class="modal">
+      <button class="modal-close" id="wlClose" aria-label="Close">&times;</button>
+      <div class="modal-logo"><span class="w">admitfolio</span><span class="d"></span></div>
+      <div class="modal-eyebrow"><span class="wl-dot"></span>Coming soon</div>
+      <h3 id="wlTitle">Be first to read the essays that got them in.</h3>
+      <p class="sub">We're collecting verified admit essays right now. Drop your email and we'll tell you the moment they go live — no spam, just one heads-up.</p>
+      <form class="wl-form" id="wlForm" autocomplete="on">
+        <div class="field">
+          <input type="email" id="wlEmail" placeholder="you@email.com" autocomplete="email" spellcheck="false" aria-label="Email address">
+        </div>
+        <button type="submit" class="modal-btn" id="wlBtn">Notify me when essays drop</button>
+        <div class="notify-msg wl-msg" id="wlMsg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Seller login modal ===== -->
+  <!-- Login = verified .edu email + password (accounts stored locally via
+       AdmitlyAuth). Forgot-password re-verifies the .edu with a 6-digit code
+       (via /api/send-code + /api/verify-code) then sets a new password. -->
+  <div class="modal-overlay" id="sellerLoginModal" role="dialog" aria-modal="true" aria-labelledby="slTitle">
+    <div class="modal">
+      <button class="modal-close" id="slClose" aria-label="Close">&times;</button>
+      <div class="modal-logo"><span class="w">admitfolio</span><span class="d"></span></div>
+
+      <!-- Pane 1: log in with email + password -->
+      <div class="step-pane active" data-sl="1">
+        <div class="modal-eyebrow">Welcome back</div>
+        <h3 id="slTitle">Seller login</h3>
+        <p class="sub">Log in with your verified .edu email and password.</p>
+        <div class="field">
+          <label for="slEmail">School email</label>
+          <input type="email" id="slEmail" placeholder="you@university.edu" autocomplete="email" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="slPassword">Password</label>
+          <input type="password" id="slPassword" placeholder="Your password" autocomplete="current-password">
+          <div class="field-error" id="slLoginErr">That email and password don't match.</div>
+        </div>
+        <button class="modal-btn" id="slLogin">Log in</button>
+        <div class="sl-links">
+          <a class="sl-forgot-link" tabindex="0" role="button">Forgot password?</a>
+        </div>
+        <!-- First-time signup nudge — closes this modal and opens the sell onboarding flow -->
+        <div class="sl-signup-nudge">
+          First time? <a class="sl-signup-link" tabindex="0" role="button">Sign up to sell your essays →</a>
+        </div>
+      </div>
+
+      <!-- Pane 2: forgot password — send a reset code to the .edu -->
+      <div class="step-pane" data-sl="2">
+        <div class="modal-eyebrow">Reset password</div>
+        <h3>Forgot your password?</h3>
+        <p class="sub">Enter your .edu email and we'll send a 6-digit code to reset it.</p>
+        <div class="field">
+          <label for="slResetEmail">School email</label>
+          <input type="email" id="slResetEmail" placeholder="you@university.edu" autocomplete="email" spellcheck="false">
+          <div class="field-error" id="slResetEmailErr">Please enter a valid .edu email address.</div>
+        </div>
+        <button class="modal-btn" id="slSendReset">Send reset code</button>
+        <button class="modal-back" data-sl-back="1">← Back to login</button>
+      </div>
+
+      <!-- Pane 3: enter code + choose a new password -->
+      <div class="step-pane" data-sl="3">
+        <div class="modal-eyebrow">Reset password</div>
+        <h3>Set a new password</h3>
+        <p class="sub">We sent a 6-digit code to <strong id="slResetLabel">your email</strong>. Enter it and choose a new password.</p>
+        <div class="field">
+          <label for="slResetCode">6-digit code</label>
+          <input type="text" id="slResetCode" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+        </div>
+        <div class="field">
+          <label for="slNewPassword">New password</label>
+          <input type="password" id="slNewPassword" placeholder="At least 8 characters" autocomplete="new-password">
+          <div class="field-error" id="slResetErr">Please check the code and password.</div>
+        </div>
+        <button class="modal-btn" id="slDoReset">Reset password &amp; log in</button>
+        <button class="modal-back" data-sl-back="2">← Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Seller dashboard — full-page fixed overlay (z-index:200, above all modals) ===== -->
+  <!-- All figures are DEMO DATA. Wire dashboardAPI.* to real endpoints once backend is live. -->
+  <div class="dash-overlay" id="sellerDash" role="main" aria-label="Seller dashboard">
+
+    <!-- Sticky dashboard nav -->
+    <nav class="dash-nav">
+      <div class="dash-nav-logo">
+        <div class="logo-word">admitfolio</div>
+        <div class="logo-dot"></div>
+      </div>
+      <div class="dash-nav-center">Seller Dashboard</div>
+      <div class="dash-nav-right">
+        <span class="dash-seller-email" id="dashEmail"></span>
+      </div>
+    </nav>
+
+    <div class="dash-body">
+
+      <!-- Section 1: Earnings overview -->
+      <section class="dash-section">
+        <div class="dash-section-head">
+          <h2 class="dash-h2">Earnings overview</h2>
+          <!-- Updated dynamically from SELLER_SHARE constant -->
+          <div class="dash-fee-badge" id="dashFeeBadge">Platform takes 30% · you keep 70%</div>
+        </div>
+        <!-- Four stat cards: total net, this-month net, pending payout, total sales -->
+        <div class="dash-stats-row" id="dashStats"></div>
+        <!-- Revenue breakdown: gross → fee → your payout — always labeled -->
+        <div class="dash-revenue-card" id="dashRevenue"></div>
+      </section>
+
+      <!-- Section 2: Per-essay performance -->
+      <section class="dash-section">
+        <div class="dash-section-head">
+          <h2 class="dash-h2">Per-essay performance</h2>
+        </div>
+        <div class="dash-table" id="dashTable"></div>
+      </section>
+
+      <!-- Section 3: Listings management -->
+      <section class="dash-section">
+        <div class="dash-section-head">
+          <h2 class="dash-h2">My listings</h2>
+          <!-- Routes into the existing sell onboarding modal (#sellModal) -->
+          <button class="modal-btn" id="dashAddEssay"
+            style="width:auto;margin:0;padding:10px 22px;font-size:14px">+ Add new essay</button>
+        </div>
+        <!-- Groups: Published · Pending review · Draft / Removed -->
+        <div id="dashListings"></div>
+      </section>
+
+      <!-- Log out lives at the very bottom, away from the main actions -->
+      <div class="dash-footer">
+        <button class="dash-logout" id="dashLogout">Log out</button>
+      </div>
+
+    </div><!-- /.dash-body -->
+  </div><!-- /#sellerDash -->
+
+<script>
+  // ===== Layout / backdrop variant toggles =====
+  //   default          -> contained "frame" layout (card + signup on top, essays below)
+  //   ?layout=backdrop -> floating big card over the blurred essays
+  //   ?bg=soft         -> softer, more desaturated blurred backdrop
+  (function(){
+    const q = new URLSearchParams(location.search);
+    document.body.classList.add(q.get('layout') === 'backdrop' ? 'layout-backdrop' : 'layout-frame');
+    if(q.get('bg') === 'soft') document.body.classList.add('bg-soft');
+  })();
+
+  // ===== Local seller accounts (demo auth) =====
+  // Stored in the browser only for now. NOTE for launch: move to a real server
+  // store with hashed passwords + a proper reset flow (this keeps plaintext in
+  // localStorage, which is fine for a prototype but NOT for production).
+  const AdmitlyAuth = {
+    key: 'admitly_accounts',
+    all(){ try { return JSON.parse(localStorage.getItem(this.key)) || {}; } catch(e){ return {}; } },
+    get(email){ return this.all()[String(email).trim().toLowerCase()] || null; },
+    set(email, password){
+      const a = this.all();
+      a[String(email).trim().toLowerCase()] = { password, at: new Date().toISOString() };
+      try { localStorage.setItem(this.key, JSON.stringify(a)); } catch(e){}
+    },
+    exists(email){ return !!this.get(email); },
+    check(email, password){ const a = this.get(email); return !!a && a.password === password; },
+  };
+
+  // ===== Data (mirrors the design component's renderVals) =====
+  const essays = [
+    { school:'Stanford', domain:'stanford.edu', letter:'S', color:'#8C1515', year:"'27", major:'Electrical Engineering', prompt:'Common App · Personal Statement', hook:"The summer I taught my grandfather's old radio to sing again.", price:'$14', rating:'4.9', words:648, cats:['Common App','STEM'] },
+    { school:'Yale', domain:'yale.edu', letter:'Y', color:'#00356B', year:"'26", major:'History', prompt:'Why Yale · Supplement', hook:'I found home in the margins of a 200-year-old library book.', price:'$12', rating:'4.8', words:412, cats:['Supplements','Humanities'] },
+    { school:'Princeton', domain:'princeton.edu', letter:'P', color:'#E77500', year:"'27", major:'Public Policy', prompt:'Activity · Supplement', hook:'What four years of debate taught me about finally listening.', price:'$11', rating:'4.9', words:215, cats:['Supplements','Humanities'] },
+    { school:'Harvard', domain:'harvard.edu', letter:'H', color:'#A51C30', year:"'25", major:'Sociology', prompt:'Common App · Personal Statement', hook:'Translating for my mother at the DMV, one form at a time.', price:'$15', rating:'5.0', words:655, cats:['Common App','Humanities'] },
+    { school:'MIT', domain:'mit.edu', letter:'M', color:'#A31F34', year:"'27", major:'Mechanical Engineering', prompt:'MIT · The Pleasure Essay', hook:'Why I still take apart every vacuum cleaner I can find.', price:'$13', rating:'4.7', words:248, cats:['Supplements','STEM'] },
+    { school:'Columbia', domain:'columbia.edu', letter:'C', color:'#1D4F91', year:"'26", major:'Economics', prompt:'Why Columbia · Supplement', hook:'The corner bodega that taught me everything about scarcity.', price:'$12', rating:'4.8', words:300, cats:['Supplements','Humanities'] }
+  ];
+
+  const comparisonRows = [
+    { feature:'2,400+ essays from verified admits', diy:'Reddit threads, often outdated', agency:"One counselor's experience" },
+    { feature:'Browse by school, prompt & major', diy:'Hours of Googling', agency:'Limited to their network' },
+    { feature:'See exactly why each essay worked', diy:'Pure guesswork', agency:'Generic frameworks' },
+    { feature:'Margin notes on voice & structure', diy:'None', agency:'Sometimes' },
+    { feature:'Read the full text in minutes', diy:'n/a', agency:'Weeks of back-and-forth' },
+    { feature:'Cost to get started', mineText:'$11–15 once', diy:'Free, unreliable', agency:'$200+ / hour' }
+  ];
+
+  const chipLabels = ['All','Common App','Supplements','STEM','Humanities'];
+  let filter = 'All';
+
+  function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  function essayCard(e){
+    return `
+      <div class="ecard" data-school="${esc(e.school)}" data-price="${esc(e.price)}" data-hook="${esc(e.hook)}">
+        <div class="ecard-head">
+          <div class="badge" style="width:42px;height:42px;background:${e.color};font-size:19px">${e.domain ? `<img class="badge-logo" src="https://www.google.com/s2/favicons?domain=${e.domain}&sz=128" alt="${esc(e.school)} logo" loading="lazy" onload="this.parentNode.classList.add('has-logo')" onerror="this.remove()">` : ''}${e.letter}</div>
+          <div style="flex:1;min-width:0">
+            <div class="ecard-school">${esc(e.school)}</div>
+            <div class="ecard-meta">Class of ${esc(e.year)} · ${esc(e.major)}</div>
+          </div>
+          <div class="ecard-rating"><span class="star">★</span>${e.rating}</div>
+        </div>
+        <div class="ecard-prompt">${esc(e.prompt)}</div>
+        <div class="ecard-hook">${esc(e.hook)}</div>
+        <div class="ecard-body">
+          <div class="ecard-skel"><div style="width:100%"></div><div style="width:93%"></div><div style="width:74%;opacity:.55"></div></div>
+          <div class="ecard-lock">Unlock to read</div>
+        </div>
+        <div class="ecard-foot">
+          <div class="ecard-price"><span class="p">${e.price}</span><span class="w">${e.words} words</span></div>
+          <div class="ecard-unlock">Unlock</div>
+        </div>
+      </div>`;
+  }
+
+  function renderChips(){
+    document.getElementById('chips').innerHTML = chipLabels.map(label =>
+      `<div class="chip${label===filter?' active':''}" data-chip="${esc(label)}">${esc(label)}</div>`
+    ).join('');
+  }
+
+  function renderGrid(){
+    const list = filter==='All' ? essays : essays.filter(e => e.cats.includes(filter));
+    document.getElementById('grid').innerHTML = list.map(essayCard).join('');
+  }
+
+  document.getElementById('chips').addEventListener('click', ev => {
+    const chip = ev.target.closest('[data-chip]');
+    if(!chip) return;
+    filter = chip.getAttribute('data-chip');
+    renderChips();
+    renderGrid();
+  });
+
+  function renderCompare(){
+    const cmp = document.getElementById('compare');
+    const footSpacer = cmp.querySelector('.cmp-foot-spacer');
+    const check = `<div class="cmp-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>`;
+    const rowsHtml = comparisonRows.map(r => `
+      <div class="cmp-label">${esc(r.feature)}</div>
+      <div class="cmp-mine">${ r.mineText ? `<span class="txt">${esc(r.mineText)}</span>` : check }</div>
+      <div class="cmp-alt">${esc(r.diy)}</div>
+      <div class="cmp-alt">${esc(r.agency)}</div>
+    `).join('');
+    // insert rows right before the footer spacer block
+    footSpacer.insertAdjacentHTML('beforebegin', rowsHtml);
+  }
+
+  // ===== Scroll reveal (replaces CSS animation-timeline:view() for broad support) =====
+  function initReveal(){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(en => { if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { threshold: 0.18 });
+    document.querySelectorAll('.reveal, .steps-path').forEach(el => io.observe(el));
+  }
+
+  renderChips();
+  renderGrid();
+  renderCompare();
+  initReveal();
+
+  // ===== Sell-your-essay onboarding flow =====
+  (function(){
+    const overlay = document.getElementById('sellModal');
+    const panes = overlay.querySelectorAll('.step-pane');
+    const segs = document.getElementById('modalSteps').querySelectorAll('.seg');
+    const emailInput = document.getElementById('eduEmail');
+    const emailError = document.getElementById('emailError');
+    const step4 = overlay.querySelector('.step-pane[data-step="4"]');
+    const anonToggle = document.getElementById('anonToggle');
+    let lastFocused = null;
+    let listingCount = 0;
+    let admits = [];
+    let anonMode = 'public';
+
+    // Per-application essay requirements (drives the helpful hint)
+    const reqMap = {
+      commonapp: { count: 1, name: 'essays', text: 'Common App is used by 900+ schools. Add the <b>personal statement plus every school-specific supplement</b> you wrote for the school(s) you got into.' },
+      coalition: { count: 1, name: 'essays', text: 'Coalition App is used by 150+ schools. Add your <b>Coalition essay and every school-specific supplement</b> for the school(s) you got into.' },
+      uc:        { count: 4, name: 'Personal Insight Questions (PIQs)', text: 'UC applications require exactly <b>4 Personal Insight Questions (PIQs)</b>. Add all 4 so buyers get the complete set.' },
+      mit:       { count: 5, name: 'short essays', text: 'MIT\'s own portal uses <b>several short essays</b> — none of these overlap with Common App. Add every essay so buyers see the full application.' },
+      other:     { count: 1, name: 'essays', text: 'Add every essay from this school\'s own application — personal statement, short answers, and any supplements.' }
+    };
+
+    const promptOptions = ['Common App · Personal Statement','UC · Personal Insight Question','Why-school · Supplement','Activity / Extracurricular · Supplement','Community / Identity · Supplement','Intellectual vitality · Supplement','Short answer','Other supplement'];
+
+    function showStep(n){
+      panes.forEach(p => p.classList.toggle('active', +p.dataset.step === n));
+      segs.forEach((s,i) => s.classList.toggle('done', i < Math.min(n,4)));
+      overlay.querySelector('.modal').scrollTop = 0;
+    }
+
+    function openModal(){
+      lastFocused = document.activeElement;
+      overlay.classList.add('open');
+      showStep(1);
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => emailInput.focus(), 60);
+    }
+    function closeModal(){
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      fullReset();
+      if(lastFocused && lastFocused.focus) lastFocused.focus();
+    }
+    function fullReset(){
+      emailInput.value = '';
+      emailError.classList.remove('show');
+      codeBoxes.forEach(i => i.value = '');
+      document.getElementById('codeError').classList.remove('show');
+      document.getElementById('currentUni').value = '';
+      document.getElementById('uniError').classList.remove('show');
+      document.getElementById('signupPassword').value = '';
+      document.getElementById('signupPassword2').value = '';
+      document.getElementById('passwordError').classList.remove('show');
+      anonMode = 'public';
+      anonToggle.querySelectorAll('.anon-opt').forEach(opt => {
+        const v = opt.querySelector('input').value;
+        opt.classList.toggle('active', v === 'public');
+        opt.querySelector('input').checked = v === 'public';
+      });
+      listingCount = 0;
+      resetListingForm();
+    }
+    function resetListingForm(){
+      document.getElementById('targetSchool').value = '';
+      document.getElementById('reqHint').classList.remove('show');
+      document.getElementById('packagePrice').value = '';
+      admits = []; renderTags();
+      setMode('package');
+      essayList.innerHTML = '';
+      addEssayRow();
+      tierOverridden = false; selectedTier = null;
+      refreshTier();
+      document.getElementById('detailsError').classList.remove('show');
+    }
+
+    // Triggers: any link/button whose text is "Sell your essay" / "Sell yours"
+    document.addEventListener('click', (ev) => {
+      const t = ev.target.closest('a, button');
+      if(!t) return;
+      const label = (t.textContent || '').trim().toLowerCase();
+      if(label === 'sell your essay' || label === 'sell yours'){
+        ev.preventDefault();
+        openModal();
+      }
+    });
+
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && overlay.classList.contains('open')) closeModal(); });
+
+    // ---- Step 1 → 2: validate .edu email (DEMO: no real email sent) ----
+    const eduRe = /^[^@\s]+@[^@\s]+\.edu$/i;
+    // DEV crutch: on localhost accept any email so you can test without a .edu
+    // address. On a real domain only .edu passes. Remove before launch.
+    const isLocalTest = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const emailAllowed = (e) => eduRe.test(e) || isLocalTest;
+    const sendBtn = document.getElementById('sendCode');
+    let verifiedEmail = '';
+    sendBtn.addEventListener('click', () => {
+      const val = emailInput.value.trim();
+      if(!emailAllowed(val)){ emailError.textContent = 'Please enter a valid .edu email address.'; emailError.classList.add('show'); emailInput.focus(); return; }
+      emailError.classList.remove('show');
+      verifiedEmail = val;
+      document.getElementById('codeEmailLabel').textContent = val;
+      document.getElementById('successEmailLabel').textContent = val;
+      showStep(2);
+      setTimeout(() => codeBoxes[0].focus(), 60);
+    });
+    emailInput.addEventListener('keydown', e => { if(e.key === 'Enter') sendBtn.click(); });
+    emailInput.addEventListener('input', () => emailError.classList.remove('show'));
+
+    // ---- Step 2: code box UX ----
+    const codeBoxes = Array.from(document.querySelectorAll('#codeInputs input'));
+    codeBoxes.forEach((box, i) => {
+      box.addEventListener('input', () => {
+        box.value = box.value.replace(/\D/g,'').slice(0,1);
+        if(box.value && i < codeBoxes.length - 1) codeBoxes[i+1].focus();
+        document.getElementById('codeError').classList.remove('show');
+      });
+      box.addEventListener('keydown', e => {
+        if(e.key === 'Backspace' && !box.value && i > 0) codeBoxes[i-1].focus();
+        if(e.key === 'Enter') document.getElementById('verifyCode').click();
+      });
+      box.addEventListener('paste', e => {
+        e.preventDefault();
+        const digits = (e.clipboardData.getData('text') || '').replace(/\D/g,'').slice(0,6).split('');
+        digits.forEach((d,j) => { if(codeBoxes[j]) codeBoxes[j].value = d; });
+        (codeBoxes[Math.min(digits.length, 5)] || box).focus();
+      });
+    });
+    const verifyBtn = document.getElementById('verifyCode');
+    const codeError = document.getElementById('codeError');
+    verifyBtn.addEventListener('click', () => {
+      const code = codeBoxes.map(b => b.value).join('');
+      const pw  = document.getElementById('signupPassword');
+      const pw2 = document.getElementById('signupPassword2');
+      const pwErr = document.getElementById('passwordError');
+      if(code.length < 6){ codeError.textContent = 'Please enter all 6 digits.'; codeError.classList.add('show'); return; }
+      // DEMO: any 6 digits pass, no backend verification.
+      codeError.classList.remove('show');
+      // Code confirmed → now validate the new password.
+      if(pw.value.length < 8){ pwErr.textContent = 'Password must be at least 8 characters.'; pwErr.classList.add('show'); pw.focus(); return; }
+      if(pw.value !== pw2.value){ pwErr.textContent = "Passwords don't match."; pwErr.classList.add('show'); pw2.focus(); return; }
+      pwErr.classList.remove('show');
+      // Email verified + password set → create the local seller account.
+      if(verifiedEmail) AdmitlyAuth.set(verifiedEmail, pw.value);
+      showStep(3);
+      setTimeout(() => document.getElementById('currentUni').focus(), 60);
+    });
+
+    // ---- Step 3 → 4: current university ----
+    document.getElementById('uniNext').addEventListener('click', () => {
+      const uni = document.getElementById('currentUni');
+      if(uni.value.trim() === ''){ document.getElementById('uniError').classList.add('show'); uni.focus(); return; }
+      document.getElementById('uniError').classList.remove('show');
+      if(!essayList.children.length) addEssayRow();
+      showStep(4);
+    });
+    document.getElementById('currentUni').addEventListener('input', () => document.getElementById('uniError').classList.remove('show'));
+    document.getElementById('signupPassword2').addEventListener('input', () => document.getElementById('passwordError').classList.remove('show'));
+
+    // ---- Step 3: name/anonymity mode ----
+    anonToggle.querySelectorAll('.anon-opt input').forEach(r =>
+      r.addEventListener('change', () => {
+        anonMode = r.value;
+        anonToggle.querySelectorAll('.anon-opt').forEach(opt =>
+          opt.classList.toggle('active', opt.querySelector('input').value === anonMode)
+        );
+      })
+    );
+
+    // ---- Step 4: admit tags ----
+    const admitWrap = document.getElementById('admitWrap');
+    const admitInput = document.getElementById('admitInput');
+    function renderTags(){
+      admitWrap.querySelectorAll('.tag').forEach(t => t.remove());
+      admits.forEach((name, i) => {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.innerHTML = `${esc(name)} <button type="button" aria-label="Remove" data-i="${i}">&times;</button>`;
+        admitWrap.insertBefore(tag, admitInput);
+      });
+    }
+    function addAdmit(){
+      const v = admitInput.value.trim().replace(/,$/,'').trim();
+      if(v && !admits.some(a => a.toLowerCase() === v.toLowerCase())){ admits.push(v); renderTags(); refreshTier(); }
+      admitInput.value = '';
+    }
+    admitInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ','){ e.preventDefault(); addAdmit(); }
+      else if(e.key === 'Backspace' && !admitInput.value && admits.length){ admits.pop(); renderTags(); refreshTier(); }
+    });
+    admitInput.addEventListener('blur', addAdmit);
+    admitInput.addEventListener('focus', () => admitWrap.classList.add('focus'));
+    admitInput.addEventListener('blur', () => admitWrap.classList.remove('focus'));
+    admitWrap.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-i]');
+      if(btn){ admits.splice(+btn.dataset.i, 1); renderTags(); refreshTier(); }
+      else admitInput.focus();
+    });
+
+    // ---- Step 4: essay rows ----
+    const essayList = document.getElementById('essayList');
+    function pdfIcon(){
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+    }
+    function addEssayRow(){
+      const row = document.createElement('div');
+      row.className = 'essay-row';
+      row.innerHTML = `
+        <div class="essay-row-head">
+          <span class="essay-row-title">Essay</span>
+          <button type="button" class="essay-remove" data-remove>Remove</button>
+        </div>
+        <select class="essay-prompt">
+          <option value="">Prompt / essay type…</option>
+          ${promptOptions.map(o => `<option>${esc(o)}</option>`).join('')}
+        </select>
+        <input type="text" class="essay-question" placeholder="Type the exact essay question being answered">
+        <label class="file-drop" data-tip="Please include the essay question, the essay itself, and the word count after each essay.">
+          <input type="file" accept="application/pdf,.pdf" class="essay-file" hidden>
+          <span class="fname">Upload essay PDF</span>
+        </label>
+        <div class="price-wrap essay-price-wrap"><span>$</span><input type="number" class="essay-price" min="1" max="99" placeholder="13"></div>`;
+      essayList.appendChild(row);
+      renumberEssays();
+      updateReqHint();
+    }
+    function renumberEssays(){
+      const rows = Array.from(essayList.children);
+      rows.forEach((r,i) => r.querySelector('.essay-row-title').textContent = 'Essay ' + (i+1));
+      // hide "Remove" when only one essay remains
+      rows.forEach(r => r.querySelector('[data-remove]').style.visibility = rows.length > 1 ? 'visible' : 'hidden');
+    }
+    essayList.addEventListener('click', e => {
+      if(e.target.closest('[data-remove]')){
+        if(essayList.children.length > 1){ e.target.closest('.essay-row').remove(); renumberEssays(); updateReqHint(); if(typeof refreshTier === 'function') refreshTier(); }
+      }
+    });
+    essayList.addEventListener('change', e => {
+      const file = e.target.closest('.essay-file');
+      if(file){
+        const drop = file.closest('.file-drop');
+        const name = file.files[0] ? file.files[0].name : '';
+        drop.classList.toggle('has-file', !!name);
+        drop.querySelector('.fname').textContent = name || 'Upload essay PDF';
+        document.getElementById('detailsError').classList.remove('show');
+      }
+      const sel = e.target.closest('.essay-prompt');
+      if(sel){
+        const q = sel.closest('.essay-row').querySelector('.essay-question');
+        const isOther = /^other/i.test(sel.value);
+        q.classList.toggle('show', isOther);
+        if(!isOther) q.value = '';
+        document.getElementById('detailsError').classList.remove('show');
+      }
+    });
+    document.getElementById('addEssay').addEventListener('click', () => { addEssayRow(); refreshTier(); });
+
+    // ---- Step 4: target school + requirement hint ----
+    const targetSchool = document.getElementById('targetSchool');
+    const reqHint = document.getElementById('reqHint');
+    function updateReqHint(){
+      const req = reqMap[targetSchool.value];
+      if(!req){ reqHint.classList.remove('show'); return; }
+      let html = req.text;
+      if(req.count > 1){
+        const have = essayList.children.length;
+        html += `<br>You've added <b>${have} of ${req.count}</b> ${req.name}.`;
+      }
+      reqHint.innerHTML = html;
+      reqHint.classList.add('show');
+    }
+    targetSchool.addEventListener('change', () => { updateReqHint(); document.getElementById('detailsError').classList.remove('show'); });
+
+    // ---- Step 4: pricing mode ----
+    function setMode(mode){
+      step4.classList.toggle('mode-separate', mode === 'separate');
+      step4.classList.toggle('mode-package', mode === 'package');
+      overlay.querySelectorAll('.price-opt').forEach(opt => {
+        const on = opt.querySelector('input').value === mode;
+        opt.classList.toggle('active', on);
+        opt.querySelector('input').checked = on;
+      });
+    }
+    overlay.querySelectorAll('.price-opt input').forEach(r =>
+      r.addEventListener('change', () => setMode(r.value))
+    );
+
+    // ===== Smart pricing engine: schools admitted → suggested tier → floor =====
+    // Curated selectivity buckets. Matching is by normalized substring, so
+    // "uc berkeley", "berkeley", "cal" all resolve. Unknown schools fall to
+    // Tier 3, and the BEST admit sets the tier (top tier is top tier).
+    const T1_KEYS = ['harvard','yale','princeton','stanford','mit','massachusetts institute','columbia','university of chicago','uchicago','upenn','university of pennsylvania',' penn ','caltech','california institute','brown','dartmouth','cornell','duke','northwestern','johns hopkins','john hopkins','vanderbilt','rice','notre dame','washington university','washu',' ivy ','williams','amherst','pomona','swarthmore','bowdoin','claremont mckenna','georgetown'];
+    const T2_KEYS = ['ucla','uc los angeles','berkeley',' cal ','usc','southern california','michigan','ann arbor','unc','north carolina','nyu','new york university','carnegie mellon','cmu','emory',' uva ','virginia','tufts','wake forest','boston college','georgia tech','georgia institute','ut austin','texas at austin','wisconsin','madison','boston university','northeastern','uc san diego','ucsd','uc irvine','uc davis','uc santa barbara','ucsb','case western','rochester','lehigh','villanova','william and mary','william & mary','tulane','rensselaer',' rpi ','purdue','illinois urbana','university of florida','ohio state','maryland','pittsburgh','miami','washington seattle'];
+
+    function schoolTier(name){
+      const n = ' ' + String(name).toLowerCase().replace(/[^a-z0-9 &]/g,' ').replace(/\s+/g,' ').trim() + ' ';
+      if(T1_KEYS.some(k => n.includes(k))) return 1;
+      if(T2_KEYS.some(k => n.includes(k))) return 2;
+      return 3;
+    }
+
+    // Floor pricing by tier — the package floor scales with the number of essays.
+    const TIER = {
+      1: { label:'Tier 1 · Top',      base:40, extra:18, perEssay:30 },
+      2: { label:'Tier 2 · Strong',   base:30, extra:13, perEssay:22 },
+      3: { label:'Tier 3 · Standard', base:20, extra:9,  perEssay:15 },
+    };
+    const essayCount   = () => Math.max(1, essayList.children.length);
+    const packageFloor = (tier) => TIER[tier].base + TIER[tier].extra * (essayCount() - 1);
+    const perEssayFloor = (tier) => TIER[tier].perEssay;
+
+    let suggestedTier  = null;   // derived from admits
+    let selectedTier   = null;   // seller's active choice
+    let tierOverridden = false;  // true once the seller taps a tier themselves
+
+    const tierCards    = document.getElementById('tierCards');
+    const tierSuggest  = document.getElementById('tierSuggest');
+    const tierWarn     = document.getElementById('tierWarn');
+    const pkgFloorHint = document.getElementById('packageFloorHint');
+    const packagePriceEl = document.getElementById('packagePrice');
+
+    function applyTierToPrices(){
+      if(!selectedTier) return;
+      const pf = packageFloor(selectedTier);
+      packagePriceEl.min = pf;
+      pkgFloorHint.textContent = `(min $${pf})`;
+      const cur = parseFloat(packagePriceEl.value);
+      if(!packagePriceEl.value || isNaN(cur) || cur < pf) packagePriceEl.value = pf;
+      const ef = perEssayFloor(selectedTier);
+      essayList.querySelectorAll('.essay-price').forEach(inp => {
+        inp.min = ef;
+        const c = parseFloat(inp.value);
+        if(!inp.value || isNaN(c) || c < ef) inp.value = ef;
+      });
+    }
+
+    function renderTierCards(){
+      tierCards.querySelectorAll('.tier-card').forEach(card => {
+        const t = +card.dataset.tier;
+        card.classList.toggle('active', t === selectedTier);
+        card.classList.toggle('suggested', t === suggestedTier);
+        card.querySelector('input').checked = (t === selectedTier);
+        card.querySelector('.tc-floor').textContent = `from $${packageFloor(t)}`;
+      });
+      // Warn only when the seller picked a HIGHER tier than their admits suggest.
+      if(tierOverridden && suggestedTier && selectedTier && selectedTier < suggestedTier){
+        tierWarn.textContent = 'Heads up: this is a higher tier than your admits suggest. Pricing above your profile can mean fewer sales — you can change it anytime.';
+        tierWarn.classList.add('show');
+      } else {
+        tierWarn.classList.remove('show');
+      }
+    }
+
+    function refreshTier(){
+      suggestedTier = admits.length ? Math.min.apply(null, admits.map(schoolTier)) : null;
+      if(!admits.length){
+        tierSuggest.innerHTML = '💡 Add the schools you got into above and we\'ll suggest your tier automatically.';
+      } else {
+        const names = admits.slice(0,3).map(esc).join(', ') + (admits.length > 3 ? '…' : '');
+        tierSuggest.innerHTML = `💡 Based on your admits (<b>${names}</b>), we suggest <b>${TIER[suggestedTier].label}</b>. This sets your price floor — charge that or more.`;
+      }
+      // Follow the suggestion until the seller overrides it.
+      if(!tierOverridden) selectedTier = suggestedTier;
+      renderTierCards();
+      applyTierToPrices();
+    }
+
+    tierCards.addEventListener('click', (e) => {
+      const card = e.target.closest('.tier-card');
+      if(!card) return;
+      selectedTier = +card.dataset.tier;
+      tierOverridden = true;
+      renderTierCards();
+      applyTierToPrices();
+    });
+    // Block typing below the floor on the package price.
+    packagePriceEl.addEventListener('blur', () => {
+      if(!selectedTier) return;
+      const pf = packageFloor(selectedTier);
+      const cur = parseFloat(packagePriceEl.value);
+      if(isNaN(cur) || cur < pf) packagePriceEl.value = pf;
+    });
+
+    // ---- Step 4 → success: validate & submit ----
+    // Human-readable labels for spreadsheet columns.
+    const appLabels  = { commonapp:'Common App', coalition:'Coalition App', uc:'UC Application', mit:'MIT Application', other:'Other single school' };
+    const anonLabels = { anonymous:'Always anonymous', reveal:'Anonymous until bought', public:'Show my name publicly' };
+
+    document.getElementById('submitListing').addEventListener('click', async () => {
+      const err = document.getElementById('detailsError');
+      const btn = document.getElementById('submitListing');
+      const rows = Array.from(essayList.children);
+      const separate = step4.classList.contains('mode-separate');
+      let msg = '';
+
+      if(!targetSchool.value) msg = 'Pick the application type for these essays.';
+      else if(admits.length === 0) msg = 'Add at least one school you got into.';
+      else if(rows.some(r => !r.querySelector('.essay-prompt').value)) msg = 'Choose a prompt type for every essay.';
+      else if(rows.some(r => /^other/i.test(r.querySelector('.essay-prompt').value) && !r.querySelector('.essay-question').value.trim())) msg = 'Type the essay question for every "Other" essay.';
+      else if(rows.some(r => !r.querySelector('.essay-file').files.length)) msg = 'Upload a PDF for every essay.';
+      else if(separate && rows.some(r => !r.querySelector('.essay-price').value.trim())) msg = 'Set a price for every essay.';
+      else if(!separate && !document.getElementById('packagePrice').value.trim()) msg = 'Set a package price.';
+      // Enforce the tier floor — sellers can charge at or above it, never below.
+      else if(selectedTier && !separate && parseFloat(document.getElementById('packagePrice').value) < packageFloor(selectedTier)) msg = `Your ${TIER[selectedTier].label} floor is $${packageFloor(selectedTier)}. You can charge that or more.`;
+      else if(selectedTier && separate && rows.some(r => parseFloat(r.querySelector('.essay-price').value) < perEssayFloor(selectedTier))) msg = `Each essay's floor at ${TIER[selectedTier].label} is $${perEssayFloor(selectedTier)}. You can charge that or more.`;
+
+      if(msg){ err.textContent = msg; err.classList.add('show'); return; }
+      err.classList.remove('show');
+
+      // Build a human-readable summary of each essay for the spreadsheet.
+      const essaySummary = rows.map((r, i) => {
+        const prompt = r.querySelector('.essay-prompt').value;
+        const question = r.querySelector('.essay-question').value.trim();
+        const fname = r.querySelector('.essay-file').files[0]?.name || '';
+        return `Essay ${i+1}: ${prompt}${question ? ` — "${question}"` : ''}${fname ? ` [${fname}]` : ''}`;
+      }).join(' | ');
+
+      // Read each essay PDF as a base64 data URL so it uploads with the JSON
+      // payload — the server decodes and stores it for manual review.
+      const readFileB64 = (file) => new Promise((resolve) => {
+        if(!file){ resolve(null); return; }
+        const fr = new FileReader();
+        fr.onload = () => resolve({ name: file.name, data: fr.result });
+        fr.onerror = () => resolve(null);
+        fr.readAsDataURL(file);
+      });
+      const uploads = (await Promise.all(rows.map(r => readFileB64(r.querySelector('.essay-file').files[0])))).filter(Boolean);
+
+      const payload = {
+        email:             verifiedEmail,
+        university:        document.getElementById('currentUni').value.trim(),
+        anonMode:          anonLabels[anonMode] || anonMode,
+        applicationSystem: appLabels[targetSchool.value] || targetSchool.value,
+        admittedSchools:   admits,
+        tier:              selectedTier ? TIER[selectedTier].label : '',
+        tierSuggested:     suggestedTier ? TIER[suggestedTier].label : '',
+        priceFloor:        selectedTier ? (separate ? perEssayFloor(selectedTier) : packageFloor(selectedTier)) : '',
+        pricingMode:       separate ? 'Separate' : 'Package',
+        price:             separate ? '' : (document.getElementById('packagePrice').value.trim() || ''),
+        essayCount:        rows.length,
+        essays:            essaySummary,
+        uploads,           // base64 PDFs — stripped server-side after storage
+      };
+
+      // POST to server — degrade gracefully if the save fails.
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+      try {
+        await fetch('/api/submit-listing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (e) {
+        console.warn('[admitly] listing save failed:', e.message);
+      }
+      btn.disabled = false;
+      btn.textContent = origText;
+
+      listingCount++;
+      const label = listingCount === 1
+        ? 'Listing submitted!'
+        : `Listing #${listingCount} submitted!`;
+      document.getElementById('successTitle').textContent = label;
+      showStep(5);
+    });
+
+    // ---- Success actions ----
+    document.getElementById('addMore').addEventListener('click', () => {
+      resetListingForm();
+      showStep(4);
+    });
+    overlay.querySelectorAll('[data-back]').forEach(btn =>
+      btn.addEventListener('click', () => showStep(+btn.dataset.back))
+    );
+    document.getElementById('doneBtn').addEventListener('click', closeModal);
+
+    // seed first essay row
+    addEssayRow();
+    setMode('package');
+    refreshTier();
+  })();
+
+  // ===== Buyer checkout flow (no account — just a card) =====
+  (function(){
+    const overlay = document.getElementById('buyModal');
+    const panes = overlay.querySelectorAll('.step-pane');
+    const emailI = document.getElementById('buyEmail');
+    const nameI = document.getElementById('cardName');
+    const numI = document.getElementById('cardNumber');
+    const expI = document.getElementById('cardExpiry');
+    const cvcI = document.getElementById('cardCvc');
+    const zipI = document.getElementById('cardZip');
+    const err  = document.getElementById('buyError');
+    const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    let lastFocused = null;
+    let curEssay = {};
+
+    function showPane(n){
+      panes.forEach(p => p.classList.toggle('active', +p.dataset.buy === n));
+      overlay.querySelector('.modal').scrollTop = 0;
+    }
+    function openModal(essay){
+      lastFocused = document.activeElement;
+      curEssay = essay || {};
+      document.getElementById('buySchool').textContent = curEssay.school || 'This essay';
+      document.getElementById('buyHook').textContent = curEssay.hook || 'The full essay, stats & margin notes.';
+      document.getElementById('buyPrice').textContent = curEssay.price || '';
+      document.getElementById('payAmount').textContent = curEssay.price || '';
+      err.classList.remove('show');
+      showPane(1);
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => emailI.focus(), 60);
+    }
+    function closeModal(){
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      [emailI,nameI,numI,expI,cvcI,zipI].forEach(i => i.value = '');
+      err.classList.remove('show');
+      if(lastFocused && lastFocused.focus) lastFocused.focus();
+    }
+    // Lets you preview the checkout from the console while public buying is off:
+    //   admitlyOpenCheckout({ school:'Stanford', price:'$14', hook:'…' })
+    window.admitlyOpenCheckout = openModal;
+
+    // Buying is disabled until essays are live — checkout stays built, just dormant.
+    const BUYING_ENABLED = false;
+
+    // Open on any "Unlock" click (grid cards + hero float cards)
+    document.addEventListener('click', (ev) => {
+      if(!BUYING_ENABLED) return;
+      const trigger = ev.target.closest('.ecard-unlock, .unlock-pill, .ecard-lock');
+      if(!trigger) return;
+      ev.preventDefault();
+      const card = trigger.closest('.ecard, .float-card');
+      const essay = card ? {
+        school: card.dataset.school || card.querySelector('.fc-school, .ecard-school')?.textContent,
+        price:  card.dataset.price  || card.querySelector('.price, .ecard-price .p')?.textContent,
+        hook:   card.dataset.hook   || card.querySelector('.fc-hook, .ecard-hook')?.textContent,
+      } : {};
+      openModal(essay);
+    });
+
+    document.getElementById('buyClose').addEventListener('click', closeModal);
+    document.getElementById('buyDone').addEventListener('click', closeModal);
+    document.getElementById('buyRead').addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && overlay.classList.contains('open')) closeModal(); });
+
+    // ---- Card field formatting ----
+    numI.addEventListener('input', () => {
+      const digits = numI.value.replace(/\D/g,'').slice(0,16);
+      numI.value = digits.replace(/(.{4})/g,'$1 ').trim();
+      err.classList.remove('show');
+    });
+    expI.addEventListener('input', () => {
+      let d = expI.value.replace(/\D/g,'').slice(0,4);
+      if(d.length >= 3) d = d.slice(0,2) + ' / ' + d.slice(2);
+      expI.value = d;
+      err.classList.remove('show');
+    });
+    cvcI.addEventListener('input', () => { cvcI.value = cvcI.value.replace(/\D/g,'').slice(0,4); err.classList.remove('show'); });
+    zipI.addEventListener('input', () => { zipI.value = zipI.value.replace(/[^0-9-]/g,'').slice(0,10); err.classList.remove('show'); });
+
+    // ---- Pay (demo: validates shape, no real charge) ----
+    // Card details are validated client-side and NEVER sent to the server —
+    // only the email + essay info goes to /api/purchase, which emails the
+    // essay. Drop a real processor (Stripe, like Stan) in here to charge cards.
+    const payBtn = document.getElementById('payBtn');
+    payBtn.addEventListener('click', async () => {
+      const email = emailI.value.trim();
+      const num = numI.value.replace(/\D/g,'');
+      const exp = expI.value.replace(/\D/g,'');
+      const cvc = cvcI.value.replace(/\D/g,'');
+      let msg = '';
+      if(!emailRe.test(email)) msg = 'Enter a valid email so we can send the essay.';
+      else if(!nameI.value.trim()) msg = 'Enter the name on your card.';
+      else if(num.length < 15) msg = 'Enter a valid 16-digit card number.';
+      else if(exp.length < 4) msg = 'Enter the card expiry (MM / YY).';
+      else if(cvc.length < 3) msg = 'Enter the 3-digit security code.';
+      else if(!zipI.value.trim()) msg = 'Enter your billing ZIP.';
+      if(msg){ err.textContent = msg; err.classList.add('show'); return; }
+      err.classList.remove('show');
+
+      const orig = payBtn.innerHTML;
+      payBtn.disabled = true; payBtn.textContent = 'Processing…';
+      try {
+        const resp = await fetch('/api/purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, school: curEssay.school, price: curEssay.price }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok) throw new Error(data.error || 'Something went wrong.');
+        document.getElementById('buySentTo').textContent = email;
+        showPane(2);
+      } catch (e) {
+        err.textContent = e.message || 'Could not complete the purchase. Please try again.';
+        err.classList.add('show');
+      } finally {
+        payBtn.disabled = false; payBtn.innerHTML = orig;
+      }
+    });
+  })();
+
+  // ===== Waitlist / notify-me signup =====
+  (function(){
+    const form = document.getElementById('notifyForm');
+    const input = document.getElementById('notifyEmail');
+    const btn = document.getElementById('notifyBtn');
+    const msg = document.getElementById('notifyMsg');
+    const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+    function setMsg(text, kind){ msg.textContent = text; msg.className = 'notify-msg' + (kind ? ' ' + kind : ''); }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = input.value.trim();
+      if(!emailRe.test(email)){ setMsg('Please enter a valid email address.', 'err'); input.focus(); return; }
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Adding…';
+      try {
+        const resp = await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok) throw new Error(data.error || 'Something went wrong.');
+        setMsg(data.already ? "You're already on the list — we'll be in touch! 💌" : "You're on the list! We'll email you the moment essays go live. 💌", 'ok');
+        input.value = '';
+        if(window.admitlyMarkJoined) window.admitlyMarkJoined();
+      } catch (err) {
+        setMsg(err.message || 'Could not sign you up right now. Please try again.', 'err');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+    input.addEventListener('input', () => { if(msg.textContent) setMsg('', ''); });
+  })();
+
+  // ===== Scroll-triggered waitlist popup + sticky floating button =====
+  // Pops the centered waitlist modal once the visitor passes ~50% scroll, and
+  // keeps a sticky "Join the waitlist" button as a backup. Reappears every
+  // visit until they actually sign up (persisted in localStorage).
+  (function(){
+    const overlay  = document.getElementById('waitlistModal');
+    const fab      = document.getElementById('wlFab');
+    const closeBtn = document.getElementById('wlClose');
+    const form     = document.getElementById('wlForm');
+    const input    = document.getElementById('wlEmail');
+    const btn      = document.getElementById('wlBtn');
+    const msg      = document.getElementById('wlMsg');
+    const emailRe  = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    const JOINED_KEY = 'admitly_waitlist_joined';
+
+    const hasJoined = () => { try { return localStorage.getItem(JOINED_KEY) === '1'; } catch(e){ return false; } };
+    let autoShown = false;   // auto-popup fires only once per page load
+
+    function openWaitlist(){
+      if(overlay.classList.contains('open')) return;
+      overlay.classList.add('open');
+      overlay.querySelector('.modal').scrollTop = 0;
+      setTimeout(() => input.focus(), 60);
+    }
+    function closeWaitlist(){ overlay.classList.remove('open'); }
+    function setMsg(text, kind){ msg.textContent = text; msg.className = 'notify-msg wl-msg' + (kind ? ' ' + kind : ''); }
+
+    // Stop popups + hide the floating button once they're on the list.
+    function markJoined(){
+      try { localStorage.setItem(JOINED_KEY, '1'); } catch(e){}
+      autoShown = true;
+      fab.classList.remove('show');
+    }
+    window.admitlyMarkJoined = markJoined;
+
+    // Show the sticky button after a little scroll; auto-open the popup as soon
+    // as they start scrolling. Both are suppressed once the visitor has joined.
+    function onScroll(){
+      if(hasJoined()){ fab.classList.remove('show'); return; }
+      const scrolled = window.scrollY;
+      fab.classList.toggle('show', scrolled > 360);
+      // Once they start scrolling, wait ~15s before showing so it appears after
+      // they've had time to browse rather than popping right away.
+      if(!autoShown && scrolled > 450){
+        autoShown = true;
+        setTimeout(() => { if(!hasJoined()) openWaitlist(); }, 15000);
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    fab.addEventListener('click', openWaitlist);
+    closeBtn.addEventListener('click', closeWaitlist);
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeWaitlist(); });
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && overlay.classList.contains('open')) closeWaitlist(); });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = input.value.trim();
+      if(!emailRe.test(email)){ setMsg('Please enter a valid email address.', 'err'); input.focus(); return; }
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Adding…';
+      try {
+        const resp = await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok) throw new Error(data.error || 'Something went wrong.');
+        setMsg(data.already ? "You're already on the list — we'll be in touch! 💌" : "You're on the list! We'll email you the moment essays go live. 💌", 'ok');
+        input.value = '';
+        markJoined();
+        setTimeout(closeWaitlist, 1900);
+      } catch (err) {
+        setMsg(err.message || 'Could not sign you up right now. Please try again.', 'err');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+    input.addEventListener('input', () => { if(msg.textContent) setMsg('', ''); });
+  })();
+
+  // ===== Seller login flow =====
+  // Login = verified .edu email + password (accounts stored in AdmitlyAuth,
+  // browser-local for now). Forgot-password re-verifies the .edu with a 6-digit
+  // code (/api/send-code + /api/verify-code) then sets a new password.
+  (function(){
+    const overlay    = document.getElementById('sellerLoginModal');
+    const panes      = overlay.querySelectorAll('.step-pane');
+    let lastFocused  = null;
+    let resetEmail   = '';
+
+    const eduRe       = /^[^@\s]+@[^@\s]+\.edu$/i;
+    // DEV crutch: on localhost accept any email so you can test without a .edu
+    // address. On a real domain only .edu passes. Remove before launch.
+    const isLocalTest = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const emailAllowed = (e) => eduRe.test(e) || isLocalTest;
+
+    const emailInput = document.getElementById('slEmail');
+    const pwInput    = document.getElementById('slPassword');
+    const loginErr   = document.getElementById('slLoginErr');
+
+    function showStep(n){
+      panes.forEach(p => p.classList.toggle('active', +p.dataset.sl === n));
+      overlay.querySelector('.modal').scrollTop = 0;
+    }
+    function openLoginModal(){
+      lastFocused = document.activeElement;
+      overlay.classList.add('open');
+      showStep(1);
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => emailInput.focus(), 60);
+    }
+    function closeLoginModal(){
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      ['slEmail','slPassword','slResetEmail','slResetCode','slNewPassword'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+      overlay.querySelectorAll('.field-error').forEach(e => e.classList.remove('show'));
+      if(lastFocused && lastFocused.focus) lastFocused.focus();
+    }
+
+    // Nav "Seller login" link — intercepts before the sell IIFE can catch it
+    document.addEventListener('click', (ev) => {
+      const t = ev.target.closest('a, button');
+      if(!t) return;
+      const label = (t.textContent || '').trim().toLowerCase();
+      if(label === 'seller login'){ ev.preventDefault(); openLoginModal(); }
+    });
+
+    document.getElementById('slClose').addEventListener('click', closeLoginModal);
+    overlay.addEventListener('click', e => { if(e.target === overlay) closeLoginModal(); });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && overlay.classList.contains('open')) closeLoginModal(); });
+
+    // ---- Pane 1: log in with email + password ----
+    const loginBtn = document.getElementById('slLogin');
+    loginBtn.addEventListener('click', () => {
+      const email = emailInput.value.trim();
+      const pw    = pwInput.value;
+      if(!email || !pw){ loginErr.textContent = 'Enter your email and password.'; loginErr.classList.add('show'); return; }
+      if(!AdmitlyAuth.exists(email)){ loginErr.textContent = 'No account found for that email — sign up first.'; loginErr.classList.add('show'); return; }
+      if(!AdmitlyAuth.check(email, pw)){ loginErr.textContent = 'Incorrect password. Try again, or reset it below.'; loginErr.classList.add('show'); return; }
+      loginErr.classList.remove('show');
+      closeLoginModal();
+      window.admitlyOpenDashboard(email);
+    });
+    emailInput.addEventListener('keydown', e => { if(e.key === 'Enter') pwInput.focus(); });
+    pwInput.addEventListener('keydown', e => { if(e.key === 'Enter') loginBtn.click(); });
+    [emailInput, pwInput].forEach(i => i.addEventListener('input', () => loginErr.classList.remove('show')));
+
+    // ---- First-time signup nudge: close login, open sell onboarding (#sellModal) ----
+    // Re-trigger the existing sell IIFE via a synthetic click on "Sell your essay".
+    overlay.querySelector('.sl-signup-link').addEventListener('click', () => {
+      closeLoginModal();
+      const sellBtn = document.querySelector('.nav-cta .btn-primary'); // "Sell your essay"
+      if(sellBtn) sellBtn.click();
+    });
+
+    // ---- Forgot password: go to the reset flow (pane 2), prefill the email ----
+    overlay.querySelector('.sl-forgot-link').addEventListener('click', () => {
+      const re = document.getElementById('slResetEmail');
+      re.value = emailInput.value.trim();
+      showStep(2);
+      setTimeout(() => re.focus(), 60);
+    });
+
+    // ---- Pane 2: send a reset code to the .edu ----
+    const sendResetBtn    = document.getElementById('slSendReset');
+    const resetEmailInput = document.getElementById('slResetEmail');
+    const resetEmailErr   = document.getElementById('slResetEmailErr');
+    sendResetBtn.addEventListener('click', async () => {
+      const val = resetEmailInput.value.trim();
+      if(!emailAllowed(val)){ resetEmailErr.textContent = 'Please enter a valid .edu email address.'; resetEmailErr.classList.add('show'); return; }
+      resetEmailErr.classList.remove('show');
+      resetEmail = val;
+      document.getElementById('slResetLabel').textContent = val;
+      sendResetBtn.disabled = true; sendResetBtn.textContent = 'Sending…';
+      try {
+        await fetch('/api/send-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: val }) });
+      } catch(e) { /* degrade gracefully */ }
+      sendResetBtn.disabled = false; sendResetBtn.textContent = 'Send reset code';
+      showStep(3);
+      setTimeout(() => document.getElementById('slResetCode').focus(), 60);
+    });
+    resetEmailInput.addEventListener('input', () => resetEmailErr.classList.remove('show'));
+    document.getElementById('slResetCode').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g,'').slice(0,6);
+      document.getElementById('slResetErr').classList.remove('show');
+    });
+
+    // ---- Pane 3: verify the code + set a new password ----
+    const doResetBtn = document.getElementById('slDoReset');
+    const resetErr   = document.getElementById('slResetErr');
+    doResetBtn.addEventListener('click', async () => {
+      const code = document.getElementById('slResetCode').value.trim();
+      const np   = document.getElementById('slNewPassword').value;
+      if(code.length < 6){ resetErr.textContent = 'Enter the 6-digit code.'; resetErr.classList.add('show'); return; }
+      if(np.length < 8){ resetErr.textContent = 'Password must be at least 8 characters.'; resetErr.classList.add('show'); return; }
+      resetErr.classList.remove('show');
+      doResetBtn.disabled = true; doResetBtn.textContent = 'Resetting…';
+      try {
+        const resp = await fetch('/api/verify-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: resetEmail, code }) });
+        const data = await resp.json().catch(() => ({}));
+        if(!resp.ok) throw new Error(data.error || 'Incorrect code.');
+      } catch(e) {
+        // Without RESEND_API_KEY the server can't store/verify a code locally, so
+        // we log and proceed in demo mode so reset is always testable.
+        console.warn('[admitly reset] verify-code:', e.message, '— proceeding in demo mode');
+      }
+      AdmitlyAuth.set(resetEmail, np); // update (or create) the local account
+      doResetBtn.disabled = false; doResetBtn.textContent = 'Reset password & log in';
+      closeLoginModal();
+      window.admitlyOpenDashboard(resetEmail);
+    });
+    document.getElementById('slNewPassword').addEventListener('input', () => resetErr.classList.remove('show'));
+
+    // Back buttons
+    overlay.querySelectorAll('[data-sl-back]').forEach(btn =>
+      btn.addEventListener('click', () => showStep(+btn.dataset.slBack))
+    );
+
+    // Deep-link: ?login=1 (used by the "Log into your account" email buttons)
+    // opens the seller login straight away.
+    if (new URLSearchParams(location.search).get('login')) {
+      setTimeout(openLoginModal, 300);
+    }
+  })();
+
+  // ===== Seller dashboard =====
+  (function(){
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CONFIGURABLE FEE SPLIT
+    // Seller keeps SELLER_SHARE of each gross sale; platform keeps the rest.
+    //
+    //   Option A (current): SELLER_SHARE = 0.70  →  seller 70%, platform 30%
+    //   Option B:           SELLER_SHARE = 0.60  →  seller 60%, platform 40%
+    //
+    // Change ONLY this one constant — every earnings figure updates automatically.
+    //
+    // Formula:
+    //   sellerNet   = salePrice × SELLER_SHARE
+    //   platformFee = salePrice × (1 − SELLER_SHARE)
+    //
+    // Fee math test cases (verify after any split change):
+    //   $10 sale @ 0.70 → seller $7.00, platform $3.00  ✓
+    //   $10 sale @ 0.60 → seller $6.00, platform $4.00  ✓
+    //
+    // Rounding: Math.round(x × 100) / 100  — rounds half-up to 2 decimal places.
+    const SELLER_SHARE = 0.70;
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ===== DEMO DATA — replace with real API calls once backend is live =====
+    // These are realistic mock figures for UI development and design review.
+    // All amounts are in USD.
+    //
+    // Earnings breakdown at SELLER_SHARE = 0.70:
+    //   Harvard PS:    14 × $15.00 = $210.00 gross  →  $147.00 net
+    //   Why Harvard:    6 ×  $8.00 =  $48.00 gross  →   $33.60 net
+    //   Total gross: $258.00  |  Net to seller: $180.60  |  Platform fee: $77.40
+    //
+    // June 2026 gross: $87.00  →  $60.90 net this month
+    const DEMO_ESSAYS = [
+      { id:1, title:'Common App · Personal Statement', school:'Harvard', status:'published', sales:14, price:15.00, addedAt:'Apr 1, 2026'  },
+      { id:2, title:'Why Harvard · Supplement',        school:'Harvard', status:'published', sales: 6, price: 8.00, addedAt:'Apr 1, 2026'  },
+      { id:3, title:'Common App · Personal Statement', school:'Yale',    status:'pending',   sales: 0, price:12.00, addedAt:'Jun 10, 2026' },
+      { id:4, title:'Why Yale · Supplement',           school:'Yale',    status:'draft',     sales: 0, price:10.00, addedAt:'Jun 10, 2026' },
+    ];
+
+    const DEMO_MONTH_GROSS = 87.00;  // gross sales in the current calendar month (June 2026)
+
+    // Pending payout = June net. Previous months have already been paid out.
+    // Derived from the split, so changing SELLER_SHARE alone keeps this in sync.
+    const DEMO_PAYOUT = {
+      status:   'Processing',      // next payout is being prepared
+      nextDate: 'Jul 1, 2026',     // scheduled disbursement date
+      pending:  Math.round(DEMO_MONTH_GROSS * SELLER_SHARE * 100) / 100,  // e.g. $87.00 × 0.70 = $60.90
+    };
+    // ===== END DEMO DATA =====
+
+    const overlay = document.getElementById('sellerDash');
+    let sellerEmail = '';
+    // In-memory listing state — mutations survive open/close within the same session
+    let listings = DEMO_ESSAYS.map(e => Object.assign({}, e));
+
+    // Rounds to 2 decimal places (half-up) — consistent with all monetary display
+    function round2(n){ return Math.round(n * 100) / 100; }
+    function fmt(n){ return '$' + round2(n).toFixed(2); }
+
+    // ── Open / close ──
+    function openDashboard(email){
+      sellerEmail = email || '';
+      document.getElementById('dashEmail').textContent = sellerEmail;
+      overlay.scrollTop = 0;
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      renderAll();
+    }
+    function closeDashboard(){
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      sellerEmail = '';
+    }
+    // Exposed so the login IIFE can call it after successful verification
+    window.admitlyOpenDashboard = openDashboard;
+
+    document.getElementById('dashLogout').addEventListener('click', closeDashboard);
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape' && overlay.classList.contains('open')) closeDashboard();
+    });
+
+    // ── Earnings calculations ──
+    // All revenue derived from the single SELLER_SHARE constant above.
+    function calcEarnings(){
+      const totalGross = listings.reduce((sum, e) => sum + e.sales * e.price, 0);
+      const totalSales = listings.reduce((sum, e) => sum + e.sales, 0);
+      return {
+        totalGross,
+        totalNet:  round2(totalGross * SELLER_SHARE),
+        totalFee:  round2(totalGross * (1 - SELLER_SHARE)),
+        monthGross: DEMO_MONTH_GROSS,
+        monthNet:   round2(DEMO_MONTH_GROSS * SELLER_SHARE),
+        totalSales,
+        pendingPayout: DEMO_PAYOUT.pending,
+      };
+    }
+
+    // ── Renderer: four stat cards ──
+    function renderStats(e){
+      const pct = Math.round(SELLER_SHARE * 100);
+      document.getElementById('dashStats').innerHTML = `
+        <div class="dash-stat-card">
+          <div class="dash-stat-label">Total net earnings</div>
+          <div class="dash-stat-value">${fmt(e.totalNet)}</div>
+          <div class="dash-stat-sub">After ${100-pct}% platform fee · all time</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-label">This month (net)</div>
+          <div class="dash-stat-value">${fmt(e.monthNet)}</div>
+          <div class="dash-stat-sub">Gross ${fmt(e.monthGross)} · Jun 2026</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-label">Pending payout</div>
+          <div class="dash-stat-value">${fmt(e.pendingPayout)}</div>
+          <div class="dash-stat-sub">${DEMO_PAYOUT.status} · ${DEMO_PAYOUT.nextDate}</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-label">Total sales</div>
+          <div class="dash-stat-value">${e.totalSales}</div>
+          <div class="dash-stat-sub">Across ${listings.filter(l=>l.status==='published').length} live listing${listings.filter(l=>l.status==='published').length===1?'':'s'}</div>
+        </div>`;
+    }
+
+    // ── Renderer: gross / fee / net breakdown card ──
+    // Always shows all three labeled lines so the split is never ambiguous.
+    function renderRevenue(e){
+      const sellerPct   = Math.round(SELLER_SHARE * 100);
+      const platformPct = 100 - sellerPct;
+      document.getElementById('dashRevenue').innerHTML = `
+        <div class="dash-revenue-title">All-time revenue breakdown</div>
+        <div class="dash-rev-row">
+          <span class="dash-rev-label">Gross sales</span>
+          <span class="dash-rev-value">${fmt(e.totalGross)}</span>
+        </div>
+        <div class="dash-rev-row fee">
+          <span class="dash-rev-label">Platform fee (${platformPct}%)</span>
+          <span class="dash-rev-value">− ${fmt(e.totalFee)}</span>
+        </div>
+        <div class="dash-rev-row net">
+          <span class="dash-rev-label">Your payout (${sellerPct}%)</span>
+          <span class="dash-rev-value">${fmt(e.totalNet)}</span>
+        </div>`;
+    }
+
+    // ── Renderer: per-essay table (published listings only) ──
+    function renderTable(){
+      const published = listings.filter(l => l.status === 'published');
+      if(!published.length){
+        document.getElementById('dashTable').innerHTML =
+          '<div class="dash-empty-state">No published essays yet. Your net revenue will appear here once your first listing goes live.</div>';
+        return;
+      }
+      const rows = published.map(l => {
+        const rev = round2(l.sales * l.price * SELLER_SHARE);
+        return `<div class="dash-table-row">
+          <div>
+            <div class="dash-table-essay">${esc(l.title)}</div>
+            <div class="dash-table-school">${esc(l.school)}</div>
+          </div>
+          <div class="dash-table-num">${l.sales}</div>
+          <div class="dash-table-num">${fmt(l.price)}</div>
+          <div class="dash-table-rev">${fmt(rev)}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('dashTable').innerHTML = `
+        <div class="dash-table-head">
+          <div>Essay</div><div>Sales</div><div>Price</div><div>Your rev.</div>
+        </div>${rows}`;
+    }
+
+    // ── Renderer: listings grouped by status ──
+    function renderListings(){
+      const groups = [
+        { key:'published', label:'Published',        dot:'published' },
+        { key:'pending',   label:'Pending review',   dot:'pending'   },
+        { key:'draft',     label:'Draft / Removed',  dot:'draft'     },
+      ];
+
+      document.getElementById('dashListings').innerHTML = groups.map(g => {
+        const items = listings.filter(l => l.status === g.key);
+        return `<div class="dash-status-group">
+          <div class="dash-status-label">
+            <span class="dash-status-dot ${g.dot}"></span>
+            ${esc(g.label)}
+            <span style="color:var(--faint);font-weight:500">(${items.length})</span>
+          </div>
+          ${items.length === 0
+            ? '<div class="dash-empty-state">None yet.</div>'
+            : items.map(listingCard).join('')}
+        </div>`;
+      }).join('');
+
+      // Wire action buttons (re-bound every render since innerHTML replaces the DOM)
+      overlay.querySelectorAll('[data-listing-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id     = +btn.dataset.id;
+          const action = btn.dataset.listingAction;
+          const item   = listings.find(l => l.id === id);
+          if(!item) return;
+          // Status transitions:
+          //   published  → take down  → draft   (removed from public; seller can resubmit)
+          //   draft      → resubmit   → pending  (goes back for review)
+          if(action === 'takedown')  item.status = 'draft';
+          if(action === 'resubmit')  item.status = 'pending';
+          renderAll();
+        });
+      });
+    }
+
+    // Build a single listing card with appropriate action controls
+    function listingCard(l){
+      let actions = '';
+      if(l.status === 'published'){
+        actions = `<button class="dash-action-btn danger" data-listing-action="takedown" data-id="${l.id}">Take down</button>`;
+      } else if(l.status === 'draft'){
+        actions = `<button class="dash-action-btn" data-listing-action="resubmit" data-id="${l.id}">Resubmit for review</button>`;
+      }
+      // Pending listings show no action — they are awaiting admin review
+      const metaParts = [`${fmt(l.price)}/sale`];
+      if(l.sales) metaParts.push(`${l.sales} sale${l.sales > 1 ? 's' : ''}`);
+      metaParts.push(`Added ${esc(l.addedAt)}`);
+      const statusLabel = { published:'Published', pending:'Pending review', draft:'Removed' }[l.status] || l.status;
+      return `<div class="dash-listing-card">
+        <div class="dash-listing-info">
+          <div class="dash-listing-title">${esc(l.title)} — ${esc(l.school)}</div>
+          <div class="dash-listing-meta">${metaParts.join(' · ')}</div>
+        </div>
+        <div class="dash-listing-actions">
+          <span class="dash-listing-status ${l.status}">${esc(statusLabel)}</span>
+          ${actions}
+        </div>
+      </div>`;
+    }
+
+    // ── Master re-render (called on open + every state mutation) ──
+    function renderAll(){
+      const e = calcEarnings();
+      renderStats(e);
+      renderRevenue(e);
+      renderTable();
+      renderListings();
+      // Keep the fee badge in sync with SELLER_SHARE
+      const badge = document.getElementById('dashFeeBadge');
+      if(badge){
+        const s = Math.round(SELLER_SHARE * 100);
+        badge.textContent = `Platform takes ${100-s}% · you keep ${s}%`;
+      }
+    }
+
+    // ── "Add new essay" → close dashboard, open sell onboarding (#sellModal) ──
+    // The sell IIFE listens for clicks on elements with text "sell your essay",
+    // so triggering the nav button re-uses that flow without any duplication.
+    document.getElementById('dashAddEssay').addEventListener('click', () => {
+      closeDashboard();
+      const sellBtn = document.querySelector('.nav-cta .btn-primary'); // "Sell your essay"
+      if(sellBtn) sellBtn.click();
+    });
+
+  })();
+</script>
+</body>
+</html>
