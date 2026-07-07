@@ -1,0 +1,93 @@
+// Admitfolio database schema.
+//
+// Local dev uses SQLite (file:./dev.db) — zero setup. For production, switch the
+// provider to "postgresql" and point DATABASE_URL at a hosted Postgres (Neon,
+// Supabase, etc.); the models below are provider-agnostic.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A verified seller — identity is a .edu email, proven via the OTP flow.
+model Seller {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String? // set when they create a login password
+  createdAt    DateTime  @default(now())
+  listings     Listing[]
+}
+
+// One submission = one seller's package of essays for a school.
+model Listing {
+  id           String     @id @default(cuid())
+  seller       Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId     String
+  school       String
+  gradYear     String?
+  major        String?
+  admitTags    String     @default("[]") // JSON array of schools they got into
+  anonymity    String     @default("anonymous") // anonymous | firstName | full
+  pricingMode  String     @default("package") // package | separate
+  packagePrice Int? // whole dollars, when pricingMode = package
+  status       String     @default("pending") // pending | approved | rejected
+  adminNote    String?
+  createdAt    DateTime   @default(now())
+  reviewedAt   DateTime?
+  essays       Essay[]
+  purchases    Purchase[]
+
+  @@index([status])
+  @@index([sellerId])
+}
+
+// An individual essay within a listing.
+model Essay {
+  id        String   @id @default(cuid())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  prompt    String // e.g. "Common App", "Why Yale"
+  question  String? // custom prompt text when prompt = "Other"
+  price     Int? // whole dollars, when the listing sells essays separately
+  wordCount Int?
+  pdfPath   String? // path under /essays (git-ignored), set after upload
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+// Email captured from the "notify me at launch" forms.
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+// A buyer checkout (payment integration is stubbed for now). listingId is
+// optional so demo/sample-catalog purchases are still recorded; itemLabel keeps
+// a human-readable description regardless.
+model Purchase {
+  id         String   @id @default(cuid())
+  buyerEmail String
+  listing    Listing? @relation(fields: [listingId], references: [id])
+  listingId  String?
+  essayId    String? // null when the whole package was bought
+  itemLabel  String? // e.g. "Stanford — Common App"
+  amount     Int // whole dollars charged
+  createdAt  DateTime @default(now())
+
+  @@index([listingId])
+}
+
+// Short-lived 6-digit login codes (replaces the in-memory Map from the
+// prototype so it survives across serverless invocations).
+model LoginCode {
+  email     String   @id
+  code      String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+}

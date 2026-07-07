@@ -19,3 +19,16 @@ essays/
 # Local tooling & throwaway
 .claude/
 index-indigo.html
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+.vercel
+
+# Prisma / SQLite
+*.db
+*.db-journal
+prisma/dev.db
+prisma/migrations/dev.db
+*.tsbuildinfo
