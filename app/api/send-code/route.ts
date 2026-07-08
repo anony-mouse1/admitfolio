@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { emailAllowed, DEV_LOGIN_CODE, CODE_TTL_MS } from '@/lib/config';
 import { sendLoginCode } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
-const sixDigits = () => String(Math.floor(100000 + Math.random() * 900000));
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
+const sixDigits = () => String(crypto.randomInt(100000, 1000000));
 
 export async function POST(req: Request) {
   let body: { email?: string };
@@ -20,6 +23,20 @@ export async function POST(req: Request) {
   }
 
   const lower = email.toLowerCase();
+
+  // Per-email cooldown so the endpoint can't be scripted to bomb an inbox or
+  // burn the Resend quota. issuedAt is recovered from the stored expiry.
+  if (!DEV_LOGIN_CODE) {
+    const existing = await prisma.loginCode.findUnique({ where: { email: lower } });
+    const issuedAt = existing ? existing.expiresAt.getTime() - CODE_TTL_MS : 0;
+    if (existing && Date.now() - issuedAt < RESEND_COOLDOWN_MS) {
+      return NextResponse.json(
+        { error: 'We just sent you a code — check your inbox, or try again in a minute.' },
+        { status: 429 },
+      );
+    }
+  }
+
   const code = DEV_LOGIN_CODE || sixDigits();
   const expiresAt = new Date(Date.now() + CODE_TTL_MS);
   await prisma.loginCode.upsert({

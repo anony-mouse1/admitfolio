@@ -112,38 +112,6 @@ const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: number; perE
 const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
 const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
 
-/* ---- Local seller accounts (demo auth, browser-only) ---- */
-type Account = { password: string; at: string };
-const AdmitlyAuth = {
-  key: 'admitly_accounts',
-  all(): Record<string, Account> {
-    try {
-      return (JSON.parse(localStorage.getItem(this.key) || '{}') as Record<string, Account>) || {};
-    } catch {
-      return {};
-    }
-  },
-  get(email: string): Account | null {
-    return this.all()[String(email).trim().toLowerCase()] || null;
-  },
-  set(email: string, password: string) {
-    const a = this.all();
-    a[String(email).trim().toLowerCase()] = { password, at: new Date().toISOString() };
-    try {
-      localStorage.setItem(this.key, JSON.stringify(a));
-    } catch {
-      /* ignore */
-    }
-  },
-  exists(email: string) {
-    return !!this.get(email);
-  },
-  check(email: string, password: string) {
-    const a = this.get(email);
-    return !!a && a.password === password;
-  },
-};
-
 /* ---- Dashboard demo data ---- */
 const SELLER_SHARE = 0.7;
 const DEMO_ESSAYS: Listing[] = [
@@ -191,9 +159,7 @@ export default function Page() {
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const [codeErr, setCodeErr] = useState('');
-  const [signupPw, setSignupPw] = useState('');
-  const [signupPw2, setSignupPw2] = useState('');
-  const [pwErr, setPwErr] = useState('');
+  const [emailToken, setEmailToken] = useState('');
   const [currentUni, setCurrentUni] = useState('');
   const [uniErr, setUniErr] = useState('');
   const [anonMode, setAnonMode] = useState<AnonMode>('public');
@@ -260,9 +226,7 @@ export default function Page() {
     setEmailErr('');
     setCode(['', '', '', '', '', '']);
     setCodeErr('');
-    setSignupPw('');
-    setSignupPw2('');
-    setPwErr('');
+    setEmailToken('');
     setCurrentUni('');
     setUniErr('');
     setAnonMode('public');
@@ -353,23 +317,13 @@ export default function Page() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: verifiedEmail, code: joined }),
       });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; emailToken?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'That code is incorrect. Please try again.');
+      setEmailToken(data.emailToken || '');
     } catch (err) {
       setCodeErr(err instanceof Error ? err.message : 'That code is incorrect. Please try again.');
       return;
     }
-    // Code confirmed → validate the new password.
-    if (signupPw.length < 8) {
-      setPwErr('Password must be at least 8 characters.');
-      return;
-    }
-    if (signupPw !== signupPw2) {
-      setPwErr("Passwords don't match.");
-      return;
-    }
-    setPwErr('');
-    if (verifiedEmail) AdmitlyAuth.set(verifiedEmail, signupPw);
     setSellStep(3);
     setTimeout(() => uniRef.current?.focus(), 60);
   }
@@ -471,7 +425,7 @@ export default function Page() {
 
     const payload = {
       email: verifiedEmail,
-      password: signupPw || undefined,
+      emailToken,
       school: currentUni.trim(),
       admitTags: admits,
       anonymity: anonApiValue[anonMode],
@@ -712,34 +666,23 @@ export default function Page() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [openWaitlist]);
 
-  /* ============================ Seller login ============================ */
+  /* ============================ Seller login (email OTP) ============================ */
   const [slPane, setSlPane] = useState(1);
   const [slEmail, setSlEmail] = useState('');
-  const [slPassword, setSlPassword] = useState('');
   const [slLoginErr, setSlLoginErr] = useState('');
-  const [slResetEmail, setSlResetEmail] = useState('');
-  const [slResetEmailErr, setSlResetEmailErr] = useState('');
-  const [slResetCode, setSlResetCode] = useState('');
-  const [slNewPassword, setSlNewPassword] = useState('');
-  const [slResetErr, setSlResetErr] = useState('');
-  const [slResetTarget, setSlResetTarget] = useState('');
+  const [slCode, setSlCode] = useState('');
+  const [slCodeErr, setSlCodeErr] = useState('');
   const [slSending, setSlSending] = useState(false);
-  const [slResetting, setSlResetting] = useState(false);
+  const [slVerifying, setSlVerifying] = useState(false);
   const slEmailRef = useRef<HTMLInputElement>(null);
-  const slPwRef = useRef<HTMLInputElement>(null);
-  const slResetEmailRef = useRef<HTMLInputElement>(null);
-  const slResetCodeRef = useRef<HTMLInputElement>(null);
+  const slCodeRef = useRef<HTMLInputElement>(null);
 
   const openLogin = useCallback(() => {
     setSlPane(1);
     setSlEmail('');
-    setSlPassword('');
     setSlLoginErr('');
-    setSlResetEmail('');
-    setSlResetEmailErr('');
-    setSlResetCode('');
-    setSlNewPassword('');
-    setSlResetErr('');
+    setSlCode('');
+    setSlCodeErr('');
     setLoginOpen(true);
     setTimeout(() => slEmailRef.current?.focus(), 60);
   }, []);
@@ -751,77 +694,48 @@ export default function Page() {
     setDashOpen(true);
   }, []);
 
-  function handleLogin() {
-    const email = slEmail.trim();
-    const pw = slPassword;
-    if (!email || !pw) {
-      setSlLoginErr('Enter your email and password.');
-      return;
-    }
-    if (!AdmitlyAuth.exists(email)) {
-      setSlLoginErr('No account found for that email — sign up first.');
-      return;
-    }
-    if (!AdmitlyAuth.check(email, pw)) {
-      setSlLoginErr('Incorrect password. Try again, or reset it below.');
+  async function handleSlSendCode() {
+    const val = slEmail.trim();
+    if (!emailRe.test(val)) {
+      setSlLoginErr('Please enter a valid .edu email address.');
       return;
     }
     setSlLoginErr('');
-    setLoginOpen(false);
-    openDashboard(email);
-  }
-
-  function goForgot() {
-    setSlResetEmail(slEmail.trim());
-    setSlPane(2);
-    setTimeout(() => slResetEmailRef.current?.focus(), 60);
-  }
-
-  const slEmailAllowed = (e: string) => eduRe.test(e) || isLocalHost();
-
-  async function handleSendReset() {
-    const val = slResetEmail.trim();
-    if (!slEmailAllowed(val)) {
-      setSlResetEmailErr('Please enter a valid .edu email address.');
-      return;
-    }
-    setSlResetEmailErr('');
-    setSlResetTarget(val);
     setSlSending(true);
     try {
-      await fetch('/api/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: val }) });
-    } catch {
-      /* degrade gracefully */
+      const resp = await fetch('/api/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: val }) });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not send the code. Please try again.');
+    } catch (err) {
+      setSlLoginErr(err instanceof Error ? err.message : 'Could not send the code. Please try again.');
+      setSlSending(false);
+      return;
     }
     setSlSending(false);
-    setSlPane(3);
-    setTimeout(() => slResetCodeRef.current?.focus(), 60);
+    setSlPane(2);
+    setTimeout(() => slCodeRef.current?.focus(), 60);
   }
 
-  async function handleDoReset() {
-    const codeVal = slResetCode.trim();
-    const np = slNewPassword;
+  async function handleSlVerify() {
+    const codeVal = slCode.trim();
     if (codeVal.length < 6) {
-      setSlResetErr('Enter the 6-digit code.');
+      setSlCodeErr('Enter the 6-digit code.');
       return;
     }
-    if (np.length < 8) {
-      setSlResetErr('Password must be at least 8 characters.');
-      return;
-    }
-    setSlResetErr('');
-    setSlResetting(true);
+    setSlCodeErr('');
+    setSlVerifying(true);
     try {
-      const resp = await fetch('/api/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: slResetTarget, code: codeVal }) });
+      const resp = await fetch('/api/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: slEmail.trim(), code: codeVal }) });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!resp.ok || data.ok === false) throw new Error(data.error || 'Incorrect code.');
-    } catch {
-      // Without a backend the code can't be verified; proceed in demo mode.
+      if (!resp.ok || data.ok === false) throw new Error(data.error || 'That code is incorrect. Please try again.');
+    } catch (err) {
+      setSlCodeErr(err instanceof Error ? err.message : 'That code is incorrect. Please try again.');
+      setSlVerifying(false);
+      return;
     }
-    AdmitlyAuth.set(slResetTarget, np);
-    setSlResetting(false);
+    setSlVerifying(false);
     setLoginOpen(false);
-    openDashboard(slResetTarget);
+    openDashboard(slEmail.trim());
   }
 
   /* ============================ Seller dashboard ============================ */
@@ -1216,11 +1130,11 @@ export default function Page() {
             <button className="modal-btn" onClick={handleSendCode} disabled={sendingCode}>{sendingCode ? 'Sending…' : 'Send code'}</button>
           </div>
 
-          {/* Step 2: code + create password */}
+          {/* Step 2: confirm code */}
           <div className={stepClass(2)}>
-            <div className="modal-eyebrow">Step 2 of 4 · Confirm your email &amp; set a password</div>
+            <div className="modal-eyebrow">Step 2 of 4 · Confirm your email</div>
             <h3>Enter your code</h3>
-            <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>. <span style={{ color: 'var(--faint)' }}>(Demo: enter any 6 digits.)</span></p>
+            <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>.</p>
             <div className="code-inputs">
               {code.map((c, i) => (
                 <input
@@ -1237,16 +1151,7 @@ export default function Page() {
               ))}
             </div>
             <div className={`field-error${codeErr ? ' show' : ''}`}>{codeErr || 'Please enter all 6 digits.'}</div>
-            <div className="field" style={{ marginTop: '20px' }}>
-              <label htmlFor="signupPassword">Create a password</label>
-              <input type="password" id="signupPassword" placeholder="At least 8 characters" autoComplete="new-password" value={signupPw} onChange={(e) => { setSignupPw(e.target.value); setPwErr(''); }} />
-              <div className="field-hint">You&apos;ll log in with this email + password next time.</div>
-            </div>
-            <div className="field">
-              <label htmlFor="signupPassword2">Confirm password</label>
-              <input type="password" id="signupPassword2" placeholder="Re-enter your password" autoComplete="new-password" value={signupPw2} onChange={(e) => { setSignupPw2(e.target.value); setPwErr(''); }} />
-              <div className={`field-error${pwErr ? ' show' : ''}`}>{pwErr || 'Passwords must match and be at least 8 characters.'}</div>
-            </div>
+            <div className="field-hint" style={{ marginTop: '12px' }}>No password needed — you&apos;ll log in with a code like this one next time.</div>
             <button className="modal-btn" onClick={handleVerifyCode}>Verify &amp; continue</button>
             <button className="modal-back" onClick={() => setSellStep(1)}>← Use a different email</button>
           </div>
@@ -1507,53 +1412,29 @@ export default function Page() {
           <div className={slClass(1)}>
             <div className="modal-eyebrow">Welcome back</div>
             <h3 id="slTitle">Seller login</h3>
-            <p className="sub">Log in with your verified .edu email and password.</p>
+            <p className="sub">Enter your verified .edu email and we&apos;ll send you a 6-digit login code.</p>
             <div className="field">
               <label htmlFor="slEmail">School email</label>
-              <input ref={slEmailRef} type="email" id="slEmail" placeholder="you@university.edu" autoComplete="email" spellCheck={false} value={slEmail} onChange={(e) => { setSlEmail(e.target.value); setSlLoginErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') slPwRef.current?.focus(); }} />
+              <input ref={slEmailRef} type="email" id="slEmail" placeholder="you@university.edu" autoComplete="email" spellCheck={false} value={slEmail} onChange={(e) => { setSlEmail(e.target.value); setSlLoginErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') handleSlSendCode(); }} />
+              <div className={`field-error${slLoginErr ? ' show' : ''}`}>{slLoginErr || 'Please enter a valid .edu email address.'}</div>
             </div>
-            <div className="field">
-              <label htmlFor="slPassword">Password</label>
-              <input ref={slPwRef} type="password" id="slPassword" placeholder="Your password" autoComplete="current-password" value={slPassword} onChange={(e) => { setSlPassword(e.target.value); setSlLoginErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') handleLogin(); }} />
-              <div className={`field-error${slLoginErr ? ' show' : ''}`}>{slLoginErr || "That email and password don't match."}</div>
-            </div>
-            <button className="modal-btn" onClick={handleLogin}>Log in</button>
-            <div className="sl-links">
-              <a className="sl-forgot-link" tabIndex={0} role="button" onClick={goForgot}>Forgot password?</a>
-            </div>
+            <button className="modal-btn" onClick={handleSlSendCode} disabled={slSending}>{slSending ? 'Sending…' : 'Email me a login code'}</button>
             <div className="sl-signup-nudge">
               First time? <a className="sl-signup-link" tabIndex={0} role="button" onClick={openSell}>Sign up to sell your essays →</a>
             </div>
           </div>
 
           <div className={slClass(2)}>
-            <div className="modal-eyebrow">Reset password</div>
-            <h3>Forgot your password?</h3>
-            <p className="sub">Enter your .edu email and we&apos;ll send a 6-digit code to reset it.</p>
+            <div className="modal-eyebrow">Check your inbox</div>
+            <h3>Enter your login code</h3>
+            <p className="sub">We sent a 6-digit code to <strong>{slEmail || 'your email'}</strong>.</p>
             <div className="field">
-              <label htmlFor="slResetEmail">School email</label>
-              <input ref={slResetEmailRef} type="email" id="slResetEmail" placeholder="you@university.edu" autoComplete="email" spellCheck={false} value={slResetEmail} onChange={(e) => { setSlResetEmail(e.target.value); setSlResetEmailErr(''); }} />
-              <div className={`field-error${slResetEmailErr ? ' show' : ''}`}>{slResetEmailErr || 'Please enter a valid .edu email address.'}</div>
+              <label htmlFor="slCode">6-digit code</label>
+              <input ref={slCodeRef} type="text" id="slCode" inputMode="numeric" maxLength={6} placeholder="123456" autoComplete="one-time-code" value={slCode} onChange={(e) => { setSlCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setSlCodeErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') handleSlVerify(); }} />
+              <div className={`field-error${slCodeErr ? ' show' : ''}`}>{slCodeErr || 'Enter the 6-digit code.'}</div>
             </div>
-            <button className="modal-btn" onClick={handleSendReset} disabled={slSending}>{slSending ? 'Sending…' : 'Send reset code'}</button>
-            <button className="modal-back" onClick={() => setSlPane(1)}>← Back to login</button>
-          </div>
-
-          <div className={slClass(3)}>
-            <div className="modal-eyebrow">Reset password</div>
-            <h3>Set a new password</h3>
-            <p className="sub">We sent a 6-digit code to <strong>{slResetTarget || 'your email'}</strong>. Enter it and choose a new password.</p>
-            <div className="field">
-              <label htmlFor="slResetCode">6-digit code</label>
-              <input ref={slResetCodeRef} type="text" id="slResetCode" inputMode="numeric" maxLength={6} placeholder="123456" autoComplete="one-time-code" value={slResetCode} onChange={(e) => { setSlResetCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setSlResetErr(''); }} />
-            </div>
-            <div className="field">
-              <label htmlFor="slNewPassword">New password</label>
-              <input type="password" id="slNewPassword" placeholder="At least 8 characters" autoComplete="new-password" value={slNewPassword} onChange={(e) => { setSlNewPassword(e.target.value); setSlResetErr(''); }} />
-              <div className={`field-error${slResetErr ? ' show' : ''}`}>{slResetErr || 'Please check the code and password.'}</div>
-            </div>
-            <button className="modal-btn" onClick={handleDoReset} disabled={slResetting}>{slResetting ? 'Resetting…' : 'Reset password & log in'}</button>
-            <button className="modal-back" onClick={() => setSlPane(2)}>← Back</button>
+            <button className="modal-btn" onClick={handleSlVerify} disabled={slVerifying}>{slVerifying ? 'Verifying…' : 'Log in'}</button>
+            <button className="modal-back" onClick={() => setSlPane(1)}>← Use a different email</button>
           </div>
         </div>
       </div>

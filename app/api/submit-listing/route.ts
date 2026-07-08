@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { emailAllowed } from '@/lib/config';
 import { makeUploadToken } from '@/lib/uploadToken';
+import { verifyEmailToken } from '@/lib/emailToken';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -17,6 +18,7 @@ type EssayIn = { prompt?: string; question?: string; price?: number; wordCount?:
 export async function POST(req: Request) {
   let body: {
     email?: string;
+    emailToken?: string;
     password?: string;
     school?: string;
     gradYear?: string;
@@ -36,6 +38,15 @@ export async function POST(req: Request) {
   const email = String(body?.email || '').trim().toLowerCase();
   if (!emailAllowed(email)) {
     return NextResponse.json({ error: 'A verified .edu email is required.' }, { status: 400 });
+  }
+  // Require server-issued proof that this email passed OTP verification —
+  // otherwise anyone can submit listings impersonating any .edu address.
+  const verified = verifyEmailToken(body?.emailToken);
+  if (!verified || verified.email !== email) {
+    return NextResponse.json(
+      { error: 'Your verification expired — please verify your email again.' },
+      { status: 401 },
+    );
   }
   const school = String(body?.school || '').trim();
   if (!school) return NextResponse.json({ error: 'A school is required.' }, { status: 400 });
