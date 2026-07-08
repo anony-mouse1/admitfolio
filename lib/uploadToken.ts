@@ -1,3 +1,4 @@
+import 'server-only';
 import crypto from 'crypto';
 import { SESSION_SECRET } from './config';
 
