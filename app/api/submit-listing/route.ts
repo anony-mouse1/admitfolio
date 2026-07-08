@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { emailAllowed } from '@/lib/config';
+import { makeUploadToken } from '@/lib/uploadToken';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -67,15 +68,22 @@ export async function POST(req: Request) {
       packagePrice: body?.packagePrice != null ? Math.round(Number(body.packagePrice)) : null,
       status: 'pending',
       essays: {
-        create: essays.map((e) => ({
+        create: essays.map((e, i) => ({
           prompt: String(e?.prompt || 'Essay'),
           question: e?.question ? String(e.question) : null,
           price: e?.price != null ? Math.round(Number(e.price)) : null,
           wordCount: e?.wordCount != null ? Math.round(Number(e.wordCount)) : null,
+          sortOrder: i,
         })),
       },
     },
+    include: { essays: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
   });
 
-  return NextResponse.json({ ok: true, listingId: listing.id });
+  return NextResponse.json({
+    ok: true,
+    listingId: listing.id,
+    essays: listing.essays,
+    uploadToken: makeUploadToken(listing.id),
+  });
 }

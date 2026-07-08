@@ -31,7 +31,7 @@ type Msg = { text: string; kind: '' | 'ok' | 'err' };
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
 
-type EssayRow = { prompt: string; question: string; fileName: string; price: string };
+type EssayRow = { prompt: string; question: string; fileName: string; file: File | null; price: string };
 
 type ListingStatus = 'published' | 'pending' | 'draft';
 type Listing = {
@@ -166,7 +166,7 @@ const isLocalHost = () => typeof window !== 'undefined' && ['localhost', '127.0.
 const WAITLIST_MSG_OK_NEW = "You're on the list! We'll email you the moment essays go live. 💌";
 const WAITLIST_MSG_OK_DUP = "You're already on the list — we'll be in touch! 💌";
 
-const newEssayRow = (): EssayRow => ({ prompt: '', question: '', fileName: '', price: '' });
+const newEssayRow = (): EssayRow => ({ prompt: '', question: '', fileName: '', file: null, price: '' });
 
 /* ============================================================================
    Page component
@@ -210,6 +210,7 @@ export default function Page() {
   const [listingCount, setListingCount] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitLabel, setSubmitLabel] = useState('');
 
   const eduEmailRef = useRef<HTMLInputElement>(null);
   const uniRef = useRef<HTMLInputElement>(null);
@@ -454,7 +455,9 @@ export default function Page() {
     else if (admits.length === 0) msg = 'Add at least one school you got into.';
     else if (rows.some((r) => !r.prompt)) msg = 'Choose a prompt type for every essay.';
     else if (rows.some((r) => /^other/i.test(r.prompt) && !r.question.trim())) msg = 'Type the essay question for every "Other" essay.';
-    else if (rows.some((r) => !r.fileName)) msg = 'Upload a PDF for every essay.';
+    else if (rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
+    else if (rows.some((r) => r.file && r.file.size > 4 * 1024 * 1024)) msg = 'Each PDF must be 4MB or smaller.';
+    else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
     else if (!separate && !packagePrice.trim()) msg = 'Set a package price.';
     else if (effectiveTier && !separate && parseFloat(packagePrice) < packageFloor(effectiveTier, rows.length)) msg = `Your ${TIER[effectiveTier].label} floor is $${packageFloor(effectiveTier, rows.length)}. You can charge that or more.`;
@@ -489,14 +492,38 @@ export default function Page() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await resp.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        essays?: { id: string }[];
+        uploadToken?: string;
+      };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not submit your listing. Please try again.');
+      if (!data.essays || !data.uploadToken || data.essays.length !== rows.length) {
+        throw new Error('Could not submit your listing. Please try again.');
+      }
+
+      // Listing created — now upload each PDF (one request per file).
+      for (let i = 0; i < rows.length; i++) {
+        setSubmitLabel(`Uploading essay ${i + 1} of ${rows.length}…`);
+        const fd = new FormData();
+        fd.append('token', data.uploadToken);
+        fd.append('essayId', data.essays[i].id);
+        fd.append('file', rows[i].file as File);
+        const up = await fetch('/api/upload-essay', { method: 'POST', body: fd });
+        const upData = (await up.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!up.ok || upData.ok === false) {
+          throw new Error(upData.error || 'Could not upload one of your PDFs. Please try again.');
+        }
+      }
     } catch (err) {
       setDetailsErr(err instanceof Error ? err.message : 'Could not submit your listing. Please try again.');
       setSubmitting(false);
+      setSubmitLabel('');
       return;
     }
     setSubmitting(false);
+    setSubmitLabel('');
     setListingCount((c) => c + 1);
     setSellStep(5);
   }
@@ -1312,7 +1339,7 @@ export default function Page() {
                       </select>
                       <input type="text" className={`essay-question${isOther ? ' show' : ''}`} placeholder="Type the exact essay question being answered" value={row.question} onChange={(e) => updateEssayRow(i, { question: e.target.value })} />
                       <label className={`file-drop${row.fileName ? ' has-file' : ''}`} data-tip="Please include the essay question, the essay itself, and the word count after each essay.">
-                        <input type="file" accept="application/pdf,.pdf" className="essay-file" hidden onChange={(e) => updateEssayRow(i, { fileName: e.target.files && e.target.files[0] ? e.target.files[0].name : '' })} />
+                        <input type="file" accept="application/pdf,.pdf" className="essay-file" hidden onChange={(e) => { const f = e.target.files?.[0] ?? null; updateEssayRow(i, { fileName: f?.name ?? '', file: f }); }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
                       <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={99} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
@@ -1365,7 +1392,7 @@ export default function Page() {
             </div>
 
             <div className={`field-error${detailsErr ? ' show' : ''}`}>{detailsErr || 'Please complete every field and upload a PDF for each essay.'}</div>
-            <button className="modal-btn" onClick={handleSubmitListing} disabled={submitting}>{submitting ? 'Submitting…' : 'Submit for review'}</button>
+            <button className="modal-btn" onClick={handleSubmitListing} disabled={submitting}>{submitting ? submitLabel || 'Submitting…' : 'Submit for review'}</button>
             <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
           </div>
 

@@ -26,7 +26,11 @@ export const TEST_EMAILS = new Set(
 // code always verifies. Never set in production.
 export const DEV_LOGIN_CODE = process.env.DEV_LOGIN_CODE || '';
 
-// Secret for signing admin session cookies. Set a long random value in prod.
+// Secret for signing admin session cookies and upload tokens. The dev fallback
+// would let anyone forge admin cookies, so production must set its own.
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET must be set in production.');
+}
 export const SESSION_SECRET =
   process.env.SESSION_SECRET || 'admitfolio-dev-session-secret-change-me';
 

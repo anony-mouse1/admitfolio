@@ -1,16 +1,17 @@
 // Admitfolio database schema.
 //
-// Local dev uses SQLite (file:./dev.db) — zero setup. For production, switch the
-// provider to "postgresql" and point DATABASE_URL at a hosted Postgres (Neon,
-// Supabase, etc.); the models below are provider-agnostic.
+// Runs on Supabase Postgres. DATABASE_URL is the pooled (Supavisor, port 6543)
+// connection string with ?pgbouncer=true&connection_limit=1 for serverless;
+// DIRECT_URL is the direct (port 5432) string used by prisma migrate.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // A verified seller — identity is a .edu email, proven via the OTP flow.
@@ -54,7 +55,8 @@ model Essay {
   question  String? // custom prompt text when prompt = "Other"
   price     Int? // whole dollars, when the listing sells essays separately
   wordCount Int?
-  pdfPath   String? // path under /essays (git-ignored), set after upload
+  pdfPath   String? // Supabase Storage object path, e.g. listings/<listingId>/<essayId>.pdf
+  sortOrder Int      @default(0) // position in the seller's submitted list
   createdAt DateTime @default(now())
 
   @@index([listingId])

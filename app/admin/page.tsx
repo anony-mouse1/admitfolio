@@ -10,6 +10,7 @@ type Essay = {
   price: number | null;
   wordCount: number | null;
   pdfPath: string | null;
+  pdfUrl: string | null;
 };
 type Listing = {
   id: string;
@@ -194,7 +195,16 @@ export default function AdminPage() {
                           {e.question || e.prompt}
                           {e.price != null ? ` — $${e.price}` : ''}
                           {e.wordCount ? ` · ${e.wordCount} words` : ''}
-                          {!e.pdfPath && ' · (no PDF uploaded)'}
+                          {e.pdfUrl ? (
+                            <>
+                              {' · '}
+                              <a href={e.pdfUrl} target="_blank" rel="noreferrer">
+                                View PDF
+                              </a>
+                            </>
+                          ) : (
+                            ' · (no PDF uploaded)'
+                          )}
                         </span>
                       </div>
                     ))}
