@@ -18,7 +18,9 @@ datasource db {
 model Seller {
   id           String    @id @default(cuid())
   email        String    @unique
-  passwordHash String? // set when they create a login password
+  passwordHash String? // scrypt "salt:hash", set at signup
+  failedLogins Int       @default(0) // consecutive bad passwords; reset on success
+  lockedUntil  DateTime? // brute-force lockout expiry
   createdAt    DateTime  @default(now())
   listings     Listing[]
 }

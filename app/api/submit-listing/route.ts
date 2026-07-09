@@ -3,15 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { emailAllowed } from '@/lib/config';
 import { makeUploadToken } from '@/lib/uploadToken';
 import { verifyEmailToken } from '@/lib/emailToken';
-import crypto from 'crypto';
+import { hashPassword } from '@/lib/password';
 
 export const runtime = 'nodejs';
-
-function hashPassword(pw: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
-}
 
 type EssayIn = { prompt?: string; question?: string; price?: number; wordCount?: number };
 
