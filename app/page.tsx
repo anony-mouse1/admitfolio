@@ -33,15 +33,26 @@ type PricingMode = 'package' | 'separate';
 
 type EssayRow = { prompt: string; question: string; fileName: string; file: File | null; price: string };
 
-type ListingStatus = 'published' | 'pending' | 'draft';
-type Listing = {
-  id: number;
-  title: string;
-  school: string;
-  status: ListingStatus;
+// Real dashboard data from /api/seller/listings.
+type SellerEssay = {
+  id: string;
+  prompt: string;
+  question: string | null;
+  price: number | null;
   sales: number;
-  price: number;
-  addedAt: string;
+  gross: number;
+};
+type SellerListing = {
+  id: string;
+  school: string;
+  status: 'pending' | 'approved' | 'rejected' | 'removed';
+  pricingMode: string;
+  packagePrice: number | null;
+  adminNote: string | null;
+  createdAt: string;
+  sales: number;
+  gross: number;
+  essays: SellerEssay[];
 };
 
 const essays: Essay[] = [
@@ -112,16 +123,14 @@ const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: number; perE
 const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
 const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
 
-/* ---- Dashboard demo data ---- */
+/* ---- Dashboard ---- */
 const SELLER_SHARE = 0.7;
-const DEMO_ESSAYS: Listing[] = [
-  { id: 1, title: 'Common App · Personal Statement', school: 'Harvard', status: 'published', sales: 14, price: 15.0, addedAt: 'Apr 1, 2026' },
-  { id: 2, title: 'Why Harvard · Supplement', school: 'Harvard', status: 'published', sales: 6, price: 8.0, addedAt: 'Apr 1, 2026' },
-  { id: 3, title: 'Common App · Personal Statement', school: 'Yale', status: 'pending', sales: 0, price: 12.0, addedAt: 'Jun 10, 2026' },
-  { id: 4, title: 'Why Yale · Supplement', school: 'Yale', status: 'draft', sales: 0, price: 10.0, addedAt: 'Jun 10, 2026' },
-];
-const DEMO_MONTH_GROSS = 87.0;
-const DEMO_PAYOUT = { status: 'Processing', nextDate: 'Jul 1, 2026', pending: Math.round(DEMO_MONTH_GROSS * SELLER_SHARE * 100) / 100 };
+const listingPrice = (l: SellerListing) =>
+  l.packagePrice ?? l.essays.reduce((sum, e) => sum + (e.price || 0), 0);
+const listingTitle = (l: SellerListing) =>
+  l.essays.length === 1
+    ? `${l.essays[0].question || l.essays[0].prompt} — ${l.school}`
+    : `${l.school} · ${l.essays.length} essays`;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
@@ -713,8 +722,20 @@ export default function Page() {
 
   const openDashboard = useCallback((email: string) => {
     setSellerEmail(email || '');
-    setListings(DEMO_ESSAYS.map((e) => ({ ...e })));
+    setListings([]);
+    setMonthGross(0);
+    setDashErr('');
+    setDashLoading(true);
     setDashOpen(true);
+    fetch('/api/seller/listings')
+      .then(async (r) => {
+        const d = (await r.json().catch(() => ({}))) as { listings?: SellerListing[]; monthGross?: number; error?: string };
+        if (!r.ok || !d.listings) throw new Error(d.error || 'Could not load your listings.');
+        setListings(d.listings);
+        setMonthGross(d.monthGross || 0);
+      })
+      .catch((err) => setDashErr(err instanceof Error ? err.message : 'Could not load your listings.'))
+      .finally(() => setDashLoading(false));
   }, []);
 
   async function handleLogin() {
@@ -800,41 +821,55 @@ export default function Page() {
 
   /* ============================ Seller dashboard ============================ */
   const [sellerEmail, setSellerEmail] = useState('');
-  const [listings, setListings] = useState<Listing[]>(DEMO_ESSAYS.map((e) => ({ ...e })));
+  const [listings, setListings] = useState<SellerListing[]>([]);
+  const [monthGross, setMonthGross] = useState(0);
+  const [dashLoading, setDashLoading] = useState(false);
+  const [dashErr, setDashErr] = useState('');
 
   const earnings = useMemo(() => {
-    const totalGross = listings.reduce((sum, e) => sum + e.sales * e.price, 0);
-    const totalSales = listings.reduce((sum, e) => sum + e.sales, 0);
+    const totalGross = listings.reduce((sum, l) => sum + l.gross, 0);
+    const totalSales = listings.reduce((sum, l) => sum + l.sales, 0);
     return {
       totalGross,
       totalNet: round2(totalGross * SELLER_SHARE),
       totalFee: round2(totalGross * (1 - SELLER_SHARE)),
-      monthGross: DEMO_MONTH_GROSS,
-      monthNet: round2(DEMO_MONTH_GROSS * SELLER_SHARE),
+      monthGross,
+      monthNet: round2(monthGross * SELLER_SHARE),
       totalSales,
-      pendingPayout: DEMO_PAYOUT.pending,
+      pendingPayout: round2(totalGross * SELLER_SHARE),
     };
-  }, [listings]);
+  }, [listings, monthGross]);
 
   const sellerPct = Math.round(SELLER_SHARE * 100);
   const platformPct = 100 - sellerPct;
-  const publishedCount = listings.filter((l) => l.status === 'published').length;
-  const publishedListings = listings.filter((l) => l.status === 'published');
+  const publishedListings = listings.filter((l) => l.status === 'approved');
+  const publishedCount = publishedListings.length;
 
-  function listingAction(id: number, action: 'takedown' | 'resubmit') {
-    setListings((prev) =>
-      prev.map((l) => {
-        if (l.id !== id) return l;
-        if (action === 'takedown') return { ...l, status: 'draft' };
-        if (action === 'resubmit') return { ...l, status: 'pending' };
-        return l;
-      }),
-    );
+  async function listingAction(id: string, action: 'takedown' | 'resubmit') {
+    try {
+      const resp = await fetch('/api/seller/listing-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, action }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; status?: string; error?: string };
+      if (!resp.ok || !data.ok || !data.status) throw new Error(data.error || 'Could not update the listing.');
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: data.status as SellerListing['status'] } : l)));
+    } catch (err) {
+      setDashErr(err instanceof Error ? err.message : 'Could not update the listing.');
+    }
   }
 
   const closeDashboard = useCallback(() => {
     setDashOpen(false);
     setSellerEmail('');
+  }, []);
+
+  const handleSellerLogout = useCallback(() => {
+    fetch('/api/seller/logout', { method: 'POST' }).catch(() => {});
+    setDashOpen(false);
+    setSellerEmail('');
+    setListings([]);
   }, []);
 
   /* ============================ Global effects ============================ */
@@ -1546,6 +1581,8 @@ export default function Page() {
         </nav>
 
         <div className="dash-body">
+          {dashLoading && <div className="dash-empty-state" style={{ marginBottom: 16 }}>Loading your listings…</div>}
+          {dashErr && <div className="dash-empty-state" style={{ marginBottom: 16, color: '#b3261e' }}>{dashErr}</div>}
           {/* Earnings overview */}
           <section className="dash-section">
             <div className="dash-section-head">
@@ -1561,12 +1598,12 @@ export default function Page() {
               <div className="dash-stat-card">
                 <div className="dash-stat-label">This month (net)</div>
                 <div className="dash-stat-value">{fmt(earnings.monthNet)}</div>
-                <div className="dash-stat-sub">Gross {fmt(earnings.monthGross)} · Jun 2026</div>
+                <div className="dash-stat-sub">Gross {fmt(earnings.monthGross)} · {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Pending payout</div>
                 <div className="dash-stat-value">{fmt(earnings.pendingPayout)}</div>
-                <div className="dash-stat-sub">{DEMO_PAYOUT.status} · {DEMO_PAYOUT.nextDate}</div>
+                <div className="dash-stat-sub">{earnings.pendingPayout > 0 ? 'Payouts start when buying launches' : 'No sales yet'}</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total sales</div>
@@ -1604,17 +1641,19 @@ export default function Page() {
                   <div className="dash-table-head">
                     <div>Essay</div><div>Sales</div><div>Price</div><div>Your rev.</div>
                   </div>
-                  {publishedListings.map((l) => (
-                    <div className="dash-table-row" key={l.id}>
-                      <div>
-                        <div className="dash-table-essay">{l.title}</div>
-                        <div className="dash-table-school">{l.school}</div>
+                  {publishedListings.flatMap((l) =>
+                    l.essays.map((e) => (
+                      <div className="dash-table-row" key={e.id}>
+                        <div>
+                          <div className="dash-table-essay">{e.question || e.prompt}</div>
+                          <div className="dash-table-school">{l.school}{e.price == null && l.packagePrice != null ? ' · package' : ''}</div>
+                        </div>
+                        <div className="dash-table-num">{e.sales}</div>
+                        <div className="dash-table-num">{fmt(e.price ?? l.packagePrice ?? 0)}</div>
+                        <div className="dash-table-rev">{fmt(round2(e.gross * SELLER_SHARE))}</div>
                       </div>
-                      <div className="dash-table-num">{l.sales}</div>
-                      <div className="dash-table-num">{fmt(l.price)}</div>
-                      <div className="dash-table-rev">{fmt(round2(l.sales * l.price * SELLER_SHARE))}</div>
-                    </div>
-                  ))}
+                    )),
+                  )}
                 </>
               )}
             </div>
@@ -1628,11 +1667,11 @@ export default function Page() {
             </div>
             <div>
               {([
-                { key: 'published', label: 'Published', dot: 'published' },
-                { key: 'pending', label: 'Pending review', dot: 'pending' },
-                { key: 'draft', label: 'Draft / Removed', dot: 'draft' },
+                { key: 'approved', label: 'Published', dot: 'published', statuses: ['approved'] },
+                { key: 'pending', label: 'Pending review', dot: 'pending', statuses: ['pending'] },
+                { key: 'draft', label: 'Rejected / Removed', dot: 'draft', statuses: ['rejected', 'removed'] },
               ] as const).map((g) => {
-                const items = listings.filter((l) => l.status === g.key);
+                const items = listings.filter((l) => (g.statuses as readonly string[]).includes(l.status));
                 return (
                   <div className="dash-status-group" key={g.key}>
                     <div className="dash-status-label">
@@ -1652,7 +1691,7 @@ export default function Page() {
           </section>
 
           <div className="dash-footer">
-            <button className="dash-logout" onClick={closeDashboard}>Log out</button>
+            <button className="dash-logout" onClick={handleSellerLogout}>Log out</button>
           </div>
         </div>
       </div>
@@ -1689,21 +1728,23 @@ function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) 
   );
 }
 
-function ListingCard({ listing: l, onAction }: { listing: Listing; onAction: (id: number, action: 'takedown' | 'resubmit') => void }) {
-  const metaParts = [`${fmt(l.price)}/sale`];
+function ListingCard({ listing: l, onAction }: { listing: SellerListing; onAction: (id: string, action: 'takedown' | 'resubmit') => void }) {
+  const metaParts = [`${fmt(listingPrice(l))}/sale`];
   if (l.sales) metaParts.push(`${l.sales} sale${l.sales > 1 ? 's' : ''}`);
-  metaParts.push(`Added ${l.addedAt}`);
-  const statusLabel = ({ published: 'Published', pending: 'Pending review', draft: 'Removed' } as Record<ListingStatus, string>)[l.status];
+  metaParts.push(`Added ${new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+  const statusLabel = { approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status;
+  const statusClass = { approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft';
   return (
     <div className="dash-listing-card">
       <div className="dash-listing-info">
-        <div className="dash-listing-title">{l.title} — {l.school}</div>
+        <div className="dash-listing-title">{listingTitle(l)}</div>
         <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
+        {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
       </div>
       <div className="dash-listing-actions">
-        <span className={`dash-listing-status ${l.status}`}>{statusLabel}</span>
-        {l.status === 'published' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
-        {l.status === 'draft' && <button className="dash-action-btn" onClick={() => onAction(l.id, 'resubmit')}>Resubmit for review</button>}
+        <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
+        {l.status === 'approved' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
+        {(l.status === 'removed' || l.status === 'rejected') && <button className="dash-action-btn" onClick={() => onAction(l.id, 'resubmit')}>Resubmit for review</button>}
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ type Listing = {
   anonymity: string;
   pricingMode: string;
   packagePrice: number | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'removed'; // removed = seller take-down
   adminNote: string | null;
   createdAt: string;
   sellerEmail: string;
@@ -169,7 +169,7 @@ export default function AdminPage() {
                         {l.major ? ` · ${l.major}` : ''} · {l.anonymity}
                       </div>
                     </div>
-                    <span className={`${styles.status} ${styles[l.status]}`}>{l.status}</span>
+                    <span className={`${styles.status} ${styles[l.status] || styles.rejected}`}>{l.status}</span>
                   </div>
 
                   <div className={styles.meta}>

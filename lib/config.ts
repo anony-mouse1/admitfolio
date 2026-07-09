@@ -45,3 +45,4 @@ export const CODE_TTL_MS = 10 * 60 * 1000; // codes valid 10 minutes
 export const MAX_ATTEMPTS = 5;
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const SESSION_COOKIE = 'admitfolio_session';
+export const SELLER_COOKIE = 'admitfolio_seller';

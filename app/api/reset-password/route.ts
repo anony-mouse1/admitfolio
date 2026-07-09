@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
 import { verifyEmailToken } from '@/lib/emailToken';
+import { makeSession } from '@/lib/session';
+import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 
 export const runtime = 'nodejs';
 
@@ -40,5 +42,14 @@ export async function POST(req: Request) {
     data: { passwordHash: hashPassword(newPassword), failedLogins: 0, lockedUntil: null },
   });
 
-  return NextResponse.json({ ok: true });
+  // Resetting proves inbox ownership, so log them straight in.
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set(SELLER_COOKIE, makeSession(email), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+  });
+  return res;
 }

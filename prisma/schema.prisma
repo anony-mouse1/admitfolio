@@ -37,7 +37,7 @@ model Listing {
   anonymity    String     @default("anonymous") // anonymous | firstName | full
   pricingMode  String     @default("package") // package | separate
   packagePrice Int? // whole dollars, when pricingMode = package
-  status       String     @default("pending") // pending | approved | rejected
+  status       String     @default("pending") // pending | approved | rejected | removed (seller take-down)
   adminNote    String?
   createdAt    DateTime   @default(now())
   reviewedAt   DateTime?
