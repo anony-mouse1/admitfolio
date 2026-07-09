@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
+import { schoolTier, TIER, packageFloor, perEssayFloor, admitsTier } from '@/lib/pricing';
 
 /* ============================================================================
    Types & static data
@@ -48,6 +49,7 @@ type SellerListing = {
   status: 'pending' | 'approved' | 'rejected' | 'removed';
   pricingMode: string;
   packagePrice: number | null;
+  admitTags: string[];
   adminNote: string | null;
   createdAt: string;
   sales: number;
@@ -104,24 +106,7 @@ const anonApiValue: Record<AnonMode, 'anonymous' | 'firstName' | 'full'> = {
   public: 'full',
 };
 
-/* ---- Smart pricing engine ---- */
-const T1_KEYS = ['harvard', 'yale', 'princeton', 'stanford', 'mit', 'massachusetts institute', 'columbia', 'university of chicago', 'uchicago', 'upenn', 'university of pennsylvania', ' penn ', 'caltech', 'california institute', 'brown', 'dartmouth', 'cornell', 'duke', 'northwestern', 'johns hopkins', 'john hopkins', 'vanderbilt', 'rice', 'notre dame', 'washington university', 'washu', ' ivy ', 'williams', 'amherst', 'pomona', 'swarthmore', 'bowdoin', 'claremont mckenna', 'georgetown'];
-const T2_KEYS = ['ucla', 'uc los angeles', 'berkeley', ' cal ', 'usc', 'southern california', 'michigan', 'ann arbor', 'unc', 'north carolina', 'nyu', 'new york university', 'carnegie mellon', 'cmu', 'emory', ' uva ', 'virginia', 'tufts', 'wake forest', 'boston college', 'georgia tech', 'georgia institute', 'ut austin', 'texas at austin', 'wisconsin', 'madison', 'boston university', 'northeastern', 'uc san diego', 'ucsd', 'uc irvine', 'uc davis', 'uc santa barbara', 'ucsb', 'case western', 'rochester', 'lehigh', 'villanova', 'william and mary', 'william & mary', 'tulane', 'rensselaer', ' rpi ', 'purdue', 'illinois urbana', 'university of florida', 'ohio state', 'maryland', 'pittsburgh', 'miami', 'washington seattle'];
-
-function schoolTier(name: string): 1 | 2 | 3 {
-  const n = ' ' + String(name).toLowerCase().replace(/[^a-z0-9 &]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
-  if (T1_KEYS.some((k) => n.includes(k))) return 1;
-  if (T2_KEYS.some((k) => n.includes(k))) return 2;
-  return 3;
-}
-
-const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: number; perEssay: number }> = {
-  1: { label: 'Tier 1 · Top', base: 40, extra: 18, perEssay: 30 },
-  2: { label: 'Tier 2 · Strong', base: 30, extra: 13, perEssay: 22 },
-  3: { label: 'Tier 3 · Standard', base: 20, extra: 9, perEssay: 15 },
-};
-const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
-const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
+/* ---- Smart pricing engine: see lib/pricing.ts (shared with the server) ---- */
 
 /* ---- Dashboard ---- */
 const SELLER_SHARE = 0.7;
@@ -195,10 +180,7 @@ export default function Page() {
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
   const admitInputRef = useRef<HTMLInputElement>(null);
 
-  const suggestedTier: 1 | 2 | 3 | null = useMemo(() => {
-    if (!admits.length) return null;
-    return admits.map(schoolTier).reduce((a, b) => (a < b ? a : b)) as 1 | 2 | 3;
-  }, [admits]);
+  const suggestedTier: 1 | 2 | 3 | null = useMemo(() => admitsTier(admits), [admits]);
   const effectiveTier: 1 | 2 | 3 | null = tierOverridden ? selectedTier : suggestedTier;
 
   // Auto-apply the tier floor to prices (mirrors applyTierToPrices).
@@ -858,6 +840,19 @@ export default function Page() {
     } catch (err) {
       setDashErr(err instanceof Error ? err.message : 'Could not update the listing.');
     }
+  }
+
+  function priceSaved(id: string, data: { packagePrice?: number; essayPrices?: Record<string, number> }) {
+    setListings((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        if (data.packagePrice != null) return { ...l, packagePrice: data.packagePrice };
+        if (data.essayPrices) {
+          return { ...l, essays: l.essays.map((e) => (data.essayPrices![e.id] != null ? { ...e, price: data.essayPrices![e.id] } : e)) };
+        }
+        return l;
+      }),
+    );
   }
 
   const closeDashboard = useCallback(() => {
@@ -1682,7 +1677,7 @@ export default function Page() {
                     {items.length === 0 ? (
                       <div className="dash-empty-state">None yet.</div>
                     ) : (
-                      items.map((l) => <ListingCard key={l.id} listing={l} onAction={listingAction} />)
+                      items.map((l) => <ListingCard key={l.id} listing={l} onAction={listingAction} onPriceSaved={priceSaved} />)
                     )}
                   </div>
                 );
@@ -1728,21 +1723,107 @@ function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) 
   );
 }
 
-function ListingCard({ listing: l, onAction }: { listing: SellerListing; onAction: (id: string, action: 'takedown' | 'resubmit') => void }) {
+function ListingCard({ listing: l, onAction, onPriceSaved }: {
+  listing: SellerListing;
+  onAction: (id: string, action: 'takedown' | 'resubmit') => void;
+  onPriceSaved: (id: string, data: { packagePrice?: number; essayPrices?: Record<string, number> }) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [pkgInput, setPkgInput] = useState('');
+  const [essayInputs, setEssayInputs] = useState<Record<string, string>>({});
+  const [saveErr, setSaveErr] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const isPackage = l.pricingMode === 'package';
+  const tier = admitsTier(l.admitTags);
+  const floor = tier ? (isPackage ? packageFloor(tier, l.essays.length) : perEssayFloor(tier)) : 1;
+
   const metaParts = [`${fmt(listingPrice(l))}/sale`];
   if (l.sales) metaParts.push(`${l.sales} sale${l.sales > 1 ? 's' : ''}`);
   metaParts.push(`Added ${new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
   const statusLabel = { approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status;
   const statusClass = { approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft';
+
+  function startEdit() {
+    setPkgInput(l.packagePrice != null ? String(l.packagePrice) : '');
+    setEssayInputs(Object.fromEntries(l.essays.map((e) => [e.id, e.price != null ? String(e.price) : ''])));
+    setSaveErr('');
+    setEditing(true);
+  }
+
+  async function savePrice() {
+    const payload: { listingId: string; packagePrice?: number; essayPrices?: Record<string, number> } = { listingId: l.id };
+    if (isPackage) {
+      const p = parseFloat(pkgInput);
+      if (isNaN(p) || p < floor) {
+        setSaveErr(`Minimum for your tier is $${floor}.`);
+        return;
+      }
+      payload.packagePrice = p;
+    } else {
+      const prices: Record<string, number> = {};
+      for (const e of l.essays) {
+        const p = parseFloat(essayInputs[e.id]);
+        if (isNaN(p) || p < floor) {
+          setSaveErr(`Each essay needs a price of at least $${floor}.`);
+          return;
+        }
+        prices[e.id] = p;
+      }
+      payload.essayPrices = prices;
+    }
+    setSaveErr('');
+    setSaving(true);
+    try {
+      const resp = await fetch('/api/seller/listing-price', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; packagePrice?: number; essayPrices?: Record<string, number> };
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not save the price.');
+      onPriceSaved(l.id, { packagePrice: data.packagePrice, essayPrices: data.essayPrices });
+      setEditing(false);
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : 'Could not save the price.');
+    }
+    setSaving(false);
+  }
+
   return (
     <div className="dash-listing-card">
       <div className="dash-listing-info">
         <div className="dash-listing-title">{listingTitle(l)}</div>
         <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
         {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
+        {editing && (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {isPackage ? (
+              <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                Package price ($)
+                <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                <span>min ${floor}</span>
+              </label>
+            ) : (
+              l.essays.map((e) => (
+                <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {(e.question || e.prompt).slice(0, 40)} ($)
+                  <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                  <span>min ${floor}</span>
+                </label>
+              ))
+            )}
+            {saveErr && <div className="dash-listing-meta" style={{ color: '#b3261e' }}>{saveErr}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="dash-action-btn" onClick={savePrice} disabled={saving}>{saving ? 'Saving…' : 'Save price'}</button>
+              <button className="dash-action-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
       <div className="dash-listing-actions">
         <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
+        {!editing && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
         {l.status === 'approved' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
         {(l.status === 'removed' || l.status === 'rejected') && <button className="dash-action-btn" onClick={() => onAction(l.id, 'resubmit')}>Resubmit for review</button>}
       </div>

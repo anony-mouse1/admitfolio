@@ -38,6 +38,7 @@ export async function GET() {
       status: l.status,
       pricingMode: l.pricingMode,
       packagePrice: l.packagePrice,
+      admitTags: safeParse(l.admitTags),
       adminNote: l.adminNote,
       createdAt: l.createdAt,
       sales: forListing.length,
@@ -57,4 +58,13 @@ export async function GET() {
   });
 
   return NextResponse.json({ listings, monthGross });
+}
+
+function safeParse(s: string): string[] {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
 }
