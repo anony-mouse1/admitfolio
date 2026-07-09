@@ -1,0 +1,14 @@
+# Never upload local secrets or junk with CLI deploys. Git-triggered deploys
+# build from the repo, but `vercel deploy` uploads the working directory and
+# does NOT reliably honor .gitignore — .env slipping in enables DEV_LOGIN_CODE
+# (a fixed login code) in production.
+.env
+.env.local
+.env.*.local
+prisma/dev.db
+*.db
+essays/
+listings.json
+legacy/
+index-indigo.html
+.claude/
