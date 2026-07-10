@@ -2,7 +2,7 @@ import { RESEND_API_KEY, FROM_EMAIL } from './config';
 
 // Minimal Resend wrapper (ported from the prototype). Returns {ok, simulated?}.
 // When no API key is configured, it logs the code to the server console instead
-// of sending — handy for local development.
+// of sending - handy for local development.
 
 type SendResult = { ok: boolean; simulated?: boolean; status?: number; detail?: string };
 

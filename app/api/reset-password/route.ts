@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const verified = verifyEmailToken(body?.emailToken);
   if (!verified || verified.email !== email) {
     return NextResponse.json(
-      { error: 'Your verification expired — please request a new code.' },
+      { error: 'Your verification expired. Please request a new code.' },
       { status: 401 },
     );
   }

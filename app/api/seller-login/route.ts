@@ -39,15 +39,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Incorrect email or password.' }, { status: 401 });
   }
   if (!seller.passwordHash) {
-    // Account predates passwords — the reset flow doubles as "set a password".
+    // Account predates passwords - the reset flow doubles as "set a password".
     return NextResponse.json(
-      { error: 'No password is set for this account yet — use "Forgot password?" below to create one.' },
+      { error: 'No password is set for this account yet. Use "Forgot password?" below to create one.' },
       { status: 401 },
     );
   }
   if (seller.lockedUntil && seller.lockedUntil.getTime() > Date.now()) {
     return NextResponse.json(
-      { error: 'Too many attempts — try again in 15 minutes, or reset your password.' },
+      { error: 'Too many attempts. Try again in 15 minutes, or reset your password.' },
       { status: 429 },
     );
   }

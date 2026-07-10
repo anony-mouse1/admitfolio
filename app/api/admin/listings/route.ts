@@ -47,7 +47,7 @@ export async function GET() {
     createdAt: l.createdAt,
     reviewedAt: l.reviewedAt,
     sellerEmail: l.seller.email,
-    // Submissions from admin/test accounts are dummy data, not real students —
+    // Submissions from admin/test accounts are dummy data, not real students -
     // the console badges them so they're never mistaken for the real thing.
     isTest: isAdminEmail(l.seller.email) || TEST_EMAILS.has(l.seller.email.toLowerCase()),
     essays: l.essays.map((e) => ({

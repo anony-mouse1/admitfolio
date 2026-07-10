@@ -25,7 +25,7 @@ type Listing = {
   adminNote: string | null;
   createdAt: string;
   sellerEmail: string;
-  isTest: boolean; // seller is an admin/test account — dummy data, not a real student
+  isTest: boolean; // seller is an admin/test account - dummy data, not a real student
 };
 type ListingFull = Listing & { essays: Essay[] };
 
@@ -218,7 +218,7 @@ export default function AdminPage() {
                         <span>📄</span>
                         <span>
                           {e.question || e.prompt}
-                          {e.price != null ? ` — $${e.price}` : ''}
+                          {e.price != null ? ` · $${e.price}` : ''}
                           {e.wordCount ? ` · ${e.wordCount} words` : ''}
                           {e.pdfUrl ? (
                             <>

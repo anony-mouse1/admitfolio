@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const issuedAt = existing ? existing.expiresAt.getTime() - CODE_TTL_MS : 0;
     if (existing && Date.now() - issuedAt < RESEND_COOLDOWN_MS) {
       return NextResponse.json(
-        { error: 'We just sent you a code — check your inbox, or try again in a minute.' },
+        { error: 'We just sent you a code. Check your inbox, or try again in a minute.' },
         { status: 429 },
       );
     }
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   });
 
   if (DEV_LOGIN_CODE) {
-    console.log(`[dev] DEV_LOGIN_CODE active — code for ${email} is ${DEV_LOGIN_CODE} (no email sent)`);
+    console.log(`[dev] DEV_LOGIN_CODE active - code for ${email} is ${DEV_LOGIN_CODE} (no email sent)`);
     return NextResponse.json({ ok: true, simulated: true, dev: true });
   }
 

@@ -1,5 +1,5 @@
 // Runtime config, read from env. Mirrors the prototype's server.js settings.
-// Nothing here hard-codes a personal address — admin/test emails come from env.
+// Nothing here hard-codes a personal address - admin/test emails come from env.
 
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 export const FROM_EMAIL = process.env.FROM_EMAIL || 'Admitfolio <onboarding@resend.dev>';
@@ -22,7 +22,7 @@ export const TEST_EMAILS = new Set(
     .filter(Boolean),
 );
 
-// DEV-ONLY fixed login code — when set, /api/send-code skips real email and this
+// DEV-ONLY fixed login code - when set, /api/send-code skips real email and this
 // code always verifies. Never set in production.
 export const DEV_LOGIN_CODE = process.env.DEV_LOGIN_CODE || '';
 

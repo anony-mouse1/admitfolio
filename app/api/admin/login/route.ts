@@ -10,14 +10,14 @@ import {
 
 export const runtime = 'nodejs';
 
-// Password sign-in for the admin console — an alternative to the email-code
+// Password sign-in for the admin console - an alternative to the email-code
 // flow so admins aren't forced through OTP every session. Admins live in
 // ADMIN_EMAILS (not the database), so the shared password hash comes from env.
 
 const MAX_FAILED_LOGINS = 10;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
-// Best-effort brute-force throttle. In-memory, so per-instance on serverless —
+// Best-effort brute-force throttle. In-memory, so per-instance on serverless -
 // the scrypt hash is the real defense; this just slows online guessing.
 const failures = new Map<string, { count: number; lockedUntil: number }>();
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   }
   if (!ADMIN_PASSWORD_HASH) {
     return NextResponse.json(
-      { error: 'Password login is not set up — use an email code instead.' },
+      { error: 'Password login is not set up. Use an email code instead.' },
       { status: 400 },
     );
   }
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const f = failures.get(email);
   if (f && f.lockedUntil > Date.now()) {
     return NextResponse.json(
-      { error: 'Too many attempts — try again in 15 minutes, or use an email code.' },
+      { error: 'Too many attempts. Try again in 15 minutes, or use an email code.' },
       { status: 429 },
     );
   }

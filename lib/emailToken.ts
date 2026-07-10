@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { SESSION_SECRET } from './config';
 
 // Proof that an email passed OTP verification, issued by /api/verify-code and
-// required by /api/submit-listing — without it, the .edu check is client-side
+// required by /api/submit-listing - without it, the .edu check is client-side
 // theater and anyone can submit listings as any address. Same "<payload>.<sig>"
 // HMAC format as lib/session.ts. TTL is generous because sellers fill in the
 // whole listing wizard between verifying and submitting.

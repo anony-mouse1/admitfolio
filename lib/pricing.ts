@@ -1,4 +1,4 @@
-// Smart pricing engine — shared by the sell wizard (client) and the seller
+// Smart pricing engine - shared by the sell wizard (client) and the seller
 // price-edit API (server), so floors can't be bypassed with a direct request.
 
 const T1_KEYS = ['harvard', 'yale', 'princeton', 'stanford', 'mit', 'massachusetts institute', 'columbia', 'university of chicago', 'uchicago', 'upenn', 'university of pennsylvania', ' penn ', 'caltech', 'california institute', 'brown', 'dartmouth', 'cornell', 'duke', 'northwestern', 'johns hopkins', 'john hopkins', 'vanderbilt', 'rice', 'notre dame', 'washington university', 'washu', ' ivy ', 'williams', 'amherst', 'pomona', 'swarthmore', 'bowdoin', 'claremont mckenna', 'georgetown'];

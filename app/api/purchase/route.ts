@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
   }
 
-  // listingId is optional — the sample catalog on the landing page isn't in the
+  // listingId is optional - the sample catalog on the landing page isn't in the
   // DB yet, so we still record the purchase intent with a label + amount.
   let listingId: string | null = body?.listingId ? String(body.listingId) : null;
   if (listingId) {

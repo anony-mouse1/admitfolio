@@ -33,12 +33,12 @@ export async function POST(req: Request) {
   if (!emailAllowed(email)) {
     return NextResponse.json({ error: 'A verified .edu email is required.' }, { status: 400 });
   }
-  // Require server-issued proof that this email passed OTP verification —
+  // Require server-issued proof that this email passed OTP verification -
   // otherwise anyone can submit listings impersonating any .edu address.
   const verified = verifyEmailToken(body?.emailToken);
   if (!verified || verified.email !== email) {
     return NextResponse.json(
-      { error: 'Your verification expired — please verify your email again.' },
+      { error: 'Your verification expired. Please verify your email again.' },
       { status: 401 },
     );
   }

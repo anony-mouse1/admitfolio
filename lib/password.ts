@@ -1,7 +1,7 @@
 import 'server-only';
 import crypto from 'crypto';
 
-// scrypt password hashing, stored as "salt:hash" hex — same format the
+// scrypt password hashing, stored as "salt:hash" hex - same format the
 // original submit-listing route wrote, so existing rows stay valid.
 
 export function hashPassword(pw: string): string {

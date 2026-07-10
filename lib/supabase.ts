@@ -1,7 +1,7 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 
-// Server-only Supabase client using the service-role key — bypasses RLS, so it
+// Server-only Supabase client using the service-role key - bypasses RLS, so it
 // must never be imported from client components or exposed via NEXT_PUBLIC_.
 
 export const supabaseAdmin = createClient(
