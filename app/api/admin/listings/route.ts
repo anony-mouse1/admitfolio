@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentAdmin } from '@/lib/adminAuth';
+import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
@@ -46,6 +47,9 @@ export async function GET() {
     createdAt: l.createdAt,
     reviewedAt: l.reviewedAt,
     sellerEmail: l.seller.email,
+    // Submissions from admin/test accounts are dummy data, not real students —
+    // the console badges them so they're never mistaken for the real thing.
+    isTest: isAdminEmail(l.seller.email) || TEST_EMAILS.has(l.seller.email.toLowerCase()),
     essays: l.essays.map((e) => ({
       id: e.id,
       prompt: e.prompt,

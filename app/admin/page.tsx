@@ -25,6 +25,7 @@ type Listing = {
   adminNote: string | null;
   createdAt: string;
   sellerEmail: string;
+  isTest: boolean; // seller is an admin/test account — dummy data, not a real student
 };
 type ListingFull = Listing & { essays: Essay[] };
 
@@ -34,6 +35,7 @@ type Filter = 'all' | 'pending' | 'approved' | 'rejected';
 export default function AdminPage() {
   const [stage, setStage] = useState<Stage>('loading');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -52,6 +54,28 @@ export default function AdminPage() {
   useEffect(() => {
     loadListings().then((ok) => setStage(ok ? 'console' : 'email'));
   }, [loadListings]);
+
+  async function passwordLogin() {
+    setErr('');
+    setBusy(true);
+    try {
+      const r = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErr(data.error || 'Incorrect email or password.');
+        return;
+      }
+      await loadListings();
+      setStage('console');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function sendCode() {
     setErr('');
@@ -161,6 +185,7 @@ export default function AdminPage() {
                   <div className={styles.cardTop}>
                     <div>
                       <h3 className={styles.serif}>
+                        {l.isTest && <span className={styles.testBadge}>TEST</span>}
                         {l.school}
                         {l.gradYear ? ` · Class of ${l.gradYear}` : ''}
                       </h3>
@@ -250,11 +275,30 @@ export default function AdminPage() {
                 autoComplete="email"
                 spellCheck={false}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !busy && sendCode()}
+              />
+              <input
+                className={styles.input}
+                type="password"
+                placeholder="Password"
+                value={password}
+                autoComplete="current-password"
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !busy && email && password && passwordLogin()}
               />
               <div className={styles.err}>{err}</div>
-              <button className={`${styles.btn} ${styles.full}`} disabled={busy || !email} onClick={sendCode}>
-                {busy ? 'Sending…' : 'Send code'}
+              <button
+                className={`${styles.btn} ${styles.full}`}
+                disabled={busy || !email || !password}
+                onClick={passwordLogin}
+              >
+                {busy ? 'Signing in…' : 'Sign in'}
+              </button>
+              <button
+                className={`${styles.btn} ${styles.btnGhost} ${styles.full}`}
+                disabled={busy || !email}
+                onClick={sendCode}
+              >
+                Email me a code instead
               </button>
             </>
           )}
