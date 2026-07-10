@@ -586,6 +586,8 @@ export default function Page() {
   const [fabShow, setFabShow] = useState(false);
   const wlEmailRef = useRef<HTMLInputElement>(null);
   const autoShownRef = useRef(false);
+  // Live view of "is any popup open" for timers whose closures would go stale.
+  const overlayOpenRef = useRef(false);
 
   const hasJoined = () => {
     try {
@@ -673,7 +675,14 @@ export default function Page() {
       if (!autoShownRef.current && scrolled > 450) {
         autoShownRef.current = true;
         setTimeout(() => {
-          if (!hasJoined()) openWaitlist();
+          if (hasJoined()) return;
+          // Never pop over an open modal/menu; re-arm so it can still
+          // appear once the user has closed it and scrolls again.
+          if (overlayOpenRef.current) {
+            autoShownRef.current = false;
+            return;
+          }
+          openWaitlist();
         }, 15000);
       }
     }
@@ -876,14 +885,17 @@ export default function Page() {
 
   /* ============================ Global effects ============================ */
 
-  // Lock body scroll while any overlay is open.
+  // Lock body scroll while any overlay is open; keep the ref in sync so the
+  // waitlist auto-popup timer can check it (the hamburger menu counts as a
+  // popup for that purpose, but shouldn't lock scroll).
   useEffect(() => {
     const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen;
+    overlayOpenRef.current = anyOpen || menuOpen;
     document.body.style.overflow = anyOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen]);
+  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen]);
 
   // Layout variant body classes + ?login deep-link (mirrors the original IIFEs).
   useEffect(() => {
