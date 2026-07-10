@@ -4,7 +4,7 @@
    fontScheme:  editorial | clean-sans | literary | warm-classic | grotesk  */
 :root {
   --accent: #7d1d2d;            /* burgundy / wine */
-  --serif: 'Geist', sans-serif; /* clean-sans scheme, Geist for display */
+  --serif: 'Fraunces', serif; /* display face - swap this name to change the site's main font */
   --sans: 'Geist', sans-serif;
 
   --ink: #1b1a17;
@@ -52,8 +52,13 @@ a { color: inherit; }
 .nav-links { display: flex; align-items: center; gap: 32px; }
 .nav-links a { font-size: 15px; font-weight: 500; color: var(--muted); text-decoration: none; cursor: pointer; transition: color .2s; }
 .nav-links a:hover { color: var(--ink); }
-.nav-cta { display: flex; align-items: center; gap: 20px; }
-.nav-cta .login { font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; cursor: pointer; }
+.nav-cta { display: flex; align-items: center; gap: 20px; flex: none; }
+.nav-cta .login { font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.nav .btn-primary { padding: 10px 20px; font-size: 15px; white-space: nowrap; }
+
+/* Mobile hamburger + slide-down menu (hidden on desktop) */
+.nav-burger, .nav-menu, .nav-menu-backdrop { display: none; }
+@keyframes menuDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
 .btn-primary {
   font-weight: 600; color: #fff; background: var(--accent);
@@ -79,11 +84,13 @@ a { color: inherit; }
 }
 .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .hero h1 {
-  font-family: var(--serif); font-size: 62px; line-height: 1.04; font-weight: 700;
-  letter-spacing: -0.025em; color: var(--ink); margin: 22px 0 0; text-wrap: balance;
+  /* Lead phrase in Inter (Soft Semester concept); the em keeps the display serif. */
+  font-family: 'Inter', sans-serif; font-size: 60px; line-height: 1.08; font-weight: 600;
+  letter-spacing: -0.035em; color: var(--ink); margin: 22px 0 0; text-wrap: balance;
 }
-.hero h1 em { color: var(--accent); font-style: italic; }
+.hero h1 em { font-family: var(--serif); color: var(--accent); font-style: italic; letter-spacing: -0.01em; }
 .hero p { font-size: 18px; line-height: 1.62; color: var(--muted); max-width: 478px; margin: 24px 0 0; }
+.hero-sub-short { display: none; }
 .hero-actions { display: flex; align-items: center; gap: 14px; margin-top: 32px; }
 .hero-actions a { font-size: 16px; padding: 14px 26px; }
 .hero-stats { display: flex; align-items: center; gap: 22px; margin-top: 34px; }
@@ -113,16 +120,23 @@ a { color: inherit; }
 .fc-hook { font-family: var(--serif); font-size: 16px; line-height: 1.3; font-weight: 600; margin-top: 5px; }
 .skel { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
 .skel div { height: 8px; border-radius: 4px; background: #ece9e2; }
-.fc-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.fc-foot { display: flex; align-items: center; justify-content: flex-end; margin-top: 14px; }
 .price { font-family: var(--serif); font-weight: 700; }
 .unlock-pill { font-size: 12px; font-weight: 600; color: #fff; background: var(--accent); padding: 6px 13px; border-radius: 999px; }
 
 /* ---- Trust bar ---- */
 .trust { max-width: 1200px; margin: 0 auto; padding: 24px 40px 36px; }
 .trust-label { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); text-transform: uppercase; }
-.trust-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 30px; margin-top: 20px; }
+.trust-row { margin-top: 20px; }
+.trust-set { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 30px; }
+/* Desktop shows one centered wrapped set; the duplicate exists only for the
+   mobile marquee loop. */
+.trust-set[aria-hidden] { display: none; }
 .trust-row span { font-family: var(--serif); font-size: 21px; font-weight: 600; color: #a8a298; cursor: default; transition: color .2s; }
 .trust-row span:hover { color: var(--ink); }
+@keyframes trustScroll { to { transform: translateX(-50%); } }
+.trust-school { display: inline-flex; align-items: center; gap: 9px; }
+.trust-school img { width: 26px; height: 26px; border-radius: 6px; }
 
 /* ---- Featured ---- */
 .featured { max-width: 1200px; margin: 0 auto; padding: 80px 40px 40px; }
@@ -195,7 +209,7 @@ a { color: inherit; }
 
 .sneak-label { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); text-transform: uppercase; margin-top: 56px; }
 
-/* Blurred teaser grid — preview only, not interactive */
+/* Blurred teaser grid - preview only, not interactive */
 .preview-wrap { position: relative; margin-top: 22px; }
 .grid.coming-soon {
   filter: blur(3px) grayscale(18%); opacity: 0.55; pointer-events: none; user-select: none;
@@ -228,7 +242,7 @@ a { color: inherit; }
   box-shadow: 0 36px 84px rgba(20,18,15,0.36);
 }
 
-/* Variant ?layout=frame: one dark frame — card on top, essays below */
+/* Variant ?layout=frame: one dark frame - card on top, essays below */
 body.layout-frame .release-stage {
   display: flex; flex-direction: column;
   background: #1b1a17; border-radius: 26px; padding: 36px 36px 10px; overflow: hidden;
@@ -257,12 +271,16 @@ body.bg-soft .release-essays::after {
 /* On phones the floating backdrop buries the signup, so switch to the
    contained "frame" layout automatically (desktop keeps the backdrop). */
 @media (max-width: 700px) {
-  .release-stage {
+  /* body.layout-frame variants included: that class is on <body> by default
+     and its desktop rules (36px padding, 28px margin) outrank plain
+     selectors here regardless of the media query. */
+  .release-stage, body.layout-frame .release-stage {
     display: flex; flex-direction: column;
-    background: #1b1a17; border-radius: 24px; padding: 28px 22px 10px; overflow: hidden;
+    background: #1b1a17; border-radius: 24px; padding: 26px 10px 8px; overflow: hidden;
   }
+  .release-stage .notify-text, .release-stage .notify-form { padding: 0 10px; }
   .release-overlay { position: static; order: 1; padding: 0; }
-  .release-essays { order: 2; margin-top: 24px; }
+  .release-essays, body.layout-frame .release-essays { order: 2; margin-top: 10px; }
   .release-overlay .notify-banner {
     max-width: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
   }
@@ -307,6 +325,8 @@ body.bg-soft .release-essays::after {
 .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.09em; color: var(--accent); text-transform: uppercase; }
 .how h2 { font-family: var(--serif); font-size: 42px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin: 14px auto 0; max-width: 680px; text-wrap: balance; }
 .how > .how-inner > p, .how-sub { font-size: 17px; line-height: 1.6; color: var(--muted); max-width: 560px; margin: 16px auto 0; }
+/* Trial: subtitle hidden to see the section without it (markup kept) */
+.how-sub { display: none; }
 .steps-wrap { position: relative; margin-top: 62px; }
 .steps-line { position: absolute; top: 0; left: 12.5%; width: 75%; height: 72px; z-index: 0; overflow: visible; }
 .steps { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4,1fr); gap: 24px; }
@@ -325,6 +345,8 @@ body.bg-soft .release-essays::after {
 }
 .step-title { font-family: var(--serif); font-size: 19px; font-weight: 700; margin-top: 26px; }
 .step p { font-size: 14.5px; line-height: 1.55; color: var(--muted); margin: 9px 0 0; max-width: 215px; }
+/* Blueprint illustration cards + dotted connectors are mobile-only */
+.step-card, .step-connector { display: none; }
 
 /* ---- Why / comparison ---- */
 .why { background: transparent; }
@@ -343,6 +365,9 @@ body.bg-soft .release-essays::after {
 .cmp-mine .txt { font-size: 14.5px; font-weight: 700; color: var(--accent); }
 .cmp-check { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; }
 .cmp-alt { padding: 16px; text-align: center; font-size: 14px; color: var(--faint); display: flex; align-items: center; justify-content: center; border-top: 1px solid #f0ede6; }
+.cc-x { color: var(--faint); flex: none; }
+/* Card-per-feature chart variant exists for phones only */
+.compare-cards { display: none; }
 .cmp-foot-spacer { padding: 24px 16px; }
 .cmp-foot-mine { padding: 14px 16px 24px; background: color-mix(in srgb, var(--accent) 9%, #fff); border-radius: 0 0 20px 20px; display: flex; justify-content: center; }
 .cmp-foot-mine a { font-size: 14.5px; padding: 11px 22px; white-space: nowrap; }
@@ -405,9 +430,16 @@ footer { background: #1b1a17; color: #cfccc4; }
   .nav-links { display: none; }
 }
 @media (max-width: 560px) {
-  .nav { padding: 14px 20px; }
-  .hero { padding: 48px 20px 40px; }
-  .hero h1 { font-size: 38px; }
+  .nav { padding: 12px 16px; gap: 12px; }
+  /* Hero fits one phone view: pill + stats hidden, short subtitle,
+     tighter rhythm so headline -> buttons -> collage all show unscrolled */
+  .hero { padding: 20px 20px 28px; gap: 20px; }
+  .pill { display: none; }
+  .hero-stats { display: none; }
+  .hero h1 { font-size: 36px; font-weight: 700; line-height: 1.06; letter-spacing: -0.032em; margin-top: 10px; }
+  .hero p { font-size: 15px; line-height: 1.5; margin-top: 14px; }
+  .hero-sub-long { display: none; }
+  .hero-sub-short { display: inline; }
   .featured, .trust, .seller { padding-left: 20px; padding-right: 20px; }
   .how-inner, .why-inner, .foot-inner { padding-left: 20px; padding-right: 20px; }
   .grid { grid-template-columns: 1fr; }
@@ -664,7 +696,7 @@ footer { background: #1b1a17; color: #cfccc4; }
 .buy-secure svg { color: var(--accent); }
 
 /* ===== Seller login modal ===== */
-/* Small nudge below "Send code" — routes first-timers to the sell onboarding flow */
+/* Small nudge below "Send code" - routes first-timers to the sell onboarding flow */
 .sl-signup-nudge {
   text-align: center; margin-top: 20px;
   font-size: 13.5px; color: var(--muted); line-height: 1.5;
@@ -681,14 +713,14 @@ footer { background: #1b1a17; color: #cfccc4; }
 }
 .sl-forgot-link:hover { color: var(--accent); }
 
-/* ===== Seller dashboard — full-page fixed overlay sits above everything ===== */
+/* ===== Seller dashboard - full-page fixed overlay sits above everything ===== */
 .dash-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: var(--bg); display: none; overflow-y: auto;
 }
 .dash-overlay.open { display: block; }
 
-/* Dashboard nav — mirrors the site nav visually */
+/* Dashboard nav - mirrors the site nav visually */
 .dash-nav {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -730,7 +762,7 @@ footer { background: #1b1a17; color: #cfccc4; }
   font-family: var(--serif); font-size: 26px; font-weight: 700;
   letter-spacing: -0.02em; color: var(--ink); margin: 0;
 }
-/* Shows current fee split at a glance — updates whenever SELLER_SHARE changes */
+/* Shows current fee split at a glance - updates whenever SELLER_SHARE changes */
 .dash-fee-badge {
   font-size: 12px; font-weight: 700; color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, #fff);
@@ -757,7 +789,7 @@ footer { background: #1b1a17; color: #cfccc4; }
 .dash-stat-sub { font-size: 12px; color: var(--faint); margin-top: 4px; }
 
 /* ---- Revenue breakdown card ---- */
-/* Labels each figure: gross / platform fee / your payout — never ambiguous */
+/* Labels each figure: gross / platform fee / your payout - never ambiguous */
 .dash-revenue-card {
   background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
   padding: 22px 24px; margin-top: 18px; box-shadow: 0 1px 3px rgba(20,18,15,0.04);
@@ -774,7 +806,7 @@ footer { background: #1b1a17; color: #cfccc4; }
 .dash-rev-label { color: var(--muted); font-weight: 500; }
 .dash-rev-value { font-family: var(--serif); font-weight: 700; color: var(--ink); }
 .dash-rev-row.fee .dash-rev-value { color: var(--faint); }
-/* Net row gets accent color — your actual payout is always visually distinct */
+/* Net row gets accent color - your actual payout is always visually distinct */
 .dash-rev-row.net .dash-rev-label { color: var(--ink); font-weight: 700; }
 .dash-rev-row.net .dash-rev-value { color: var(--accent); font-size: 18px; }
 
@@ -842,4 +874,242 @@ footer { background: #1b1a17; color: #cfccc4; }
 .dash-empty-state {
   text-align: center; padding: 20px; color: var(--faint);
   font-size: 13.5px; font-style: italic;
+}
+
+/* ===== iPhone / small-screen optimization ===== */
+/* Stop iOS Safari from inflating text in landscape, and kill the gray tap flash. */
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; }
+
+@media (max-width: 560px) {
+  /* iOS Safari auto-zooms any focused input under 16px - keep every field at 16px. */
+  .modal input, .modal select, .modal textarea,
+  .essay-row select, .essay-row input,
+  .dash-overlay input, .dash-overlay select { font-size: 16px; }
+
+  /* Nav: logo left, one CTA pill + hamburger right (login lives in the menu) */
+  .logo-word { font-size: 21px; }
+  .logo-dot { width: 6px; height: 6px; margin-bottom: 3px; }
+  .nav-cta { gap: 10px; }
+  .nav-cta .login { display: none; }
+  .nav .btn-primary { padding: 9px 15px; font-size: 13.5px; }
+  .nav-burger {
+    display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
+    width: 36px; height: 36px; padding: 0 7px; margin: 0;
+    background: none; border: 0; cursor: pointer;
+  }
+  .nav-burger span { display: block; height: 2.5px; border-radius: 2px; background: var(--ink); transition: transform .22s ease; }
+  .nav-burger.open span:first-child { transform: translateY(3.75px) rotate(45deg); }
+  .nav-burger.open span:last-child { transform: translateY(-3.75px) rotate(-45deg); }
+  .nav-menu-backdrop {
+    display: block; position: absolute; top: 100%; left: 0; width: 100%; height: 100vh;
+    background: rgba(27, 26, 23, 0.22);
+  }
+  .nav-menu {
+    display: block; position: absolute; top: 100%; left: 0; right: 0;
+    background: rgba(250, 248, 244, 0.97);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line); padding: 4px 0 8px;
+    animation: menuDown .22s ease both;
+  }
+  .nav-menu a { display: block; padding: 13px 20px; font-size: 16px; font-weight: 600; color: var(--ink); text-decoration: none; cursor: pointer; }
+
+  /* Hero: two side-by-side pill CTAs with soft elevation (SideShift-style) */
+  .hero-actions { gap: 10px; margin-top: 20px; }
+  .hero-actions a { flex: 1 1 0; text-align: center; font-size: 15px; padding: 14px 8px; white-space: nowrap; }
+  .hero-actions .btn-primary { box-shadow: 0 12px 26px rgba(125, 29, 45, 0.25); }
+  .hero-actions .btn-ghost { box-shadow: 0 10px 22px rgba(20, 18, 15, 0.07); }
+  /* Hero art: scattered mini-card collage around a faint orbit line,
+     like SideShift's 11M/2M/4M cards. Cards trim down to logo + school
+     + hook + price (prompt label, skeleton, rating, unlock hidden). */
+  .hero-art { height: 330px; max-width: 340px; width: 100%; }
+  .hero-art::before {
+    content: ''; position: absolute; left: -6%; right: -6%; top: 14%; bottom: 10%;
+    border: 1.5px solid rgba(125, 29, 45, 0.11); border-radius: 50%;
+    transform: rotate(-16deg);
+  }
+  .hero-art .float-card { padding: 12px 13px; border-radius: 14px; }
+  .fc-top { top: 0; left: 2px; width: 172px; }
+  .fc-mid { top: 106px; right: 0; width: 176px; }
+  .fc-bot { display: block; bottom: 4px; left: 46px; width: 168px; padding: 12px 13px; }
+  .hero-art .fc-prompt, .hero-art .skel,
+  .hero-art .fc-rating, .hero-art .unlock-pill { display: none; }
+  .hero-art .fc-head { gap: 8px; }
+  .hero-art .badge { width: 26px !important; height: 26px !important; font-size: 12px !important; }
+  .hero-art .badge-logo { padding: 4px; }
+  .hero-art .fc-school { font-size: 12.5px; }
+  .hero-art .fc-year { font-size: 10.5px; }
+  .hero-art .fc-hook { font-size: 12.5px !important; line-height: 1.35; margin-top: 8px; }
+  /* Prices removed from hero cards; Unlock pill is desktop-only, so the
+     foot row has nothing to show on phones. */
+  .hero-art .fc-foot { display: none; }
+
+  /* Trust bar: continuous scrolling marquee (SideShift-style) - one row,
+     the set rendered twice and shifted -50% for a seamless loop. */
+  .trust { padding-left: 0; padding-right: 0; padding-bottom: 20px; }
+  /* Pull "Releasing soon" up close under the marquee */
+  .featured { padding-top: 24px; }
+  .trust-marquee {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  }
+  .trust-row {
+    display: flex; width: max-content;
+    animation: trustScroll 24s linear infinite;
+  }
+  /* padding-right = item gap so -50% lands exactly on the second copy */
+  .trust-set, .trust-set[aria-hidden] { display: flex; flex-wrap: nowrap; gap: 34px; padding-right: 34px; }
+  .trust-row span { font-size: 17px; white-space: nowrap; }
+  .trust-school img { width: 22px; height: 22px; }
+  @media (prefers-reduced-motion: reduce) { .trust-row { animation: none; } }
+
+  /* How-it-works: SideShift-style staggered two-column collage. Steps 1 & 3
+     in the left column, 2 & 4 in the right column pushed down half a card so
+     they interleave. Number badge on the card's bottom edge, dashed line to
+     a soft dot, gray label under it. */
+  .steps { grid-template-columns: 1fr 1fr; gap: 26px 28px; padding: 0 18px; }
+  /* Whole section fits one phone view: tighter heading, smaller cards,
+     shallower stagger. padding-bottom absorbs the right column's shift. */
+  .how-inner { padding-top: 40px; padding-bottom: 0; }
+  .how h2 { font-size: 26px; margin-top: 10px; }
+  .how-sub { font-size: 14px; margin-top: 10px; }
+  .why-inner { padding-top: 44px; }
+  .steps-wrap {
+    margin-top: 18px; padding: 6px 0 96px;
+    background-image: radial-gradient(rgba(125, 29, 45, 0.09) 1.3px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+  .step-icon-wrap { display: none; }
+  .step p { display: none; }
+  .step { position: relative; }
+  /* `top` (not margin) so the stagger doesn't stretch grid rows and leave
+     dead space in the left column - each column stays tightly stacked. */
+  .step:nth-child(even) { top: 92px; }
+  .step-card {
+    display: flex; align-items: center; position: relative; width: 100%;
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(160deg, #fff 0%, #F7F4EE 100%);
+    border: 1px solid var(--card-line); border-radius: 20px;
+    box-shadow: 0 14px 30px rgba(20, 18, 15, 0.09);
+    padding: 10px;
+  }
+  .step-card svg { display: block; width: 100%; height: auto; }
+  .step-card .step-num {
+    bottom: -14px; width: 28px; height: 28px; font-size: 13px;
+    border: 3px solid #fff; box-shadow: 0 5px 12px rgba(20, 18, 15, 0.20);
+  }
+  .step-connector { display: flex; flex-direction: column; align-items: center; margin-top: 13px; }
+  .step-connector::before { content: ''; width: 0; height: 13px; border-left: 2px dashed rgba(125, 29, 45, 0.35); }
+  .step-connector .dot {
+    width: 16px; height: 16px; border-radius: 50%; margin-top: 3px;
+    background: radial-gradient(circle, rgba(125, 29, 45, 0.55) 3px, rgba(125, 29, 45, 0.16) 3.5px);
+  }
+  .step-title { margin-top: 6px; font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--muted); line-height: 1.35; }
+
+  /* Modals become bottom sheets: full width, rounded top, clear of the
+     home indicator, sized with dvh so the iOS URL bar can't hide content. */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    max-width: none; border-radius: 22px 22px 0 0; padding: 28px 20px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 32px);
+  }
+  .field-row { grid-template-columns: 1fr; }
+  .code-inputs { gap: 6px; }
+
+  /* Seller dashboard: drop the email from the sticky nav, tighter headings */
+  .dash-seller-email { display: none; }
+  .dash-h2 { font-size: 22px; }
+
+  /* Floating waitlist button clears the home indicator */
+  .wl-fab { bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+
+/* Waitlist sheet (and all modals) slide up from the bottom edge on phones */
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+@media (max-width: 560px) {
+  .modal { animation: sheetUp .34s cubic-bezier(.22,.61,.36,1) both; }
+
+  /* "Releasing soon" teasers: two small cards per row, four total,
+     so the section is a short scroll instead of a long single column. */
+  .grid.coming-soon { grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* Square teaser cards: prompt clamps to one line, hook to three,
+     and the price row pins to the bottom so every card matches. */
+  .grid.coming-soon .ecard {
+    padding: 14px; border-radius: 14px;
+    aspect-ratio: 1 / 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .grid.coming-soon .ecard:nth-child(n+5) { display: none; }
+  .grid.coming-soon .ecard-head { gap: 8px; }
+  .grid.coming-soon .badge { width: 28px !important; height: 28px !important; font-size: 12px !important; }
+  .grid.coming-soon .ecard-school { font-size: 13px; }
+  .grid.coming-soon .ecard-meta, .grid.coming-soon .ecard-rating,
+  .grid.coming-soon .ecard-body, .grid.coming-soon .ecard-unlock { display: none; }
+  .grid.coming-soon .ecard-prompt {
+    margin-top: 9px; font-size: 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .grid.coming-soon .ecard-hook {
+    font-size: 13.5px; line-height: 1.35; margin-top: 5px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .grid.coming-soon .ecard-foot { margin-top: auto; padding-top: 10px; }
+  .grid.coming-soon .ecard-price .p { font-size: 16px; }
+
+  /* Comparison chart: SideShift-style on phones - a header pill, then one
+     rounded card per feature (title on top, three value cells below). The
+     desktop grid table hides; .compare-cards takes over. */
+  .compare { display: none; }
+  .compare-cards { display: block; margin-top: 22px; }
+  .cc-head {
+    display: grid; grid-template-columns: 1fr 1.12fr 1.12fr; align-items: center; gap: 6px;
+    background: linear-gradient(120deg, rgba(125, 29, 45, 0.12), rgba(125, 29, 45, 0.04));
+    border-radius: 14px; padding: 12px 8px;
+    font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.25;
+  }
+  .cc-head .cc-brand {
+    font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--ink);
+    display: inline-flex; align-items: flex-end; justify-content: center; gap: 3px;
+  }
+  .cc-head .cc-brand i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-bottom: 3px; }
+  .cc-card {
+    background: #fff; border: 1px solid var(--card-line); border-radius: 14px;
+    margin-top: 8px; overflow: hidden; text-align: left;
+  }
+  .cc-feature { padding: 10px 14px 8px; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+  .cc-cells { display: grid; grid-template-columns: 1fr 1.12fr 1.12fr; border-top: 1px solid #f0ede6; }
+  .cc-mine {
+    display: flex; align-items: center; justify-content: center; padding: 9px 8px;
+    background: linear-gradient(160deg, rgba(125, 29, 45, 0.09), rgba(125, 29, 45, 0.03));
+  }
+  .cc-mine .cmp-check { width: 22px; height: 22px; }
+  .cc-mine .txt { font-size: 11.5px; font-weight: 700; color: var(--accent); text-align: center; line-height: 1.3; }
+  .cc-alt {
+    display: flex; align-items: center; justify-content: center; padding: 9px 6px;
+    font-size: 11.5px; line-height: 1.3; color: var(--faint); text-align: center;
+    border-left: 1px solid #f0ede6;
+  }
+  .cc-cta { display: block; text-align: center; margin-top: 12px; padding: 13px 10px; font-size: 15px; }
+}
+
+/* Short phones (iPhone SE / mini / landscape): compress the hero further so
+   headline, subtitle, buttons, and the full collage still fit one view. */
+@media (max-width: 560px) and (max-height: 760px) {
+  .hero { padding-top: 12px; gap: 14px; }
+  .hero h1 { font-size: 31px; margin-top: 6px; }
+  .hero p { font-size: 14px; margin-top: 10px; }
+  .hero-actions { margin-top: 16px; }
+  .hero-actions a { padding: 12px 8px; font-size: 14px; }
+  .hero-art { height: 260px; max-width: 320px; }
+  .fc-top { width: 150px; }
+  .fc-mid { top: 80px; width: 152px; }
+  .fc-bot { bottom: 2px; left: 40px; width: 146px; }
+  /* Clamp hooks to two lines so the shorter cards can't ride up over
+     each other's headers inside the 260px art area. */
+  .hero-art .fc-hook {
+    font-size: 11.5px !important;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
 }

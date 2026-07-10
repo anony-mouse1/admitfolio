@@ -25,7 +25,8 @@ type Essay = {
   cats: string[];
 };
 
-type CmpRow = { feature: string; mineText?: string; diy: string; agency: string };
+// diyShort/agencyShort: one-line variants for the mobile card chart.
+type CmpRow = { feature: string; mineText?: string; diy: string; agency: string; diyShort?: string; agencyShort?: string };
 
 type Msg = { text: string; kind: '' | 'ok' | 'err' };
 
@@ -67,12 +68,12 @@ const essays: Essay[] = [
 ];
 
 const comparisonRows: CmpRow[] = [
-  { feature: '2,400+ essays from verified admits', diy: 'Reddit threads, often outdated', agency: "One counselor's experience" },
+  { feature: '2,400+ essays from verified admits', diy: 'Reddit threads, often outdated', diyShort: 'Outdated Reddit threads', agency: "One counselor's experience", agencyShort: 'One counselor' },
   { feature: 'Browse by school, prompt & major', diy: 'Hours of Googling', agency: 'Limited to their network' },
   { feature: 'See exactly why each essay worked', diy: 'Pure guesswork', agency: 'Generic frameworks' },
   { feature: 'Margin notes on voice & structure', diy: 'None', agency: 'Sometimes' },
-  { feature: 'Read the full text in minutes', diy: 'n/a', agency: 'Weeks of back-and-forth' },
-  { feature: 'Cost to get started', mineText: '$11–15 once', diy: 'Free, unreliable', agency: '$200+ / hour' },
+  { feature: 'Read the full text in minutes', diy: 'n/a', agency: 'Weeks of back-and-forth', agencyShort: 'Weeks of waiting' },
+  { feature: 'Cost to get started', mineText: 'Up to 80% cheaper', diy: 'Free, unreliable', agency: '$200+ / hour' },
 ];
 
 const chipLabels = ['All', 'Common App', 'Supplements', 'STEM', 'Humanities'];
@@ -93,8 +94,8 @@ const reqMap: Record<string, ReqInfo> = {
   commonapp: { count: 1, name: 'essays', text: 'Common App is used by 900+ schools. Add the <b>personal statement plus every school-specific supplement</b> you wrote for the school(s) you got into.' },
   coalition: { count: 1, name: 'essays', text: 'Coalition App is used by 150+ schools. Add your <b>Coalition essay and every school-specific supplement</b> for the school(s) you got into.' },
   uc: { count: 4, name: 'Personal Insight Questions (PIQs)', text: 'UC applications require exactly <b>4 Personal Insight Questions (PIQs)</b>. Add all 4 so buyers get the complete set.' },
-  mit: { count: 5, name: 'short essays', text: "MIT's own portal uses <b>several short essays</b> — none of these overlap with Common App. Add every essay so buyers see the full application." },
-  other: { count: 1, name: 'essays', text: "Add every essay from this school's own application — personal statement, short answers, and any supplements." },
+  mit: { count: 5, name: 'short essays', text: "MIT's own portal uses <b>several short essays</b>. None of these overlap with Common App. Add every essay so buyers see the full application." },
+  other: { count: 1, name: 'essays', text: "Add every essay from this school's own application: personal statement, short answers, and any supplements." },
 };
 
 const appLabels: Record<string, string> = { commonapp: 'Common App', coalition: 'Coalition App', uc: 'UC Application', mit: 'MIT Application', other: 'Other single school' };
@@ -114,7 +115,7 @@ const listingPrice = (l: SellerListing) =>
   l.packagePrice ?? l.essays.reduce((sum, e) => sum + (e.price || 0), 0);
 const listingTitle = (l: SellerListing) =>
   l.essays.length === 1
-    ? `${l.essays[0].question || l.essays[0].prompt} — ${l.school}`
+    ? `${l.essays[0].question || l.essays[0].prompt} · ${l.school}`
     : `${l.school} · ${l.essays.length} essays`;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -126,7 +127,7 @@ const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const isLocalHost = () => typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 const WAITLIST_MSG_OK_NEW = "You're on the list! We'll email you the moment essays go live. 💌";
-const WAITLIST_MSG_OK_DUP = "You're already on the list — we'll be in touch! 💌";
+const WAITLIST_MSG_OK_DUP = "You're already on the list. We'll be in touch! 💌";
 
 const newEssayRow = (): EssayRow => ({ prompt: '', question: '', fileName: '', file: null, price: '' });
 
@@ -145,6 +146,7 @@ export default function Page() {
   const [wlOpen, setWlOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   /* ============================ Sell onboarding ============================ */
   const [sellStep, setSellStep] = useState(1);
@@ -176,6 +178,7 @@ export default function Page() {
   const [submitLabel, setSubmitLabel] = useState('');
 
   const eduEmailRef = useRef<HTMLInputElement>(null);
+  const signupPwRef = useRef<HTMLInputElement>(null);
   const uniRef = useRef<HTMLInputElement>(null);
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
   const admitInputRef = useRef<HTMLInputElement>(null);
@@ -308,17 +311,6 @@ export default function Page() {
       return;
     }
     setCodeErr('');
-    // Validate the password BEFORE verifying — verification consumes the code,
-    // so failing afterwards would strand the user with a dead code.
-    if (signupPw.length < 8) {
-      setPwErr('Password must be at least 8 characters.');
-      return;
-    }
-    if (signupPw !== signupPw2) {
-      setPwErr("Passwords don't match.");
-      return;
-    }
-    setPwErr('');
     try {
       const resp = await fetch('/api/verify-code', {
         method: 'POST',
@@ -333,6 +325,21 @@ export default function Page() {
       return;
     }
     setSellStep(3);
+    setTimeout(() => signupPwRef.current?.focus(), 60);
+  }
+
+  // Password creation now happens on its own step, after the OTP is verified.
+  function handlePasswordNext() {
+    if (signupPw.length < 8) {
+      setPwErr('Password must be at least 8 characters.');
+      return;
+    }
+    if (signupPw !== signupPw2) {
+      setPwErr("Passwords don't match.");
+      return;
+    }
+    setPwErr('');
+    setSellStep(4);
     setTimeout(() => uniRef.current?.focus(), 60);
   }
 
@@ -344,7 +351,7 @@ export default function Page() {
     }
     setUniErr('');
     setEssayRows((prev) => (prev.length ? prev : [newEssayRow()]));
-    setSellStep(4);
+    setSellStep(5);
   }
 
   /* ---- admit tags ---- */
@@ -391,11 +398,11 @@ export default function Page() {
     if (!admits.length) return "💡 Add the schools you got into above and we'll suggest your tier automatically.";
     const names = admits.slice(0, 3).join(', ') + (admits.length > 3 ? '…' : '');
     const label = suggestedTier ? TIER[suggestedTier].label : '';
-    return `💡 Based on your admits (<b>${names}</b>), we suggest <b>${label}</b>. This sets your price floor — charge that or more.`;
+    return `💡 Based on your admits (<b>${names}</b>), we suggest <b>${label}</b>. This sets your price floor. Charge that or more.`;
   }, [admits, suggestedTier]);
 
   const tierWarn = tierOverridden && suggestedTier && selectedTier && selectedTier < suggestedTier
-    ? 'Heads up: this is a higher tier than your admits suggest. Pricing above your profile can mean fewer sales — you can change it anytime.'
+    ? 'Heads up: this is a higher tier than your admits suggest. Pricing above your profile can mean fewer sales. You can change it anytime.'
     : '';
 
   function pickTier(t: 1 | 2 | 3) {
@@ -466,7 +473,7 @@ export default function Page() {
         throw new Error('Could not submit your listing. Please try again.');
       }
 
-      // Listing created — now upload each PDF (one request per file).
+      // Listing created - now upload each PDF (one request per file).
       for (let i = 0; i < rows.length; i++) {
         setSubmitLabel(`Uploading essay ${i + 1} of ${rows.length}…`);
         const fd = new FormData();
@@ -488,7 +495,7 @@ export default function Page() {
     setSubmitting(false);
     setSubmitLabel('');
     setListingCount((c) => c + 1);
-    setSellStep(5);
+    setSellStep(6);
   }
 
   const successTitle = listingCount <= 1 ? 'Listing submitted!' : `Listing #${listingCount} submitted!`;
@@ -895,7 +902,8 @@ export default function Page() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (dashOpen) closeDashboard();
+      if (menuOpen) setMenuOpen(false);
+      else if (dashOpen) closeDashboard();
       else if (buyOpen) closeBuy();
       else if (sellOpen) closeSell();
       else if (loginOpen) closeLogin();
@@ -903,7 +911,7 @@ export default function Page() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [dashOpen, buyOpen, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin]);
+  }, [menuOpen, dashOpen, buyOpen, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -940,9 +948,22 @@ export default function Page() {
           <a onClick={openSell}>Sell yours</a>
         </div>
         <div className="nav-cta">
-          <a className="login" onClick={openLogin}>Seller login</a>
-          <a className="btn-primary" style={{ padding: '10px 20px', fontSize: '15px' }} onClick={openSell}>Sell your essay</a>
+          <a className="login" onClick={openLogin}><span className="login-prefix">Seller </span>login</a>
+          <a className="btn-primary" onClick={openSell}>Sell your essay</a>
+          <button type="button" className={`nav-burger${menuOpen ? ' open' : ''}`} aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+            <span></span><span></span>
+          </button>
         </div>
+        {menuOpen && (
+          <>
+            <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)}></div>
+            <div className="nav-menu">
+              <a href="#browse" onClick={() => setMenuOpen(false)}>Browse essays</a>
+              <a href="#how" onClick={() => setMenuOpen(false)}>How it works</a>
+              <a onClick={() => { setMenuOpen(false); openLogin(); }}>Seller login</a>
+            </div>
+          </>
+        )}
       </nav>
 
       {/* ===== Hero ===== */}
@@ -950,7 +971,10 @@ export default function Page() {
         <div>
           <div className="pill"><span className="dot"></span>For inspiration, never to copy</div>
           <h1>Read the essays that <em>got them in</em>.</h1>
-          <p>Admitfolio is a marketplace of real college admissions essays, written by the students who got accepted. Browse by school and prompt, see why each one worked, and find the angle only you can write.</p>
+          <p>
+            <span className="hero-sub-long">Admitfolio is a marketplace of real college admissions essays, written by the students who got accepted. Browse by school and prompt, see why each one worked, and find the angle only you can write.</span>
+            <span className="hero-sub-short">Real admissions essays from the students who got accepted. See why each one worked, and find the angle only you can write.</span>
+          </p>
           <div className="hero-actions">
             <a className="btn-primary" href="#browse">Browse essays</a>
             <a className="btn-ghost" onClick={openSell}>Sell your essay</a>
@@ -963,31 +987,31 @@ export default function Page() {
         <div className="hero-art">
           <div className="float-card fc-top">
             <div className="fc-head">
-              <div className="badge" style={{ width: '38px', height: '38px', background: '#8C1515', fontSize: '18px' }}>S</div>
+              <LogoBadge domain="stanford.edu" letter="S" color="#8C1515" school="Stanford" size={38} fontSize={18} />
               <div style={{ flex: 1, minWidth: 0 }}><div className="fc-school">Stanford</div><div className="fc-year">Class of &apos;27</div></div>
               <div className="fc-rating"><span className="star">★</span> 4.9</div>
             </div>
             <div className="fc-prompt">Common App</div>
             <div className="fc-hook">The summer I taught my grandfather&apos;s old radio to sing again.</div>
             <div className="skel"><div style={{ width: '100%' }}></div><div style={{ width: '84%', opacity: 0.6 }}></div></div>
-            <div className="fc-foot"><span className="price" style={{ fontSize: '18px' }}>$14</span><span className="unlock-pill">Unlock</span></div>
+            <div className="fc-foot"><span className="unlock-pill">Unlock</span></div>
           </div>
 
           <div className="float-card fc-mid">
             <div className="fc-head">
-              <div className="badge" style={{ width: '38px', height: '38px', background: '#A51C30', fontSize: '18px' }}>H</div>
+              <LogoBadge domain="harvard.edu" letter="H" color="#A51C30" school="Harvard" size={38} fontSize={18} />
               <div style={{ flex: 1, minWidth: 0 }}><div className="fc-school">Harvard</div><div className="fc-year">Class of &apos;25</div></div>
               <div className="fc-rating"><span className="star">★</span> 5.0</div>
             </div>
             <div className="fc-prompt">Personal Statement</div>
             <div className="fc-hook">Translating for my mother at the DMV, one form at a time.</div>
             <div className="skel"><div style={{ width: '100%' }}></div><div style={{ width: '72%', opacity: 0.6 }}></div></div>
-            <div className="fc-foot"><span className="price" style={{ fontSize: '18px' }}>$15</span><span className="unlock-pill">Unlock</span></div>
+            <div className="fc-foot"><span className="unlock-pill">Unlock</span></div>
           </div>
 
           <div className="float-card fc-bot">
             <div className="fc-head">
-              <div className="badge" style={{ width: '36px', height: '36px', background: '#00356B', fontSize: '17px' }}>Y</div>
+              <LogoBadge domain="yale.edu" letter="Y" color="#00356B" school="Yale" size={36} fontSize={17} />
               <div style={{ flex: 1, minWidth: 0 }}><div className="fc-school">Yale</div><div className="fc-year">Class of &apos;26</div></div>
               <div className="fc-rating"><span className="star">★</span> 4.8</div>
             </div>
@@ -997,12 +1021,36 @@ export default function Page() {
         </div>
       </section>
 
-      {/* ===== Trust bar ===== */}
+      {/* ===== Trust bar (marquee on mobile) ===== */}
       <section className="trust">
         <div className="trust-label">Real essays from students now at</div>
-        <div className="trust-row">
-          <span>Harvard</span><span>Stanford</span><span>Yale</span><span>Princeton</span>
-          <span>MIT</span><span>Columbia</span><span>Brown</span><span>Penn</span>
+        <div className="trust-marquee">
+          <div className="trust-row">
+            {[0, 1].map((copy) => (
+              <div key={copy} className="trust-set" aria-hidden={copy === 1 || undefined}>
+                {[
+                  ['Harvard', 'harvard.edu'],
+                  ['Stanford', 'stanford.edu'],
+                  ['Yale', 'yale.edu'],
+                  ['Princeton', 'princeton.edu'],
+                  ['MIT', 'mit.edu'],
+                  ['Columbia', 'columbia.edu'],
+                  ['Brown', 'brown.edu'],
+                  ['Penn', 'upenn.edu'],
+                ].map(([name, domain]) => (
+                  <span key={domain} className="trust-school">
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                      alt={`${name} logo`}
+                      loading="lazy"
+                      onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                    />
+                    {name}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -1036,7 +1084,7 @@ export default function Page() {
               <div className="notify-text">
                 <div className="notify-eyebrow"><span className="dot"></span>Coming soon</div>
                 <h3>Real admit essays are on the way.</h3>
-                <p>Drop your email and we&apos;ll tell you the moment essays become public — no spam, just one heads-up when they&apos;re live.</p>
+                <p>Drop your email and we&apos;ll tell you the moment essays become public. No spam, just one heads-up when they&apos;re live.</p>
               </div>
               <form className="notify-form" autoComplete="on" onSubmit={handleNotifySubmit}>
                 <div className="notify-row">
@@ -1064,45 +1112,110 @@ export default function Page() {
 
             <div className="steps">
               <div className="step reveal">
+                <div className="step-card" aria-hidden="true">
+                  <svg viewBox="0 0 200 140" fill="none">
+                    <rect x="16" y="14" width="112" height="96" rx="12" fill="rgba(125,29,45,0.05)" stroke="var(--accent)" strokeWidth="2" strokeDasharray="6 6" />
+                    <line x1="32" y1="38" x2="92" y2="38" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" opacity="0.75" />
+                    <line x1="32" y1="54" x2="112" y2="54" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="32" y1="68" x2="104" y2="68" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="32" y1="82" x2="86" y2="82" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <circle cx="146" cy="80" r="27" fill="#fff" stroke="var(--accent)" strokeWidth="3" />
+                    <path d="M138 76h16M138 86h11" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+                    <line x1="165" y1="99" x2="180" y2="114" stroke="var(--accent)" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="176" cy="28" r="4" fill="rgba(125,29,45,0.25)" />
+                  </svg>
+                  <div className="step-num">1</div>
+                </div>
                 <div className="step-icon-wrap">
                   <div className="step-icon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
                   </div>
                   <div className="step-num">1</div>
                 </div>
+                <div className="step-connector"><span className="dot"></span></div>
                 <div className="step-title">Browse essays</div>
                 <p>Filter by school, prompt, or major. Every listing is from a verified admit.</p>
               </div>
 
               <div className="step reveal">
+                <div className="step-card" aria-hidden="true">
+                  <svg viewBox="0 0 200 140" fill="none">
+                    <rect x="22" y="12" width="94" height="112" rx="10" fill="#fff" stroke="var(--accent)" strokeWidth="2" />
+                    <line x1="36" y1="34" x2="100" y2="34" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="36" y1="48" x2="94" y2="48" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <rect x="32" y="56" width="74" height="13" rx="6.5" fill="rgba(125,29,45,0.10)" />
+                    <line x1="36" y1="62" x2="102" y2="62" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" opacity="0.85" />
+                    <line x1="36" y1="78" x2="96" y2="78" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="36" y1="92" x2="88" y2="92" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <rect x="130" y="34" width="56" height="46" rx="10" fill="rgba(125,29,45,0.06)" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 5" />
+                    <line x1="142" y1="52" x2="174" y2="52" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+                    <line x1="142" y1="64" x2="168" y2="64" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+                    <path d="M130 62L108 62" stroke="var(--accent)" strokeWidth="2" strokeDasharray="4 4" />
+                    <circle cx="158" cy="102" r="12" fill="#fff" stroke="var(--accent)" strokeWidth="2.5" />
+                    <path d="M152 102l4 4 8-8" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="step-num">2</div>
+                </div>
                 <div className="step-icon-wrap">
                   <div className="step-icon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                   </div>
                   <div className="step-num">2</div>
                 </div>
+                <div className="step-connector"><span className="dot"></span></div>
                 <div className="step-title">See why it worked</div>
                 <p>Each essay shows the schools it got into, the prompt, and margin notes.</p>
               </div>
 
               <div className="step reveal">
+                <div className="step-card" aria-hidden="true">
+                  <svg viewBox="0 0 200 140" fill="none">
+                    <line x1="16" y1="66" x2="52" y2="66" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 7" opacity="0.4" />
+                    <line x1="16" y1="82" x2="46" y2="82" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 7" opacity="0.4" />
+                    <line x1="152" y1="66" x2="184" y2="66" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 7" opacity="0.4" />
+                    <line x1="156" y1="82" x2="184" y2="82" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 7" opacity="0.4" />
+                    <path d="M76 58V44a24 24 0 0 1 47-7" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" />
+                    <rect x="62" y="58" width="76" height="60" rx="12" fill="#fff" stroke="var(--accent)" strokeWidth="2.5" />
+                    <circle cx="100" cy="84" r="8" fill="rgba(125,29,45,0.08)" stroke="var(--accent)" strokeWidth="2.5" />
+                    <line x1="100" y1="92" x2="100" y2="103" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
+                    <path d="M40 22v12M34 28h12" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" opacity="0.55" />
+                    <circle cx="164" cy="30" r="4" fill="rgba(125,29,45,0.25)" />
+                  </svg>
+                  <div className="step-num">3</div>
+                </div>
                 <div className="step-icon-wrap">
                   <div className="step-icon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.8-1.3"></path></svg>
                   </div>
                   <div className="step-num">3</div>
                 </div>
+                <div className="step-connector"><span className="dot"></span></div>
                 <div className="step-title">Unlock &amp; read</div>
                 <p>Buy a single essay, the full text reveals instantly after checkout.</p>
               </div>
 
               <div className="step reveal">
+                <div className="step-card" aria-hidden="true">
+                  <svg viewBox="0 0 200 140" fill="none">
+                    <rect x="26" y="14" width="92" height="110" rx="10" fill="#fff" stroke="var(--accent)" strokeWidth="2" />
+                    <line x1="40" y1="36" x2="104" y2="36" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="40" y1="52" x2="98" y2="52" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="40" y1="68" x2="102" y2="68" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+                    <line x1="40" y1="100" x2="66" y2="100" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" opacity="0.8" />
+                    <path d="M146 22l20 20-72 72-26 6 6-26z" fill="rgba(125,29,45,0.07)" stroke="var(--accent)" strokeWidth="2.5" strokeLinejoin="round" />
+                    <path d="M138 30l20 20" stroke="var(--accent)" strokeWidth="2" opacity="0.6" />
+                    <circle cx="170" cy="84" r="14" stroke="var(--accent)" strokeWidth="2" strokeDasharray="4 5" opacity="0.5" />
+                    <circle cx="176" cy="116" r="4" fill="rgba(125,29,45,0.25)" />
+                  </svg>
+                  <div className="step-num">4</div>
+                </div>
                 <div className="step-icon-wrap">
                   <div className="step-icon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                   </div>
                   <div className="step-num">4</div>
                 </div>
+                <div className="step-connector"><span className="dot"></span></div>
                 <div className="step-title">Write your own</div>
                 <p>Study the voice and structure to write something unmistakably you.</p>
               </div>
@@ -1139,14 +1252,42 @@ export default function Page() {
                     </div>
                   )}
                 </div>
-                <div className="cmp-alt">{r.diy}</div>
-                <div className="cmp-alt">{r.agency}</div>
+                <div className="cmp-alt"><AltValue v={r.diy} /></div>
+                <div className="cmp-alt"><AltValue v={r.agency} /></div>
               </Fragment>
             ))}
             <div className="cmp-foot-spacer"></div>
             <div className="cmp-foot-mine"><a className="btn-primary" href="#browse">Browse essays</a></div>
             <div className="cmp-foot-spacer"></div>
             <div className="cmp-foot-spacer"></div>
+          </div>
+
+          {/* Mobile-only card version of the chart (SideShift-style) */}
+          <div className="compare-cards reveal">
+            <div className="cc-head">
+              <span className="cc-brand">admitfolio<i></i></span>
+              <span>Going it alone</span>
+              <span>Hiring a counselor</span>
+            </div>
+            {comparisonRows.map((r, i) => (
+              <div key={i} className="cc-card">
+                <div className="cc-feature">{r.feature}</div>
+                <div className="cc-cells">
+                  <div className="cc-mine">
+                    {r.mineText ? (
+                      <span className="txt">{r.mineText}</span>
+                    ) : (
+                      <div className="cmp-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="cc-alt"><AltValue v={r.diyShort ?? r.diy} /></div>
+                  <div className="cc-alt"><AltValue v={r.agencyShort ?? r.agency} /></div>
+                </div>
+              </div>
+            ))}
+            <a className="btn-primary cc-cta" href="#browse">Browse essays</a>
           </div>
         </div>
       </section>
@@ -1208,7 +1349,7 @@ export default function Page() {
 
           {/* Step 1: email */}
           <div className={stepClass(1)}>
-            <div className="modal-eyebrow">Step 1 of 4 · Verify you&apos;re a student</div>
+            <div className="modal-eyebrow">Step 1 of 5 · Verify you&apos;re a student</div>
             <h3 id="sellTitle">Sell your essay</h3>
             <p className="sub">Only verified college students can list essays. Enter your school email, it must end in <strong>.edu</strong>.</p>
             <div className="field">
@@ -1220,9 +1361,9 @@ export default function Page() {
             <button className="modal-btn" onClick={handleSendCode} disabled={sendingCode}>{sendingCode ? 'Sending…' : 'Send code'}</button>
           </div>
 
-          {/* Step 2: code + create password */}
+          {/* Step 2: code */}
           <div className={stepClass(2)}>
-            <div className="modal-eyebrow">Step 2 of 4 · Confirm your email &amp; set a password</div>
+            <div className="modal-eyebrow">Step 2 of 5 · Confirm your email</div>
             <h3>Enter your code</h3>
             <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>.</p>
             <div className="code-inputs">
@@ -1241,23 +1382,31 @@ export default function Page() {
               ))}
             </div>
             <div className={`field-error${codeErr ? ' show' : ''}`}>{codeErr || 'Please enter all 6 digits.'}</div>
-            <div className="field" style={{ marginTop: '20px' }}>
-              <label htmlFor="signupPassword">Create a password</label>
-              <input type="password" id="signupPassword" placeholder="At least 8 characters" autoComplete="new-password" value={signupPw} onChange={(e) => { setSignupPw(e.target.value); setPwErr(''); }} />
-              <div className="field-hint">You&apos;ll log in with this email + password next time.</div>
-            </div>
-            <div className="field">
-              <label htmlFor="signupPassword2">Confirm password</label>
-              <input type="password" id="signupPassword2" placeholder="Re-enter your password" autoComplete="new-password" value={signupPw2} onChange={(e) => { setSignupPw2(e.target.value); setPwErr(''); }} />
-              <div className={`field-error${pwErr ? ' show' : ''}`}>{pwErr || 'Passwords must match and be at least 8 characters.'}</div>
-            </div>
             <button className="modal-btn" onClick={handleVerifyCode}>Verify &amp; continue</button>
             <button className="modal-back" onClick={() => setSellStep(1)}>← Use a different email</button>
           </div>
 
-          {/* Step 3: current university */}
+          {/* Step 3: create password (after the OTP is verified) */}
           <div className={stepClass(3)}>
-            <div className="modal-eyebrow">Step 3 of 4 · Your school</div>
+            <div className="modal-eyebrow">Step 3 of 5 · Set a password</div>
+            <h3>Create your password</h3>
+            <div className="verified-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Email verified</div>
+            <p className="sub">You&apos;ll log in with <strong>{verifiedEmail || 'your email'}</strong> and this password next time.</p>
+            <div className="field">
+              <label htmlFor="signupPassword">Create a password</label>
+              <input ref={signupPwRef} type="password" id="signupPassword" placeholder="At least 8 characters" autoComplete="new-password" value={signupPw} onChange={(e) => { setSignupPw(e.target.value); setPwErr(''); }} />
+            </div>
+            <div className="field">
+              <label htmlFor="signupPassword2">Confirm password</label>
+              <input type="password" id="signupPassword2" placeholder="Re-enter your password" autoComplete="new-password" value={signupPw2} onChange={(e) => { setSignupPw2(e.target.value); setPwErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordNext(); }} />
+              <div className={`field-error${pwErr ? ' show' : ''}`}>{pwErr || 'Passwords must match and be at least 8 characters.'}</div>
+            </div>
+            <button className="modal-btn" onClick={handlePasswordNext}>Continue</button>
+          </div>
+
+          {/* Step 4: current university */}
+          <div className={stepClass(4)}>
+            <div className="modal-eyebrow">Step 4 of 5 · Your school</div>
             <h3>Where do you go?</h3>
             <div className="verified-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Student verified</div>
             <p className="sub">The school you&apos;re currently enrolled at, this shows on your seller profile.</p>
@@ -1271,7 +1420,7 @@ export default function Page() {
               <label>How should your name appear on listings?</label>
               <div className="anon-toggle">
                 {([
-                  { value: 'anonymous', title: 'Always anonymous', sub: 'Your name is never shown — not even after a purchase.' },
+                  { value: 'anonymous', title: 'Always anonymous', sub: 'Your name is never shown, not even after a purchase.' },
                   { value: 'reveal', title: 'Anonymous until bought', sub: 'Anonymous on the listing; buyers see your real name once they’ve bought.' },
                   { value: 'public', title: 'Show my name publicly', sub: 'Your name appears on the listing for everyone to see.' },
                 ] as const).map((opt) => (
@@ -1281,16 +1430,16 @@ export default function Page() {
                   </label>
                 ))}
               </div>
-              <div className="field-hint">Showing your real name adds credibility — buyers tend to trust named sellers more. Anonymous listings sell well too.</div>
+              <div className="field-hint">Showing your real name adds credibility. Buyers tend to trust named sellers more. Anonymous listings sell well too.</div>
             </div>
 
             <button className="modal-btn" onClick={handleUniNext}>Continue</button>
-            <button className="modal-back" onClick={() => setSellStep(2)}>← Back</button>
+            <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
           </div>
 
-          {/* Step 4: listing builder */}
-          <div className={`${stepClass(4)} mode-${pricingMode}`} data-step="4">
-            <div className="modal-eyebrow">Step 4 of 4 · Build a listing</div>
+          {/* Step 5: listing builder */}
+          <div className={`${stepClass(5)} mode-${pricingMode}`} data-step="4">
+            <div className="modal-eyebrow">Step 5 of 5 · Build a listing</div>
             <h3>Add your essays</h3>
             <p className="sub">Pick the application system your essays came from, then add every essay in that application so buyers get the complete set.</p>
 
@@ -1397,17 +1546,17 @@ export default function Page() {
 
             <div className={`field-error${detailsErr ? ' show' : ''}`}>{detailsErr || 'Please complete every field and upload a PDF for each essay.'}</div>
             <button className="modal-btn" onClick={handleSubmitListing} disabled={submitting}>{submitting ? submitLabel || 'Submitting…' : 'Submit for review'}</button>
-            <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
+            <button className="modal-back" onClick={() => setSellStep(4)}>← Back</button>
           </div>
 
-          {/* Step 5: success */}
-          <div className={`${stepClass(5)} modal-center`}>
+          {/* Step 6: success */}
+          <div className={`${stepClass(6)} modal-center`}>
             <div className="success-check">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </div>
             <h3>{successTitle}</h3>
             <p className="sub">Thanks! Every essay is <strong>manually reviewed</strong> by our team to keep quality high. We&apos;ll email <strong>{verifiedEmail || 'you'}</strong> as soon as it&apos;s approved, usually within 2 business days.</p>
-            <button className="modal-btn" onClick={() => { resetListingForm(); setSellStep(4); }}>+ Add another listing</button>
+            <button className="modal-btn" onClick={() => { resetListingForm(); setSellStep(5); }}>+ Add another listing</button>
             <button className="modal-back" onClick={closeSell}>Done for now</button>
           </div>
         </div>
@@ -1433,7 +1582,7 @@ export default function Page() {
             <div className="field">
               <label htmlFor="buyEmail">Email to send it to</label>
               <input ref={buyEmailRef} type="email" id="buyEmail" placeholder="you@email.com" inputMode="email" autoComplete="email" spellCheck={false} value={buyEmail} onChange={(e) => { setBuyEmail(e.target.value); setBuyErr(''); }} />
-              <div className="field-hint">We&apos;ll send the full essay &amp; receipt here — no account needed.</div>
+              <div className="field-hint">We&apos;ll send the full essay &amp; receipt here. No account needed.</div>
             </div>
 
             <div className="field">
@@ -1472,7 +1621,7 @@ export default function Page() {
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </div>
             <h3>Essay unlocked!</h3>
-            <p className="sub">Payment received 🎉 We&apos;ve emailed the full essay, stats, and margin notes — plus your receipt — to <strong>{buySentTo}</strong>. Check your email!</p>
+            <p className="sub">Payment received 🎉 We&apos;ve emailed the full essay, stats, and margin notes, plus your receipt, to <strong>{buySentTo}</strong>. Check your email!</p>
             <button className="modal-btn" onClick={closeBuy}>Read the essay</button>
             <button className="modal-back" onClick={closeBuy}>Close</button>
           </div>
@@ -1491,7 +1640,7 @@ export default function Page() {
           <div className="modal-logo"><span className="w">admitfolio</span><span className="d"></span></div>
           <div className="modal-eyebrow"><span className="wl-dot"></span>Coming soon</div>
           <h3 id="wlTitle">Be first to read the essays that got them in.</h3>
-          <p className="sub">We&apos;re collecting verified admit essays right now. Drop your email and we&apos;ll tell you the moment they go live — no spam, just one heads-up.</p>
+          <p className="sub">We&apos;re collecting verified admit essays right now. Drop your email and we&apos;ll tell you the moment they go live. No spam, just one heads-up.</p>
           <form autoComplete="on" onSubmit={handleWlSubmit}>
             <div className="field">
               <input ref={wlEmailRef} type="email" placeholder="you@email.com" autoComplete="email" spellCheck={false} aria-label="Email address" value={wlEmail} onChange={(e) => { setWlEmail(e.target.value); if (wlMsg.text) setWlMsg({ text: '', kind: '' }); }} />
@@ -1697,6 +1846,16 @@ export default function Page() {
 /* ============================================================================
    Small presentational helpers
    ==========================================================================*/
+
+/* Comparison cell value: "n/a" renders as an X mark instead of text. */
+function AltValue({ v }: { v: string }) {
+  if (/^n\/a$/i.test(v.trim())) {
+    return (
+      <svg className="cc-x" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-label="Not available"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>
+    );
+  }
+  return <>{v}</>;
+}
 
 function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) {
   return (

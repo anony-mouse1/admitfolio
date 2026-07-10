@@ -14,7 +14,7 @@ type LogoBadgeProps = {
 /**
  * Colored monogram badge with an optional real university logo overlay.
  * If the favicon fails to load, the <img> is hidden and the letter shows
- * through — mirrors the original onerror/onload behavior.
+ * through - mirrors the original onerror/onload behavior.
  */
 export default function LogoBadge({ domain, letter, color, school, size, fontSize }: LogoBadgeProps) {
   const [loaded, setLoaded] = useState(false);
