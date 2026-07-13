@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
-import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 import { PROFILE_TAGS } from '@/lib/site';
 
 export const runtime = 'nodejs';
@@ -9,16 +8,9 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BIO = 300;
 const MAX_NAME = 80;
-const SIGNED_URL_TTL_S = 60 * 60;
 
-async function shape(seller: { name: string | null; bio: string | null; photoPath: string | null; backgroundTags: string }) {
-  let photoUrl: string | null = null;
-  if (seller.photoPath) {
-    const { data } = await supabaseAdmin.storage
-      .from(ESSAYS_BUCKET)
-      .createSignedUrl(seller.photoPath, SIGNED_URL_TTL_S);
-    photoUrl = data?.signedUrl || null;
-  }
+// Avatars are the seller's initials, rendered client-side - no photos.
+function shape(seller: { name: string | null; bio: string | null; backgroundTags: string }) {
   let backgroundTags: string[] = [];
   try {
     const parsed = JSON.parse(seller.backgroundTags);
@@ -26,7 +18,7 @@ async function shape(seller: { name: string | null; bio: string | null; photoPat
   } catch {
     /* ignore */
   }
-  return { name: seller.name, bio: seller.bio, backgroundTags, photoUrl };
+  return { name: seller.name, bio: seller.bio, backgroundTags };
 }
 
 export async function GET() {
@@ -36,7 +28,7 @@ export async function GET() {
   const seller = await prisma.seller.findUnique({ where: { email: session.email } });
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  return NextResponse.json({ ok: true, ...(await shape(seller)) });
+  return NextResponse.json({ ok: true, ...shape(seller) });
 }
 
 export async function POST(req: Request) {
@@ -62,5 +54,5 @@ export async function POST(req: Request) {
     data: { name, bio, backgroundTags: JSON.stringify(backgroundTags) },
   });
 
-  return NextResponse.json({ ok: true, ...(await shape(seller)) });
+  return NextResponse.json({ ok: true, ...shape(seller) });
 }

@@ -1029,6 +1029,11 @@ body { -webkit-tap-highlight-color: transparent; }
   .dash-seller-email { display: none; }
   .dash-h2 { font-size: 22px; }
 
+  /* Listing cards: title row on top, status + actions on their own row -
+     side by side they squeeze the title into a one-word-per-line column */
+  .dash-listing-card { flex-direction: column; align-items: stretch; }
+  .dash-listing-actions { margin-top: 2px; }
+
   /* Floating waitlist button clears the home indicator */
   .wl-fab { bottom: calc(14px + env(safe-area-inset-bottom)); }
 }
@@ -1177,15 +1182,7 @@ body { -webkit-tap-highlight-color: transparent; }
   display: flex; align-items: center; justify-content: center;
   font-family: var(--serif); font-size: 26px; font-weight: 700; color: var(--accent);
 }
-.prof-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .prof-photo-title { font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink); }
-.prof-photo-btn {
-  margin-top: 9px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink);
-  background: #fff; border: 1px solid #ddd9d0; border-radius: 999px; padding: 8px 16px; cursor: pointer;
-  transition: border-color .2s;
-}
-.prof-photo-btn:hover { border-color: var(--ink); }
-.prof-photo-btn:disabled { opacity: .55; cursor: default; }
 .prof-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .ptag {
   font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--muted);

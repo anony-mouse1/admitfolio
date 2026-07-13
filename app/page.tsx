@@ -730,12 +730,11 @@ export default function Page() {
     setProfMsg({ text: '', kind: '' });
     fetch('/api/seller/profile')
       .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { name?: string | null; bio?: string | null; backgroundTags?: string[]; photoUrl?: string | null };
+        const d = (await r.json().catch(() => ({}))) as { name?: string | null; bio?: string | null; backgroundTags?: string[] };
         if (!r.ok) return;
         setProfName(d.name || '');
         setProfBio(d.bio || '');
         setProfTags(Array.isArray(d.backgroundTags) ? d.backgroundTags : []);
-        setProfPhotoUrl(d.photoUrl || null);
       })
       .catch(() => {});
     fetch('/api/seller/listings')
@@ -837,14 +836,12 @@ export default function Page() {
   const [dashLoading, setDashLoading] = useState(false);
   const [dashErr, setDashErr] = useState('');
 
-  /* ---- Seller profile (name, photo, bio, background tags) ---- */
+  /* ---- Seller profile (name, bio, background tags; avatar = initials) ---- */
   const [profName, setProfName] = useState('');
   const [profBio, setProfBio] = useState('');
   const [profTags, setProfTags] = useState<string[]>([]);
-  const [profPhotoUrl, setProfPhotoUrl] = useState<string | null>(null);
   const [profMsg, setProfMsg] = useState<Msg>({ text: '', kind: '' });
   const [profBusy, setProfBusy] = useState(false);
-  const profPhotoRef = useRef<HTMLInputElement>(null);
 
   function toggleProfTag(tag: string) {
     setProfMsg({ text: '', kind: '' });
@@ -865,24 +862,6 @@ export default function Page() {
       setProfMsg({ text: 'Profile saved!', kind: 'ok' });
     } catch (err) {
       setProfMsg({ text: err instanceof Error ? err.message : 'Could not save your profile.', kind: 'err' });
-    } finally {
-      setProfBusy(false);
-    }
-  }
-
-  async function uploadProfilePhoto(file: File) {
-    setProfBusy(true);
-    setProfMsg({ text: '', kind: '' });
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const resp = await fetch('/api/seller/profile-photo', { method: 'POST', body: fd });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; photoUrl?: string };
-      if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not upload the photo.');
-      setProfPhotoUrl(data.photoUrl || null);
-      setProfMsg({ text: 'Photo updated!', kind: 'ok' });
-    } catch (err) {
-      setProfMsg({ text: err instanceof Error ? err.message : 'Could not upload the photo.', kind: 'err' });
     } finally {
       setProfBusy(false);
     }
@@ -1639,8 +1618,9 @@ export default function Page() {
             </div>
             <h3>{successTitle}</h3>
             <p className="sub">Thanks! Every essay is <strong>manually reviewed</strong> by our team to keep quality high. We&apos;ll email <strong>{verifiedEmail || 'you'}</strong> as soon as it&apos;s approved, usually within 2 business days.</p>
-            <button className="modal-btn" onClick={() => { resetListingForm(); setSellStep(5); }}>+ Add another listing</button>
-            <button className="modal-btn modal-btn-secondary" onClick={() => { const email = verifiedEmail; closeSell(); openDashboard(email); }}>Tell buyers about yourself: name, photo &amp; background</button>
+            <p className="sub">While you wait, this is your chance to <strong>create your seller profile</strong>: your name, a short bio, and your background. Buyers trust sellers with a story.</p>
+            <button className="modal-btn" onClick={() => { const email = verifiedEmail; closeSell(); openDashboard(email); }}>Create your seller profile</button>
+            <button className="modal-btn modal-btn-secondary" onClick={() => { resetListingForm(); setSellStep(5); }}>Submit another essay</button>
             <button className="modal-back" onClick={closeSell}>Done for now</button>
           </div>
         </div>
@@ -1862,31 +1842,18 @@ export default function Page() {
             </div>
             <div className="dash-profile-card">
               <div className="dash-profile-row">
+                {/* Avatar is always the seller's initials - no photo uploads */}
                 <div className="prof-photo">
-                  {profPhotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profPhotoUrl} alt="Your profile photo" />
-                  ) : (
-                    <span>{(sellerEmail[0] || 'A').toUpperCase()}</span>
-                  )}
+                  <span>
+                    {(profName.trim()
+                      ? profName.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('')
+                      : sellerEmail[0] || 'A'
+                    ).toUpperCase()}
+                  </span>
                 </div>
                 <div className="prof-photo-copy">
-                  <div className="prof-photo-title">Add your name, photo &amp; background</div>
-                  <div className="field-hint" style={{ marginTop: 2 }}>Buyers connect with real stories. A face, a name, and a couple of sentences build trust.</div>
-                  <button type="button" className="prof-photo-btn" disabled={profBusy} onClick={() => profPhotoRef.current?.click()}>
-                    {profPhotoUrl ? 'Change photo' : 'Upload photo'}
-                  </button>
-                  <input
-                    ref={profPhotoRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) uploadProfilePhoto(f);
-                      e.target.value = '';
-                    }}
-                  />
+                  <div className="prof-photo-title">Add your name &amp; background</div>
+                  <div className="field-hint" style={{ marginTop: 2 }}>Buyers connect with real stories. A name and a couple of sentences build trust.</div>
                 </div>
               </div>
 
