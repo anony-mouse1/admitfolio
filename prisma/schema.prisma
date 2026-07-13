@@ -39,6 +39,7 @@ model Listing {
   packagePrice Int? // whole dollars, when pricingMode = package
   status       String     @default("pending") // pending | approved | rejected | removed (seller take-down)
   adminNote    String?
+  sellerNote   String? // optional note from the seller, shown to the admin during review
   createdAt    DateTime   @default(now())
   reviewedAt   DateTime?
   essays       Essay[]

@@ -23,6 +23,7 @@ type Listing = {
   packagePrice: number | null;
   status: 'pending' | 'approved' | 'rejected' | 'removed'; // removed = seller take-down
   adminNote: string | null;
+  sellerNote: string | null;
   createdAt: string;
   sellerEmail: string;
   isTest: boolean; // seller is an admin/test account - dummy data, not a real student
@@ -146,6 +147,15 @@ export default function AdminPage() {
 
   const shown = listings.filter((l) => filter === 'all' || l.status === filter);
 
+  // Group by seller so it's obvious which submissions belong to the same
+  // person (order of first appearance is preserved - newest sellers first).
+  const sellerGroups: { email: string; isTest: boolean; items: ListingFull[] }[] = [];
+  for (const l of shown) {
+    const g = sellerGroups.find((s) => s.email === l.sellerEmail);
+    if (g) g.items.push(l);
+    else sellerGroups.push({ email: l.sellerEmail, isTest: l.isTest, items: [l] });
+  }
+
   return (
     <div className={styles.page}>
       {stage === 'console' ? (
@@ -180,18 +190,29 @@ export default function AdminPage() {
             {shown.length === 0 ? (
               <div className={styles.empty}>No submissions{filter === 'all' ? ' yet' : ` marked ${filter}`}.</div>
             ) : (
-              shown.map((l) => (
+              sellerGroups.map((g) => (
+                <section key={g.email} className={styles.sellerGroup}>
+                  <div className={styles.sellerHead}>
+                    <span className={styles.sellerEmail}>
+                      {g.isTest && <span className={styles.testBadge}>TEST</span>}
+                      {g.email}
+                    </span>
+                    <span className={styles.sellerCounts}>
+                      {g.items.length} listing{g.items.length === 1 ? '' : 's'} ·{' '}
+                      {g.items.reduce((n, l) => n + l.essays.length, 0)} essay
+                      {g.items.reduce((n, l) => n + l.essays.length, 0) === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {g.items.map((l) => (
                 <div key={l.id} className={styles.card}>
                   <div className={styles.cardTop}>
                     <div>
                       <h3 className={styles.serif}>
-                        {l.isTest && <span className={styles.testBadge}>TEST</span>}
                         {l.school}
                         {l.gradYear ? ` · Class of ${l.gradYear}` : ''}
                       </h3>
                       <div className={styles.who}>
-                        {l.sellerEmail}
-                        {l.major ? ` · ${l.major}` : ''} · {l.anonymity}
+                        {l.major ? `${l.major} · ` : ''}{l.anonymity}
                       </div>
                     </div>
                     <span className={`${styles.status} ${styles[l.status] || styles.rejected}`}>{l.status}</span>
@@ -235,6 +256,12 @@ export default function AdminPage() {
                     ))}
                   </div>
 
+                  {l.sellerNote && (
+                    <div className={styles.who} style={{ marginTop: 10 }}>
+                      Seller&apos;s note: <b>{l.sellerNote}</b>
+                    </div>
+                  )}
+
                   {l.adminNote && (
                     <div className={styles.who} style={{ marginTop: 10 }}>
                       Note: {l.adminNote}
@@ -255,6 +282,8 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
+                  ))}
+                </section>
               ))
             )}
           </div>

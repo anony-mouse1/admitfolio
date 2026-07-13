@@ -44,6 +44,7 @@ export async function GET() {
     packagePrice: l.packagePrice,
     status: l.status,
     adminNote: l.adminNote,
+    sellerNote: l.sellerNote,
     createdAt: l.createdAt,
     reviewedAt: l.reviewedAt,
     sellerEmail: l.seller.email,

@@ -277,3 +277,28 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+/* Listings grouped by seller so one person's submissions read as a set */
+.sellerGroup {
+  margin-top: 26px;
+  padding-left: 14px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.sellerGroup .card { margin-top: 12px; }
+.sellerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sellerEmail {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sellerCounts {
+  font-size: 12.5px;
+  color: var(--faint);
+  white-space: nowrap;
+}

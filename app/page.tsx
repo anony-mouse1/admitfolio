@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
-import { schoolTier, TIER, packageFloor, perEssayFloor, admitsTier } from '@/lib/pricing';
+import { TIER, packageFloor, perEssayFloor, admitsTier } from '@/lib/pricing';
 
 /* ============================================================================
    Types & static data
@@ -169,8 +169,7 @@ export default function Page() {
   const [essayRows, setEssayRows] = useState<EssayRow[]>([newEssayRow()]);
   const [pricingMode, setPricingMode] = useState<PricingMode>('package');
   const [packagePrice, setPackagePrice] = useState('');
-  const [selectedTier, setSelectedTier] = useState<1 | 2 | 3 | null>(null);
-  const [tierOverridden, setTierOverridden] = useState(false);
+  const [sellerNote, setSellerNote] = useState('');
   const [detailsErr, setDetailsErr] = useState('');
   const [listingCount, setListingCount] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
@@ -183,19 +182,19 @@ export default function Page() {
   const codeRefs = useRef<Array<HTMLInputElement | null>>([]);
   const admitInputRef = useRef<HTMLInputElement>(null);
 
+  // The tier is fixed - derived from the seller's admits, no manual override.
   const suggestedTier: 1 | 2 | 3 | null = useMemo(() => admitsTier(admits), [admits]);
-  const effectiveTier: 1 | 2 | 3 | null = tierOverridden ? selectedTier : suggestedTier;
 
   // Auto-apply the tier floor to prices (mirrors applyTierToPrices).
   useEffect(() => {
-    if (!effectiveTier) return;
-    const pf = packageFloor(effectiveTier, essayRows.length);
+    if (!suggestedTier) return;
+    const pf = packageFloor(suggestedTier, essayRows.length);
     setPackagePrice((prev) => {
       const cur = parseFloat(prev);
       if (!prev || isNaN(cur) || cur < pf) return String(pf);
       return prev;
     });
-    const ef = perEssayFloor(effectiveTier);
+    const ef = perEssayFloor(suggestedTier);
     setEssayRows((prev) =>
       prev.map((row) => {
         const c = parseFloat(row.price);
@@ -204,7 +203,7 @@ export default function Page() {
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveTier, essayRows.length]);
+  }, [suggestedTier, essayRows.length]);
 
   const resetListingForm = useCallback(() => {
     setTargetSchool('');
@@ -213,8 +212,7 @@ export default function Page() {
     setAdmitInput('');
     setPricingMode('package');
     setEssayRows([newEssayRow()]);
-    setSelectedTier(null);
-    setTierOverridden(false);
+    setSellerNote('');
     setDetailsErr('');
   }, []);
 
@@ -246,6 +244,19 @@ export default function Page() {
   const closeSell = useCallback(() => {
     setSellOpen(false);
     fullResetSell();
+  }, [fullResetSell]);
+
+  // From the dashboard the seller is already authenticated (session cookie),
+  // so skip email/OTP/password and start at the school step. The server
+  // accepts the session in place of an email token.
+  const openSellFromDashboard = useCallback((email: string, lastSchool: string) => {
+    setDashOpen(false);
+    fullResetSell();
+    setVerifiedEmail(email);
+    setCurrentUni(lastSchool);
+    setSellStep(4);
+    setSellOpen(true);
+    setTimeout(() => uniRef.current?.focus(), 60);
   }, [fullResetSell]);
 
   const emailAllowed = (e: string) => eduRe.test(e) || isLocalHost();
@@ -394,24 +405,11 @@ export default function Page() {
     return html;
   }, [targetSchool, essayRows.length]);
 
-  const tierSuggestHtml = useMemo(() => {
-    if (!admits.length) return "💡 Add the schools you got into above and we'll suggest your tier automatically.";
-    const names = admits.slice(0, 3).join(', ') + (admits.length > 3 ? '…' : '');
-    const label = suggestedTier ? TIER[suggestedTier].label : '';
-    return `💡 Based on your admits (<b>${names}</b>), we suggest <b>${label}</b>. This sets your price floor. Charge that or more.`;
-  }, [admits, suggestedTier]);
+  const admitNames = admits.slice(0, 3).join(', ') + (admits.length > 3 ? '…' : '');
 
-  const tierWarn = tierOverridden && suggestedTier && selectedTier && selectedTier < suggestedTier
-    ? 'Heads up: this is a higher tier than your admits suggest. Pricing above your profile can mean fewer sales. You can change it anytime.'
-    : '';
-
-  function pickTier(t: 1 | 2 | 3) {
-    setSelectedTier(t);
-    setTierOverridden(true);
-  }
   function handlePackagePriceBlur() {
-    if (!effectiveTier) return;
-    const pf = packageFloor(effectiveTier, essayRows.length);
+    if (!suggestedTier) return;
+    const pf = packageFloor(suggestedTier, essayRows.length);
     const cur = parseFloat(packagePrice);
     if (isNaN(cur) || cur < pf) setPackagePrice(String(pf));
   }
@@ -429,8 +427,8 @@ export default function Page() {
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
     else if (!separate && !packagePrice.trim()) msg = 'Set a package price.';
-    else if (effectiveTier && !separate && parseFloat(packagePrice) < packageFloor(effectiveTier, rows.length)) msg = `Your ${TIER[effectiveTier].label} floor is $${packageFloor(effectiveTier, rows.length)}. You can charge that or more.`;
-    else if (effectiveTier && separate && rows.some((r) => parseFloat(r.price) < perEssayFloor(effectiveTier))) msg = `Each essay's floor at ${TIER[effectiveTier].label} is $${perEssayFloor(effectiveTier)}. You can charge that or more.`;
+    else if (suggestedTier && !separate && parseFloat(packagePrice) < packageFloor(suggestedTier, rows.length)) msg = `Your ${TIER[suggestedTier].label} floor is $${packageFloor(suggestedTier, rows.length)}. You can charge that or more.`;
+    else if (suggestedTier && separate && rows.some((r) => parseFloat(r.price) < perEssayFloor(suggestedTier))) msg = `Each essay's floor at ${TIER[suggestedTier].label} is $${perEssayFloor(suggestedTier)}. You can charge that or more.`;
 
     if (msg) {
       setDetailsErr(msg);
@@ -448,6 +446,7 @@ export default function Page() {
       applicationSystem: appLabels[targetSchool] || targetSchool,
       pricingMode,
       packagePrice: separate ? undefined : Number(packagePrice) || undefined,
+      sellerNote: sellerNote.trim() || undefined,
       essays: rows.map((r) => ({
         prompt: r.prompt,
         question: /^other/i.test(r.prompt) ? r.question.trim() || undefined : undefined,
@@ -1269,7 +1268,10 @@ export default function Page() {
               </Fragment>
             ))}
             <div className="cmp-foot-spacer"></div>
-            <div className="cmp-foot-mine"><a className="btn-primary" href="#browse">Browse essays</a></div>
+            <div className="cmp-foot-mine">
+              <a className="btn-primary" href="#browse">Browse essays</a>
+              <a className="btn-ghost" onClick={openSell}>Sell your essay</a>
+            </div>
             <div className="cmp-foot-spacer"></div>
             <div className="cmp-foot-spacer"></div>
           </div>
@@ -1299,7 +1301,10 @@ export default function Page() {
                 </div>
               </div>
             ))}
-            <a className="btn-primary cc-cta" href="#browse">Browse essays</a>
+            <div className="cc-actions">
+              <a className="btn-primary" href="#browse">Browse essays</a>
+              <a className="btn-ghost" onClick={openSell}>Sell your essay</a>
+            </div>
           </div>
         </div>
       </section>
@@ -1333,12 +1338,8 @@ export default function Page() {
               <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a></div>
             </div>
             <div>
-              <div className="foot-col-title">Company</div>
-              <div className="foot-links"><a>About</a><a>Our standards</a><a>Contact</a></div>
-            </div>
-            <div>
               <div className="foot-col-title">Legal</div>
-              <div className="foot-links"><a>Academic integrity</a><a>Privacy</a><a>Terms</a></div>
+              <div className="foot-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
             </div>
           </div>
           <div className="foot-bottom">
@@ -1515,27 +1516,29 @@ export default function Page() {
               <button className="add-btn" type="button" onClick={addEssayRow}>+ Add another essay</button>
             </div>
 
-            {/* Smart pricing */}
+            {/* Smart pricing: the tier is fixed by the admits, not chosen */}
             <div className="field">
               <label>Your price tier</label>
-              <div className="tier-suggest" dangerouslySetInnerHTML={{ __html: tierSuggestHtml }} />
-              <div className="tier-cards">
-                {([1, 2, 3] as const).map((t) => {
-                  const meta = {
-                    1: { title: 'Tier 1 · Top', sub: 'HYPSM, Ivies & equivalents' },
-                    2: { title: 'Tier 2 · Strong', sub: 'Highly selective · top 20–50' },
-                    3: { title: 'Tier 3 · Standard', sub: 'State school · fewer selective admits' },
-                  }[t];
-                  return (
-                    <label key={t} className={`tier-card${effectiveTier === t ? ' active' : ''}${suggestedTier === t ? ' suggested' : ''}`} onClick={() => pickTier(t)}>
-                      <input type="radio" name="tier" value={t} checked={effectiveTier === t} readOnly />
-                      <div className="tc-body"><span className="tc-title">{meta.title}</span><small>{meta.sub}</small></div>
-                      <span className="tc-floor">from ${packageFloor(t, essayRows.length)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              <div className={`tier-warn${tierWarn ? ' show' : ''}`}>{tierWarn}</div>
+              {suggestedTier ? (
+                <div className="tier-fixed">
+                  <div className="tf-row">
+                    <span className="tf-badge">{TIER[suggestedTier].label}</span>
+                    <span className="tf-floor">
+                      price floor: {pricingMode === 'separate'
+                        ? `$${perEssayFloor(suggestedTier)} per essay`
+                        : `$${packageFloor(suggestedTier, essayRows.length)}`}
+                    </span>
+                  </div>
+                  <div className="field-hint">
+                    We suggest <b>{TIER[suggestedTier].label}</b> based on your admits (<b>{admitNames}</b>).
+                    Your tier is set automatically and fixes the minimum price above. You can always charge more.
+                  </div>
+                </div>
+              ) : (
+                <div className="tier-fixed">
+                  <div className="field-hint">💡 Add the schools you got into above and we&apos;ll set your tier and price floor automatically.</div>
+                </div>
+              )}
             </div>
 
             <div className="field">
@@ -1551,12 +1554,28 @@ export default function Page() {
                 </label>
               </div>
               <div className="field" id="packagePriceField">
-                <label htmlFor="packagePrice">Package price <span className="floor-hint">{effectiveTier ? `(min $${packageFloor(effectiveTier, essayRows.length)})` : ''}</span></label>
+                <label htmlFor="packagePrice">Package price <span className="floor-hint">{suggestedTier ? `(min $${packageFloor(suggestedTier, essayRows.length)})` : ''}</span></label>
                 <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={399} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
               </div>
             </div>
 
+            <div className="field">
+              <label htmlFor="sellerNote">Notes for our review team <span className="floor-hint">(optional)</span></label>
+              <textarea
+                id="sellerNote"
+                rows={3}
+                maxLength={500}
+                placeholder="Anything you'd like the reviewer to know about your essays or admits."
+                value={sellerNote}
+                onChange={(e) => setSellerNote(e.target.value)}
+              />
+              <div className="field-hint">Shared only with the admin who reviews your listing. Never shown to buyers.</div>
+            </div>
+
             <div className={`field-error${detailsErr ? ' show' : ''}`}>{detailsErr || 'Please complete every field and upload a PDF for each essay.'}</div>
+            <div className="submit-note">
+              <b>One listing = one application.</b> This submission covers just the application above (for example, your UC app or one school&apos;s essays). Have essays from other applications? You can submit another listing right after this one.
+            </div>
             <button className="modal-btn" onClick={handleSubmitListing} disabled={submitting}>{submitting ? submitLabel || 'Submitting…' : 'Submit for review'}</button>
             <button className="modal-back" onClick={() => setSellStep(4)}>← Back</button>
           </div>
@@ -1743,7 +1762,6 @@ export default function Page() {
           <section className="dash-section">
             <div className="dash-section-head">
               <h2 className="dash-h2">Earnings overview</h2>
-              <div className="dash-fee-badge">Platform takes {platformPct}% · you keep {sellerPct}%</div>
             </div>
             <div className="dash-stats-row">
               <div className="dash-stat-card">
@@ -1819,7 +1837,7 @@ export default function Page() {
           <section className="dash-section">
             <div className="dash-section-head">
               <h2 className="dash-h2">My listings</h2>
-              <button className="modal-btn" style={{ width: 'auto', margin: 0, padding: '10px 22px', fontSize: '14px' }} onClick={() => { closeDashboard(); openSell(); }}>+ Add new essay</button>
+              <button className="modal-btn" style={{ width: 'auto', margin: 0, padding: '10px 22px', fontSize: '14px' }} onClick={() => openSellFromDashboard(sellerEmail, listings[0]?.school || '')}>+ Add new essay</button>
             </div>
             <div>
               {([
