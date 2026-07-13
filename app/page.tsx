@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { TIER, packageFloor, perEssayFloor, admitsTier } from '@/lib/pricing';
+import { PROFILE_TAGS } from '@/lib/site';
 
 /* ============================================================================
    Types & static data
@@ -724,6 +725,16 @@ export default function Page() {
     setDashErr('');
     setDashLoading(true);
     setDashOpen(true);
+    setProfMsg({ text: '', kind: '' });
+    fetch('/api/seller/profile')
+      .then(async (r) => {
+        const d = (await r.json().catch(() => ({}))) as { bio?: string | null; backgroundTags?: string[]; photoUrl?: string | null };
+        if (!r.ok) return;
+        setProfBio(d.bio || '');
+        setProfTags(Array.isArray(d.backgroundTags) ? d.backgroundTags : []);
+        setProfPhotoUrl(d.photoUrl || null);
+      })
+      .catch(() => {});
     fetch('/api/seller/listings')
       .then(async (r) => {
         const d = (await r.json().catch(() => ({}))) as { listings?: SellerListing[]; monthGross?: number; error?: string };
@@ -822,6 +833,56 @@ export default function Page() {
   const [monthGross, setMonthGross] = useState(0);
   const [dashLoading, setDashLoading] = useState(false);
   const [dashErr, setDashErr] = useState('');
+
+  /* ---- Seller profile (photo, bio, background tags) ---- */
+  const [profBio, setProfBio] = useState('');
+  const [profTags, setProfTags] = useState<string[]>([]);
+  const [profPhotoUrl, setProfPhotoUrl] = useState<string | null>(null);
+  const [profMsg, setProfMsg] = useState<Msg>({ text: '', kind: '' });
+  const [profBusy, setProfBusy] = useState(false);
+  const profPhotoRef = useRef<HTMLInputElement>(null);
+
+  function toggleProfTag(tag: string) {
+    setProfMsg({ text: '', kind: '' });
+    setProfTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  async function saveProfile() {
+    setProfBusy(true);
+    setProfMsg({ text: '', kind: '' });
+    try {
+      const resp = await fetch('/api/seller/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bio: profBio, backgroundTags: profTags }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not save your profile.');
+      setProfMsg({ text: 'Profile saved!', kind: 'ok' });
+    } catch (err) {
+      setProfMsg({ text: err instanceof Error ? err.message : 'Could not save your profile.', kind: 'err' });
+    } finally {
+      setProfBusy(false);
+    }
+  }
+
+  async function uploadProfilePhoto(file: File) {
+    setProfBusy(true);
+    setProfMsg({ text: '', kind: '' });
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const resp = await fetch('/api/seller/profile-photo', { method: 'POST', body: fd });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; photoUrl?: string };
+      if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not upload the photo.');
+      setProfPhotoUrl(data.photoUrl || null);
+      setProfMsg({ text: 'Photo updated!', kind: 'ok' });
+    } catch (err) {
+      setProfMsg({ text: err instanceof Error ? err.message : 'Could not upload the photo.', kind: 'err' });
+    } finally {
+      setProfBusy(false);
+    }
+  }
 
   const earnings = useMemo(() => {
     const totalGross = listings.reduce((sum, l) => sum + l.gross, 0);
@@ -1588,6 +1649,7 @@ export default function Page() {
             <h3>{successTitle}</h3>
             <p className="sub">Thanks! Every essay is <strong>manually reviewed</strong> by our team to keep quality high. We&apos;ll email <strong>{verifiedEmail || 'you'}</strong> as soon as it&apos;s approved, usually within 2 business days.</p>
             <button className="modal-btn" onClick={() => { resetListingForm(); setSellStep(5); }}>+ Add another listing</button>
+            <button className="modal-btn modal-btn-secondary" onClick={() => { const email = verifiedEmail; closeSell(); openDashboard(email); }}>Tell buyers about yourself: add a photo &amp; bio</button>
             <button className="modal-back" onClick={closeSell}>Done for now</button>
           </div>
         </div>
@@ -1798,6 +1860,74 @@ export default function Page() {
               <div className="dash-rev-row net">
                 <span className="dash-rev-label">Your payout ({sellerPct}%)</span>
                 <span className="dash-rev-value">{fmt(earnings.totalNet)}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Seller profile: photo, bio, background tags */}
+          <section className="dash-section">
+            <div className="dash-section-head">
+              <h2 className="dash-h2">Your seller profile</h2>
+            </div>
+            <div className="dash-profile-card">
+              <div className="dash-profile-row">
+                <div className="prof-photo">
+                  {profPhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profPhotoUrl} alt="Your profile photo" />
+                  ) : (
+                    <span>{(sellerEmail[0] || 'A').toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="prof-photo-copy">
+                  <div className="prof-photo-title">Add a photo &amp; bio</div>
+                  <div className="field-hint" style={{ marginTop: 2 }}>Buyers connect with real stories. A face and a couple of sentences build trust.</div>
+                  <button type="button" className="prof-photo-btn" disabled={profBusy} onClick={() => profPhotoRef.current?.click()}>
+                    {profPhotoUrl ? 'Change photo' : 'Upload photo'}
+                  </button>
+                  <input
+                    ref={profPhotoRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadProfilePhoto(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="field" style={{ marginTop: 18 }}>
+                <label htmlFor="profBio">Short bio</label>
+                <textarea
+                  id="profBio"
+                  rows={3}
+                  maxLength={300}
+                  placeholder="A couple of sentences about you: where you're from, what you study, what your essays are about."
+                  value={profBio}
+                  onChange={(e) => { setProfBio(e.target.value); setProfMsg({ text: '', kind: '' }); }}
+                />
+              </div>
+
+              <div className="field">
+                <label>Your background <span className="floor-hint">(pick any that apply)</span></label>
+                <div className="prof-tags">
+                  {PROFILE_TAGS.map((tag) => (
+                    <button key={tag} type="button" className={`ptag${profTags.includes(tag) ? ' on' : ''}`} onClick={() => toggleProfTag(tag)}>
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                <div className="field-hint">Optional. Shown on your seller profile so applicants with similar journeys can find essays that speak to them.</div>
+              </div>
+
+              <div className="prof-actions">
+                <button className="modal-btn" style={{ width: 'auto', margin: 0, padding: '11px 26px', fontSize: '14.5px' }} disabled={profBusy} onClick={saveProfile}>
+                  {profBusy ? 'Saving…' : 'Save profile'}
+                </button>
+                <span className={`notify-msg ${profMsg.kind}`} style={{ marginTop: 0 }}>{profMsg.text}</span>
               </div>
             </div>
           </section>

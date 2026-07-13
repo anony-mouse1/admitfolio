@@ -16,13 +16,16 @@ datasource db {
 
 // A verified seller — identity is a .edu email, proven via the OTP flow.
 model Seller {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String? // scrypt "salt:hash", set at signup
-  failedLogins Int       @default(0) // consecutive bad passwords; reset on success
-  lockedUntil  DateTime? // brute-force lockout expiry
-  createdAt    DateTime  @default(now())
-  listings     Listing[]
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String? // scrypt "salt:hash", set at signup
+  failedLogins   Int       @default(0) // consecutive bad passwords; reset on success
+  lockedUntil    DateTime? // brute-force lockout expiry
+  bio            String? // short "about me" shown on the seller profile
+  photoPath      String? // Supabase Storage path for the profile photo
+  backgroundTags String    @default("[]") // JSON array of profile tags (e.g. First-generation)
+  createdAt      DateTime  @default(now())
+  listings       Listing[]
 }
 
 // One submission = one seller's package of essays for a school.

@@ -5,6 +5,8 @@ import { makeUploadToken } from '@/lib/uploadToken';
 import { verifyEmailToken } from '@/lib/emailToken';
 import { currentSeller } from '@/lib/sellerAuth';
 import { hashPassword } from '@/lib/password';
+import { makeSession } from '@/lib/session';
+import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 import { admitsTier, packageFloor, perEssayFloor, TIER } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
@@ -131,10 +133,22 @@ export async function POST(req: Request) {
     include: { essays: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
   });
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     ok: true,
     listingId: listing.id,
     essays: listing.essays,
     uploadToken: makeUploadToken(listing.id),
   });
+  // The OTP signup flow just proved this email, so start a seller session -
+  // the success screen can open the dashboard (photo, bio) without a login.
+  if (tokenOk) {
+    res.cookies.set(SELLER_COOKIE, makeSession(email), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    });
+  }
+  return res;
 }
