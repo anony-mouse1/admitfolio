@@ -21,6 +21,7 @@ model Seller {
   passwordHash   String? // scrypt "salt:hash", set at signup
   failedLogins   Int       @default(0) // consecutive bad passwords; reset on success
   lockedUntil    DateTime? // brute-force lockout expiry
+  name           String? // full name; display follows the listing's anonymity choice
   bio            String? // short "about me" shown on the seller profile
   photoPath      String? // Supabase Storage path for the profile photo
   backgroundTags String    @default("[]") // JSON array of profile tags (e.g. First-generation)

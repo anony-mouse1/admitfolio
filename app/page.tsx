@@ -24,6 +24,7 @@ type Essay = {
   rating: string;
   words: number;
   cats: string[];
+  sellerTags: string[];
 };
 
 // diyShort/agencyShort: one-line variants for the mobile card chart.
@@ -60,12 +61,12 @@ type SellerListing = {
 };
 
 const essays: Essay[] = [
-  { id: 1, school: 'Stanford', domain: 'stanford.edu', letter: 'S', color: '#8C1515', year: "'27", major: 'Electrical Engineering', prompt: 'Common App · Personal Statement', hook: "The summer I taught my grandfather's old radio to sing again.", price: '$14', rating: '4.9', words: 648, cats: ['Common App', 'STEM'] },
-  { id: 2, school: 'Yale', domain: 'yale.edu', letter: 'Y', color: '#00356B', year: "'26", major: 'History', prompt: 'Why Yale · Supplement', hook: 'I found home in the margins of a 200-year-old library book.', price: '$12', rating: '4.8', words: 412, cats: ['Supplements', 'Humanities'] },
-  { id: 3, school: 'Princeton', domain: 'princeton.edu', letter: 'P', color: '#E77500', year: "'27", major: 'Public Policy', prompt: 'Activity · Supplement', hook: 'What four years of debate taught me about finally listening.', price: '$11', rating: '4.9', words: 215, cats: ['Supplements', 'Humanities'] },
-  { id: 4, school: 'Harvard', domain: 'harvard.edu', letter: 'H', color: '#A51C30', year: "'25", major: 'Sociology', prompt: 'Common App · Personal Statement', hook: 'Translating for my mother at the DMV, one form at a time.', price: '$15', rating: '5.0', words: 655, cats: ['Common App', 'Humanities'] },
-  { id: 5, school: 'MIT', domain: 'mit.edu', letter: 'M', color: '#A31F34', year: "'27", major: 'Mechanical Engineering', prompt: 'MIT · The Pleasure Essay', hook: 'Why I still take apart every vacuum cleaner I can find.', price: '$13', rating: '4.7', words: 248, cats: ['Supplements', 'STEM'] },
-  { id: 6, school: 'Columbia', domain: 'columbia.edu', letter: 'C', color: '#1D4F91', year: "'26", major: 'Economics', prompt: 'Why Columbia · Supplement', hook: 'The corner bodega that taught me everything about scarcity.', price: '$12', rating: '4.8', words: 300, cats: ['Supplements', 'Humanities'] },
+  { id: 1, school: 'Stanford', domain: 'stanford.edu', letter: 'S', color: '#8C1515', year: "'27", major: 'Electrical Engineering', prompt: 'Common App · Personal Statement', hook: "The summer I taught my grandfather's old radio to sing again.", price: '$14', rating: '4.9', words: 648, cats: ['Common App', 'STEM'], sellerTags: ['First-generation', 'Rural hometown'] },
+  { id: 2, school: 'Yale', domain: 'yale.edu', letter: 'Y', color: '#00356B', year: "'26", major: 'History', prompt: 'Why Yale · Supplement', hook: 'I found home in the margins of a 200-year-old library book.', price: '$12', rating: '4.8', words: 412, cats: ['Supplements', 'Humanities'], sellerTags: ['Transfer student'] },
+  { id: 3, school: 'Princeton', domain: 'princeton.edu', letter: 'P', color: '#E77500', year: "'27", major: 'Public Policy', prompt: 'Activity · Supplement', hook: 'What four years of debate taught me about finally listening.', price: '$11', rating: '4.9', words: 215, cats: ['Supplements', 'Humanities'], sellerTags: [] },
+  { id: 4, school: 'Harvard', domain: 'harvard.edu', letter: 'H', color: '#A51C30', year: "'25", major: 'Sociology', prompt: 'Common App · Personal Statement', hook: 'Translating for my mother at the DMV, one form at a time.', price: '$15', rating: '5.0', words: 655, cats: ['Common App', 'Humanities'], sellerTags: ['First-generation', 'Immigrant family'] },
+  { id: 5, school: 'MIT', domain: 'mit.edu', letter: 'M', color: '#A31F34', year: "'27", major: 'Mechanical Engineering', prompt: 'MIT · The Pleasure Essay', hook: 'Why I still take apart every vacuum cleaner I can find.', price: '$13', rating: '4.7', words: 248, cats: ['Supplements', 'STEM'], sellerTags: ['Worked through school'] },
+  { id: 6, school: 'Columbia', domain: 'columbia.edu', letter: 'C', color: '#1D4F91', year: "'26", major: 'Economics', prompt: 'Why Columbia · Supplement', hook: 'The corner bodega that taught me everything about scarcity.', price: '$12', rating: '4.8', words: 300, cats: ['Supplements', 'Humanities'], sellerTags: ['Low-income background', 'Immigrant family'] },
 ];
 
 const comparisonRows: CmpRow[] = [
@@ -168,7 +169,9 @@ export default function Page() {
   const [admitInput, setAdmitInput] = useState('');
   const [admitFocus, setAdmitFocus] = useState(false);
   const [essayRows, setEssayRows] = useState<EssayRow[]>([newEssayRow()]);
-  const [pricingMode, setPricingMode] = useState<PricingMode>('package');
+  // Pricing toggle removed: every listing has one price for the whole set.
+  // 'separate' support stays in the API/dashboard for existing data.
+  const pricingMode: PricingMode = 'package';
   const [packagePrice, setPackagePrice] = useState('');
   const [sellerNote, setSellerNote] = useState('');
   const [detailsErr, setDetailsErr] = useState('');
@@ -211,7 +214,6 @@ export default function Page() {
     setPackagePrice('');
     setAdmits([]);
     setAdmitInput('');
-    setPricingMode('package');
     setEssayRows([newEssayRow()]);
     setSellerNote('');
     setDetailsErr('');
@@ -728,8 +730,9 @@ export default function Page() {
     setProfMsg({ text: '', kind: '' });
     fetch('/api/seller/profile')
       .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { bio?: string | null; backgroundTags?: string[]; photoUrl?: string | null };
+        const d = (await r.json().catch(() => ({}))) as { name?: string | null; bio?: string | null; backgroundTags?: string[]; photoUrl?: string | null };
         if (!r.ok) return;
+        setProfName(d.name || '');
         setProfBio(d.bio || '');
         setProfTags(Array.isArray(d.backgroundTags) ? d.backgroundTags : []);
         setProfPhotoUrl(d.photoUrl || null);
@@ -834,7 +837,8 @@ export default function Page() {
   const [dashLoading, setDashLoading] = useState(false);
   const [dashErr, setDashErr] = useState('');
 
-  /* ---- Seller profile (photo, bio, background tags) ---- */
+  /* ---- Seller profile (name, photo, bio, background tags) ---- */
+  const [profName, setProfName] = useState('');
   const [profBio, setProfBio] = useState('');
   const [profTags, setProfTags] = useState<string[]>([]);
   const [profPhotoUrl, setProfPhotoUrl] = useState<string | null>(null);
@@ -854,7 +858,7 @@ export default function Page() {
       const resp = await fetch('/api/seller/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bio: profBio, backgroundTags: profTags }),
+        body: JSON.stringify({ name: profName, bio: profBio, backgroundTags: profTags }),
       });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not save your profile.');
@@ -1584,11 +1588,7 @@ export default function Page() {
                 <div className="tier-fixed">
                   <div className="tf-row">
                     <span className="tf-badge">{TIER[suggestedTier].label}</span>
-                    <span className="tf-floor">
-                      price floor: {pricingMode === 'separate'
-                        ? `$${perEssayFloor(suggestedTier)} per essay`
-                        : `$${packageFloor(suggestedTier, essayRows.length)}`}
-                    </span>
+                    <span className="tf-floor">price floor: ${packageFloor(suggestedTier, essayRows.length)}</span>
                   </div>
                   <div className="field-hint">
                     We suggest <b>{TIER[suggestedTier].label}</b> based on your admits (<b>{admitNames}</b>).
@@ -1602,22 +1602,13 @@ export default function Page() {
               )}
             </div>
 
-            <div className="field">
-              <label>How do you want to sell them?</label>
-              <div className="price-toggle">
-                <label className={`price-opt${pricingMode === 'package' ? ' active' : ''}`}>
-                  <input type="radio" name="pricing" value="package" checked={pricingMode === 'package'} onChange={() => setPricingMode('package')} />
-                  <span className="po-title">Package deal</span><small>One price, whole set</small>
-                </label>
-                <label className={`price-opt${pricingMode === 'separate' ? ' active' : ''}`}>
-                  <input type="radio" name="pricing" value="separate" checked={pricingMode === 'separate'} onChange={() => setPricingMode('separate')} />
-                  <span className="po-title">Sell separately</span><small>Price each essay</small>
-                </label>
-              </div>
-              <div className="field" id="packagePriceField">
-                <label htmlFor="packagePrice">Package price <span className="floor-hint">{suggestedTier ? `(min $${packageFloor(suggestedTier, essayRows.length)})` : ''}</span></label>
-                <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={399} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
-              </div>
+            <div className="field" id="packagePriceField">
+              <label htmlFor="packagePrice">
+                {essayRows.length > 1 ? `Your price (all ${essayRows.length} essays)` : 'Your price'}{' '}
+                <span className="floor-hint">{suggestedTier ? `(min $${packageFloor(suggestedTier, essayRows.length)})` : ''}</span>
+              </label>
+              <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={399} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
+              <div className="field-hint">One price covers this whole listing. Buyers get every essay in it.</div>
             </div>
 
             <div className="field">
@@ -1649,7 +1640,7 @@ export default function Page() {
             <h3>{successTitle}</h3>
             <p className="sub">Thanks! Every essay is <strong>manually reviewed</strong> by our team to keep quality high. We&apos;ll email <strong>{verifiedEmail || 'you'}</strong> as soon as it&apos;s approved, usually within 2 business days.</p>
             <button className="modal-btn" onClick={() => { resetListingForm(); setSellStep(5); }}>+ Add another listing</button>
-            <button className="modal-btn modal-btn-secondary" onClick={() => { const email = verifiedEmail; closeSell(); openDashboard(email); }}>Tell buyers about yourself: add a photo &amp; bio</button>
+            <button className="modal-btn modal-btn-secondary" onClick={() => { const email = verifiedEmail; closeSell(); openDashboard(email); }}>Tell buyers about yourself: name, photo &amp; background</button>
             <button className="modal-back" onClick={closeSell}>Done for now</button>
           </div>
         </div>
@@ -1880,8 +1871,8 @@ export default function Page() {
                   )}
                 </div>
                 <div className="prof-photo-copy">
-                  <div className="prof-photo-title">Add a photo &amp; bio</div>
-                  <div className="field-hint" style={{ marginTop: 2 }}>Buyers connect with real stories. A face and a couple of sentences build trust.</div>
+                  <div className="prof-photo-title">Add your name, photo &amp; background</div>
+                  <div className="field-hint" style={{ marginTop: 2 }}>Buyers connect with real stories. A face, a name, and a couple of sentences build trust.</div>
                   <button type="button" className="prof-photo-btn" disabled={profBusy} onClick={() => profPhotoRef.current?.click()}>
                     {profPhotoUrl ? 'Change photo' : 'Upload photo'}
                   </button>
@@ -1900,6 +1891,20 @@ export default function Page() {
               </div>
 
               <div className="field" style={{ marginTop: 18 }}>
+                <label htmlFor="profName">Your name <span className="floor-hint">(optional)</span></label>
+                <input
+                  type="text"
+                  id="profName"
+                  maxLength={80}
+                  placeholder="Sarah Chen"
+                  autoComplete="name"
+                  value={profName}
+                  onChange={(e) => { setProfName(e.target.value); setProfMsg({ text: '', kind: '' }); }}
+                />
+                <div className="field-hint">Shown on your listings according to your display choice: full name, first name only, or hidden.</div>
+              </div>
+
+              <div className="field">
                 <label htmlFor="profBio">Short bio</label>
                 <textarea
                   id="profBio"
@@ -2030,6 +2035,13 @@ function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) 
       </div>
       <div className="ecard-prompt">{essay.prompt}</div>
       <div className="ecard-hook">{essay.hook}</div>
+      {essay.sellerTags.length > 0 && (
+        <div className="ecard-tags">
+          {essay.sellerTags.map((t) => (
+            <span key={t} className="etag">{t}</span>
+          ))}
+        </div>
+      )}
       <div className="ecard-body">
         <div className="ecard-skel"><div style={{ width: '100%' }}></div><div style={{ width: '93%' }}></div><div style={{ width: '74%', opacity: 0.55 }}></div></div>
         <div className="ecard-lock">Unlock to read</div>
