@@ -1,8 +1,10 @@
 // Runtime config, read from env. Mirrors the prototype's server.js settings.
-// Nothing here hard-codes a personal address - admin/test emails come from env.
 
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 export const FROM_EMAIL = process.env.FROM_EMAIL || 'Admitfolio <onboarding@resend.dev>';
+
+// Where new-submission notifications are sent (the site owner's inbox).
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'fatimahandhussain@gmail.com';
 
 // Who can sign into the admin review console. Comma-separated in ADMIN_EMAILS.
 export const ADMIN_EMAILS = new Set(

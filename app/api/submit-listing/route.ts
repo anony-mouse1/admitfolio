@@ -8,6 +8,7 @@ import { hashPassword } from '@/lib/password';
 import { makeSession } from '@/lib/session';
 import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 import { admitsTier, packageFloor, perEssayFloor, TIER } from '@/lib/pricing';
+import { sendSubmissionNotification } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -132,6 +133,18 @@ export async function POST(req: Request) {
     },
     include: { essays: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
   });
+
+  // Tell the owner a submission arrived. Awaited so serverless doesn't kill the
+  // request before it sends, but a failed email must never fail the submission.
+  const notified = await sendSubmissionNotification({
+    sellerEmail: email,
+    school,
+    essayCount: essays.length,
+    listingId: listing.id,
+  });
+  if (!notified.ok) {
+    console.error('[submit-listing] admin notification failed:', notified.status, notified.detail);
+  }
 
   const res = NextResponse.json({
     ok: true,
