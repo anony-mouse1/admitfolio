@@ -38,6 +38,7 @@ export async function GET() {
     school: l.school,
     gradYear: l.gradYear,
     major: l.major,
+    appliedMajors: l.appliedMajors,
     admitTags: safeParse(l.admitTags),
     anonymity: l.anonymity,
     pricingMode: l.pricingMode,

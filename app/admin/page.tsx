@@ -17,6 +17,7 @@ type Listing = {
   school: string;
   gradYear: string | null;
   major: string | null;
+  appliedMajors: string | null;
   admitTags: string[];
   anonymity: string;
   pricingMode: string;
@@ -222,6 +223,11 @@ export default function AdminPage() {
                     {l.admitTags.length > 0 && (
                       <span className={styles.tag}>
                         Admits: <b>{l.admitTags.join(', ')}</b>
+                      </span>
+                    )}
+                    {l.appliedMajors && (
+                      <span className={styles.tag}>
+                        Applied in: <b>{l.appliedMajors}</b>
                       </span>
                     )}
                     <span className={styles.tag}>

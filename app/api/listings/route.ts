@@ -48,6 +48,9 @@ export async function GET() {
       admitTags: parseTags(l.admitTags),
       price: l.packagePrice,
       teaser: l.teaser,
+      // Current major stays private: combined with the school it could help
+      // deanonymize an anonymous seller, and no public UI shows it yet.
+      appliedMajors: l.appliedMajors,
       createdAt: l.createdAt,
       essays: l.essays.map((e) => ({ prompt: e.prompt, question: e.question, wordCount: e.wordCount })),
       seller: {

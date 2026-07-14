@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     pricingMode?: string;
     packagePrice?: number;
     teaser?: string;
+    appliedMajors?: string;
     sellerNote?: string;
     essays?: EssayIn[];
   };
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
   const pricingMode = body?.pricingMode === 'separate' ? 'separate' : 'package';
   const sellerNote = String(body?.sellerNote || '').trim().slice(0, 500) || null;
   const teaser = String(body?.teaser || '').trim().slice(0, 90) || null;
+  const appliedMajors = String(body?.appliedMajors || '').trim().slice(0, 120) || null;
 
   // The tier is fixed by the seller's admits and its floor is enforced here,
   // not just in the wizard UI - a direct request can't undercut it. Admits are
@@ -111,8 +113,9 @@ export async function POST(req: Request) {
     data: {
       sellerId: seller.id,
       school,
-      gradYear: body?.gradYear ? String(body.gradYear) : null,
-      major: body?.major ? String(body.major) : null,
+      gradYear: body?.gradYear ? String(body.gradYear).trim().slice(0, 20) : null,
+      major: body?.major ? String(body.major).trim().slice(0, 80) : null,
+      appliedMajors,
       admitTags: JSON.stringify(admitTags),
       anonymity,
       pricingMode,

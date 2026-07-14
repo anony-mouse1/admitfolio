@@ -37,7 +37,8 @@ model Listing {
   sellerId     String
   school       String
   gradYear     String?
-  major        String?
+  major        String? // the seller's current major at their university
+  appliedMajors String? // major(s) they applied to with these essays, free text
   admitTags    String     @default("[]") // JSON array of schools they got into
   anonymity    String     @default("anonymous") // anonymous | firstName | full
   pricingMode  String     @default("package") // package | separate

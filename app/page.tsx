@@ -42,6 +42,7 @@ type PublicListing = {
   admitTags: string[];
   price: number | null;
   teaser: string | null;
+  appliedMajors: string | null;
   createdAt: string;
   essays: { prompt: string; question: string | null; wordCount: number | null }[];
   seller: { displayName: string; backgroundTags: string[] };
@@ -191,6 +192,7 @@ export default function Page() {
   const [signupPw2, setSignupPw2] = useState('');
   const [pwErr, setPwErr] = useState('');
   const [currentUni, setCurrentUni] = useState('');
+  const [currentMajor, setCurrentMajor] = useState('');
   const [uniErr, setUniErr] = useState('');
   const [anonMode, setAnonMode] = useState<AnonMode>('public');
   const [targetSchool, setTargetSchool] = useState('');
@@ -203,6 +205,7 @@ export default function Page() {
   const pricingMode: PricingMode = 'package';
   const [packagePrice, setPackagePrice] = useState('');
   const [teaser, setTeaser] = useState('');
+  const [appliedMajors, setAppliedMajors] = useState('');
   const [sellerNote, setSellerNote] = useState('');
   const [detailsErr, setDetailsErr] = useState('');
   const [listingCount, setListingCount] = useState(0);
@@ -246,6 +249,7 @@ export default function Page() {
     setAdmitInput('');
     setEssayRows([newEssayRow()]);
     setTeaser('');
+    setAppliedMajors('');
     setSellerNote('');
     setDetailsErr('');
   }, []);
@@ -260,6 +264,7 @@ export default function Page() {
     setSignupPw2('');
     setPwErr('');
     setCurrentUni('');
+    setCurrentMajor('');
     setUniErr('');
     setAnonMode('public');
     setListingCount(0);
@@ -480,6 +485,8 @@ export default function Page() {
       applicationSystem: appLabels[targetSchool] || targetSchool,
       pricingMode,
       packagePrice: separate ? undefined : Number(packagePrice) || undefined,
+      major: currentMajor.trim() || undefined,
+      appliedMajors: appliedMajors.trim() || undefined,
       teaser: teaser.trim() || undefined,
       sellerNote: sellerNote.trim() || undefined,
       essays: rows.map((r) => ({
@@ -1507,6 +1514,12 @@ export default function Page() {
             </div>
 
             <div className="field">
+              <label htmlFor="currentMajor">Your major there <span className="floor-hint">(optional)</span></label>
+              <input type="text" id="currentMajor" maxLength={80} placeholder="Electrical Engineering" value={currentMajor} onChange={(e) => setCurrentMajor(e.target.value)} />
+              <div className="field-hint">Helps applicants find essays from people on their path.</div>
+            </div>
+
+            <div className="field">
               <label>How should your name appear on listings?</label>
               <div className="anon-toggle">
                 {([
@@ -1561,6 +1574,12 @@ export default function Page() {
                 <input ref={admitInputRef} type="text" id="admitInput" placeholder="Type a school, press Enter" autoComplete="off" value={admitInput} onChange={(e) => setAdmitInput(e.target.value)} onKeyDown={handleAdmitKeyDown} onFocus={() => setAdmitFocus(true)} onBlur={() => { setAdmitFocus(false); addAdmit(); }} />
               </div>
               <div className="field-hint">Add every school these essays helped you get into.</div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="appliedMajors">Major(s) you applied to with these essays <span className="floor-hint">(optional)</span></label>
+              <input type="text" id="appliedMajors" maxLength={120} placeholder="Electrical Engineering, Computer Science" value={appliedMajors} onChange={(e) => { setAppliedMajors(e.target.value); setDetailsErr(''); }} />
+              <div className="field-hint">The intended major(s) on this application. Buyers aiming for the same field will look for this.</div>
             </div>
 
             <div className="field">
@@ -2056,6 +2075,11 @@ function PublicListingCard({ listing, onUnlock }: { listing: PublicListing; onUn
       {listing.admitTags.length > 0 && (
         <div className="ecard-meta" style={{ marginTop: 10 }}>
           Admitted to <b>{listing.admitTags.join(', ')}</b>
+        </div>
+      )}
+      {listing.appliedMajors && (
+        <div className="ecard-meta" style={{ marginTop: 4 }}>
+          Applied in <b>{listing.appliedMajors}</b>
         </div>
       )}
       <div className="ecard-foot">
