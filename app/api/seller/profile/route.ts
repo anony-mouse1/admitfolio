@@ -8,9 +8,10 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BIO = 300;
 const MAX_NAME = 80;
+const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 // Avatars are the seller's initials, rendered client-side - no photos.
-function shape(seller: { name: string | null; bio: string | null; backgroundTags: string }) {
+function shape(seller: { name: string | null; paypalEmail: string | null; bio: string | null; backgroundTags: string }) {
   let backgroundTags: string[] = [];
   try {
     const parsed = JSON.parse(seller.backgroundTags);
@@ -18,7 +19,7 @@ function shape(seller: { name: string | null; bio: string | null; backgroundTags
   } catch {
     /* ignore */
   }
-  return { name: seller.name, bio: seller.bio, backgroundTags };
+  return { name: seller.name, paypalEmail: seller.paypalEmail, bio: seller.bio, backgroundTags };
 }
 
 export async function GET() {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   const session = currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  let body: { name?: string; bio?: string; backgroundTags?: string[] };
+  let body: { name?: string; paypalEmail?: string; bio?: string; backgroundTags?: string[] };
   try {
     body = await req.json();
   } catch {
@@ -43,6 +44,10 @@ export async function POST(req: Request) {
   }
 
   const name = String(body?.name || '').trim().slice(0, MAX_NAME) || null;
+  const paypalEmail = String(body?.paypalEmail || '').trim().toLowerCase().slice(0, 254) || null;
+  if (paypalEmail && !emailRe.test(paypalEmail)) {
+    return NextResponse.json({ error: 'Enter a valid PayPal email address.' }, { status: 400 });
+  }
   const bio = String(body?.bio || '').trim().slice(0, MAX_BIO) || null;
   const allowed = new Set<string>(PROFILE_TAGS);
   const backgroundTags = Array.isArray(body?.backgroundTags)
@@ -51,7 +56,7 @@ export async function POST(req: Request) {
 
   const seller = await prisma.seller.update({
     where: { email: session.email },
-    data: { name, bio, backgroundTags: JSON.stringify(backgroundTags) },
+    data: { name, paypalEmail, bio, backgroundTags: JSON.stringify(backgroundTags) },
   });
 
   return NextResponse.json({ ok: true, ...shape(seller) });

@@ -32,6 +32,21 @@ type CmpRow = { feature: string; mineText?: string; diy: string; agency: string;
 
 type Msg = { text: string; kind: '' | 'ok' | 'err' };
 
+// Launch switch: "1" turns on the real public catalog + Stripe buying.
+// Unset/off keeps the pre-launch waitlist experience byte-for-byte.
+const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
+
+type PublicListing = {
+  id: string;
+  school: string;
+  admitTags: string[];
+  price: number | null;
+  teaser: string | null;
+  createdAt: string;
+  essays: { prompt: string; question: string | null; wordCount: number | null }[];
+  seller: { displayName: string; backgroundTags: string[] };
+};
+
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
 
@@ -70,7 +85,7 @@ const essays: Essay[] = [
 ];
 
 const comparisonRows: CmpRow[] = [
-  { feature: '2,400+ essays from verified admits', diy: 'Reddit threads, often outdated', diyShort: 'Outdated Reddit threads', agency: "One counselor's experience", agencyShort: 'One counselor' },
+  { feature: 'Every essay from a verified admit', diy: 'Reddit threads, often outdated', diyShort: 'Outdated Reddit threads', agency: "One counselor's experience", agencyShort: 'One counselor' },
   { feature: 'Browse by school, prompt & major', diy: 'Hours of Googling', agency: 'Limited to their network' },
   { feature: 'See exactly why each essay worked', diy: 'Pure guesswork', agency: 'Generic frameworks' },
   { feature: 'Margin notes on voice & structure', diy: 'None', agency: 'Sometimes' },
@@ -122,7 +137,6 @@ const listingTitle = (l: SellerListing) =>
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
-const priceToNumber = (p: string) => parseFloat(String(p).replace(/[^0-9.]/g, '')) || 0;
 
 const eduRe = /^[^@\s]+@[^@\s]+\.edu$/i;
 const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -141,6 +155,21 @@ export default function Page() {
   /* ---- Featured grid filter (chips are hidden but state preserved) ---- */
   const [filter, setFilter] = useState('All');
   const gridEssays = filter === 'All' ? essays : essays.filter((e) => e.cats.includes(filter));
+
+  /* ---- Public catalog (only fetched in launch mode) ---- */
+  const [pubListings, setPubListings] = useState<PublicListing[]>([]);
+  const [pubState, setPubState] = useState<'loading' | 'ready' | 'error'>('loading');
+  useEffect(() => {
+    if (!LAUNCHED) return;
+    fetch('/api/listings')
+      .then(async (r) => {
+        const d = (await r.json().catch(() => ({}))) as { listings?: PublicListing[] };
+        if (!r.ok || !d.listings) throw new Error('bad response');
+        setPubListings(d.listings);
+        setPubState('ready');
+      })
+      .catch(() => setPubState('error'));
+  }, []);
 
   /* ---- Which overlays are open (drives body scroll lock) ---- */
   const [sellOpen, setSellOpen] = useState(false);
@@ -173,6 +202,7 @@ export default function Page() {
   // 'separate' support stays in the API/dashboard for existing data.
   const pricingMode: PricingMode = 'package';
   const [packagePrice, setPackagePrice] = useState('');
+  const [teaser, setTeaser] = useState('');
   const [sellerNote, setSellerNote] = useState('');
   const [detailsErr, setDetailsErr] = useState('');
   const [listingCount, setListingCount] = useState(0);
@@ -215,6 +245,7 @@ export default function Page() {
     setAdmits([]);
     setAdmitInput('');
     setEssayRows([newEssayRow()]);
+    setTeaser('');
     setSellerNote('');
     setDetailsErr('');
   }, []);
@@ -449,6 +480,7 @@ export default function Page() {
       applicationSystem: appLabels[targetSchool] || targetSchool,
       pricingMode,
       packagePrice: separate ? undefined : Number(packagePrice) || undefined,
+      teaser: teaser.trim() || undefined,
       sellerNote: sellerNote.trim() || undefined,
       essays: rows.map((r) => ({
         prompt: r.prompt,
@@ -503,76 +535,39 @@ export default function Page() {
   const successTitle = listingCount <= 1 ? 'Listing submitted!' : `Listing #${listingCount} submitted!`;
 
   /* ============================ Buyer checkout ============================ */
-  const BUYING_ENABLED = false;
-  const [buyPane, setBuyPane] = useState(1);
-  const [curEssay, setCurEssay] = useState<{ school?: string; price?: string; hook?: string; id?: number }>({});
-  const [buyEmail, setBuyEmail] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
-  const [cardZip, setCardZip] = useState('');
+  // Payment is a Stripe-hosted checkout page; the modal is just a confirm
+  // step. Real listings exist only when the launch flag is on.
+  const [curItem, setCurItem] = useState<{ listingId?: string; school?: string; price?: number; teaser?: string | null; essayCount?: number }>({});
   const [buyErr, setBuyErr] = useState('');
-  const [buySentTo, setBuySentTo] = useState('your inbox');
   const [paying, setPaying] = useState(false);
-  const buyEmailRef = useRef<HTMLInputElement>(null);
 
-  const openBuy = useCallback((essay: { school?: string; price?: string; hook?: string; id?: number }) => {
-    setCurEssay(essay || {});
-    setBuyEmail('');
-    setCardName('');
-    setCardNumber('');
-    setCardExpiry('');
-    setCardCvc('');
-    setCardZip('');
+  const openBuy = useCallback((item: { listingId: string; school: string; price: number; teaser?: string | null; essayCount?: number }) => {
+    setCurItem(item);
     setBuyErr('');
-    setBuyPane(1);
     setBuyOpen(true);
-    setTimeout(() => buyEmailRef.current?.focus(), 60);
   }, []);
   const closeBuy = useCallback(() => setBuyOpen(false), []);
 
-  // Console helper preserved: admitlyOpenCheckout({ school, price, hook })
-  useEffect(() => {
-    (window as unknown as { admitlyOpenCheckout?: typeof openBuy }).admitlyOpenCheckout = openBuy;
-  }, [openBuy]);
-
   function handleUnlock(essay: Essay) {
-    if (!BUYING_ENABLED) return; // buying dormant until essays are live
-    openBuy({ school: essay.school, price: essay.price, hook: essay.hook, id: essay.id });
+    // Sample cards are teasers - they are not purchasable.
+    void essay;
   }
 
-  async function handlePay() {
-    const email = buyEmail.trim();
-    const num = cardNumber.replace(/\D/g, '');
-    const exp = cardExpiry.replace(/\D/g, '');
-    const cvc = cardCvc.replace(/\D/g, '');
-    let msg = '';
-    if (!emailRe.test(email)) msg = 'Enter a valid email so we can send the essay.';
-    else if (!cardName.trim()) msg = 'Enter the name on your card.';
-    else if (num.length < 15) msg = 'Enter a valid 16-digit card number.';
-    else if (exp.length < 4) msg = 'Enter the card expiry (MM / YY).';
-    else if (cvc.length < 3) msg = 'Enter the 3-digit security code.';
-    else if (!cardZip.trim()) msg = 'Enter your billing ZIP.';
-    if (msg) {
-      setBuyErr(msg);
-      return;
-    }
+  async function handleStripeCheckout() {
+    if (!curItem.listingId) return;
     setBuyErr('');
     setPaying(true);
     try {
-      const resp = await fetch('/api/purchase', {
+      const resp = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buyerEmail: email, listingId: curEssay.id, essayId: curEssay.id, amount: priceToNumber(curEssay.price || '') }),
+        body: JSON.stringify({ listingId: curItem.listingId }),
       });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!resp.ok || data.ok === false) throw new Error(data.error || 'Something went wrong.');
-      setBuySentTo(email);
-      setBuyPane(2);
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; url?: string };
+      if (!resp.ok || !data.url) throw new Error(data.error || 'Could not start checkout. Please try again.');
+      window.location.href = data.url;
     } catch (err) {
-      setBuyErr(err instanceof Error ? err.message : 'Could not complete the purchase. Please try again.');
-    } finally {
+      setBuyErr(err instanceof Error ? err.message : 'Could not start checkout. Please try again.');
       setPaying(false);
     }
   }
@@ -730,9 +725,10 @@ export default function Page() {
     setProfMsg({ text: '', kind: '' });
     fetch('/api/seller/profile')
       .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { name?: string | null; bio?: string | null; backgroundTags?: string[] };
+        const d = (await r.json().catch(() => ({}))) as { name?: string | null; paypalEmail?: string | null; bio?: string | null; backgroundTags?: string[] };
         if (!r.ok) return;
         setProfName(d.name || '');
+        setProfPaypal(d.paypalEmail || '');
         setProfBio(d.bio || '');
         setProfTags(Array.isArray(d.backgroundTags) ? d.backgroundTags : []);
       })
@@ -838,6 +834,7 @@ export default function Page() {
 
   /* ---- Seller profile (name, bio, background tags; avatar = initials) ---- */
   const [profName, setProfName] = useState('');
+  const [profPaypal, setProfPaypal] = useState('');
   const [profBio, setProfBio] = useState('');
   const [profTags, setProfTags] = useState<string[]>([]);
   const [profMsg, setProfMsg] = useState<Msg>({ text: '', kind: '' });
@@ -855,7 +852,7 @@ export default function Page() {
       const resp = await fetch('/api/seller/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profName, bio: profBio, backgroundTags: profTags }),
+        body: JSON.stringify({ name: profName, paypalEmail: profPaypal, bio: profBio, backgroundTags: profTags }),
       });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not save your profile.');
@@ -986,7 +983,6 @@ export default function Page() {
   }, []);
 
   const stepClass = (n: number) => `step-pane${sellStep === n ? ' active' : ''}`;
-  const buyClass = (n: number) => `step-pane${buyPane === n ? ' active' : ''}${n === 2 ? ' modal-center' : ''}`;
   const slClass = (n: number) => `step-pane${slPane === n ? ' active' : ''}`;
 
   /* ============================ Render ============================ */
@@ -1111,46 +1107,83 @@ export default function Page() {
 
       {/* ===== Featured ===== */}
       <section className="featured" id="browse">
-        <div className="featured-head">
-          <div>
-            <h2>Releasing soon</h2>
-            <p>We&apos;re collecting verified essays from this year&apos;s admits right now. Be the first to read them the moment they go live.</p>
-          </div>
-        </div>
+        {LAUNCHED ? (
+          <>
+            <div className="featured-head">
+              <div>
+                <h2>Browse essays</h2>
+                <p>Real essays from verified admits. Unlock a listing to read the full application set.</p>
+              </div>
+            </div>
+            {pubState === 'loading' && <div className="pub-empty">Loading essays&hellip;</div>}
+            {pubState === 'error' && <div className="pub-empty">Could not load essays right now. Refresh to try again.</div>}
+            {pubState === 'ready' && pubListings.length === 0 && (
+              <div className="pub-empty">The first essays are being reviewed. Check back very soon!</div>
+            )}
+            {pubListings.length > 0 && (
+              <div className="grid">
+                {pubListings.map((l) => (
+                  <PublicListingCard
+                    key={l.id}
+                    listing={l}
+                    onUnlock={() =>
+                      openBuy({
+                        listingId: l.id,
+                        school: l.school,
+                        price: l.price || 0,
+                        teaser: l.teaser,
+                        essayCount: l.essays.length,
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="featured-head">
+              <div>
+                <h2>Releasing soon</h2>
+                <p>We&apos;re collecting verified essays from this year&apos;s admits right now. Be the first to read them the moment they go live.</p>
+              </div>
+            </div>
 
-        <div className="chips" id="chips" style={{ display: 'none' }}>
-          {chipLabels.map((label) => (
-            <div key={label} className={`chip${label === filter ? ' active' : ''}`} onClick={() => setFilter(label)}>{label}</div>
-          ))}
-        </div>
-
-        {/* Combined stage: blurred essays + the "Releasing soon" dark card */}
-        <div className="release-stage">
-          <div className="release-essays">
-            <div className="grid coming-soon" id="grid" aria-hidden="true">
-              {gridEssays.map((e) => (
-                <EssayCard key={e.id} essay={e} onUnlock={() => handleUnlock(e)} />
+            <div className="chips" id="chips" style={{ display: 'none' }}>
+              {chipLabels.map((label) => (
+                <div key={label} className={`chip${label === filter ? ' active' : ''}`} onClick={() => setFilter(label)}>{label}</div>
               ))}
             </div>
-          </div>
-          <div className="release-overlay">
-            <div className="notify-banner">
-              <div className="notify-glow"></div>
-              <div className="notify-text">
-                <div className="notify-eyebrow"><span className="dot"></span>Coming soon</div>
-                <h3>Real admit essays are on the way.</h3>
-                <p>Drop your email and we&apos;ll tell you the moment essays become public. No spam, just one heads-up when they&apos;re live.</p>
-              </div>
-              <form className="notify-form" autoComplete="on" onSubmit={handleNotifySubmit}>
-                <div className="notify-row">
-                  <input type="email" placeholder="you@email.com" autoComplete="email" spellCheck={false} aria-label="Email address" value={notifyEmail} onChange={(e) => { setNotifyEmail(e.target.value); if (notifyMsg.text) setNotifyMsg({ text: '', kind: '' }); }} />
-                  <button type="submit" className="btn-primary" disabled={notifyBusy}>{notifyBusy ? 'Adding…' : 'Notify me'}</button>
+
+            {/* Combined stage: blurred essays + the "Releasing soon" dark card */}
+            <div className="release-stage">
+              <div className="release-essays">
+                <div className="grid coming-soon" id="grid" aria-hidden="true">
+                  {gridEssays.map((e) => (
+                    <EssayCard key={e.id} essay={e} onUnlock={() => handleUnlock(e)} />
+                  ))}
                 </div>
-                <div className={`notify-msg${notifyMsg.kind ? ' ' + notifyMsg.kind : ''}`}>{notifyMsg.text}</div>
-              </form>
+              </div>
+              <div className="release-overlay">
+                <div className="notify-banner">
+                  <div className="notify-glow"></div>
+                  <div className="notify-text">
+                    <div className="notify-eyebrow"><span className="dot"></span>Coming soon</div>
+                    <h3>Real admit essays are on the way.</h3>
+                    <p>Drop your email and we&apos;ll tell you the moment essays become public. No spam, just one heads-up when they&apos;re live.</p>
+                  </div>
+                  <form className="notify-form" autoComplete="on" onSubmit={handleNotifySubmit}>
+                    <div className="notify-row">
+                      <input type="email" placeholder="you@email.com" autoComplete="email" spellCheck={false} aria-label="Email address" value={notifyEmail} onChange={(e) => { setNotifyEmail(e.target.value); if (notifyMsg.text) setNotifyMsg({ text: '', kind: '' }); }} />
+                      <button type="submit" className="btn-primary" disabled={notifyBusy}>{notifyBusy ? 'Adding…' : 'Notify me'}</button>
+                    </div>
+                    <div className={`notify-msg${notifyMsg.kind ? ' ' + notifyMsg.kind : ''}`}>{notifyMsg.text}</div>
+                  </form>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </section>
 
       {/* ===== How it works ===== */}
@@ -1560,6 +1593,19 @@ export default function Page() {
               <button className="add-btn" type="button" onClick={addEssayRow}>+ Add another essay</button>
             </div>
 
+            <div className="field">
+              <label htmlFor="listingTeaser">One line that captures your essays <span className="floor-hint">(optional)</span></label>
+              <input
+                type="text"
+                id="listingTeaser"
+                maxLength={90}
+                placeholder="The summer I taught my grandfather's old radio to sing again."
+                value={teaser}
+                onChange={(e) => { setTeaser(e.target.value); setDetailsErr(''); }}
+              />
+              <div className="field-hint">Shown on your public listing card to draw readers in. You can skip it.</div>
+            </div>
+
             {/* Smart pricing: the tier is fixed by the admits, not chosen */}
             <div className="field">
               <label>Your price tier</label>
@@ -1632,62 +1678,32 @@ export default function Page() {
           <button className="modal-close" aria-label="Close" onClick={closeBuy}>&times;</button>
           <div className="modal-logo"><span className="w">admitfolio</span><span className="d"></span></div>
 
-          <div className={buyClass(1)}>
+          <div className="step-pane active">
             <div className="modal-eyebrow">Checkout · No account needed</div>
-            <h3 id="buyTitle">Unlock this essay</h3>
+            <h3 id="buyTitle">Unlock this listing</h3>
             <div className="buy-summary">
               <div className="buy-summary-essay">
-                <div className="buy-summary-school">{curEssay.school || 'This essay'}</div>
-                <div className="buy-summary-hook">{curEssay.hook || 'The full essay, stats & margin notes.'}</div>
+                <div className="buy-summary-school">{curItem.school || 'This listing'}</div>
+                <div className="buy-summary-hook">
+                  {curItem.teaser || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
+                </div>
               </div>
-              <div className="buy-summary-price">{curEssay.price || ''}</div>
+              <div className="buy-summary-price">{curItem.price != null ? `$${curItem.price}` : ''}</div>
             </div>
 
-            <div className="field">
-              <label htmlFor="buyEmail">Email to send it to</label>
-              <input ref={buyEmailRef} type="email" id="buyEmail" placeholder="you@email.com" inputMode="email" autoComplete="email" spellCheck={false} value={buyEmail} onChange={(e) => { setBuyEmail(e.target.value); setBuyErr(''); }} />
-              <div className="field-hint">We&apos;ll send the full essay &amp; receipt here. No account needed.</div>
-            </div>
+            <p className="sub" style={{ textAlign: 'left', marginTop: 14 }}>
+              You&apos;ll pay securely on Stripe&apos;s checkout page, then get an email with a private
+              link to read every essay in this listing. Essays are for inspiration only, never for copying.
+            </p>
 
-            <div className="field">
-              <label htmlFor="cardName">Name on card</label>
-              <input type="text" id="cardName" placeholder="Jordan Lee" autoComplete="cc-name" value={cardName} onChange={(e) => { setCardName(e.target.value); setBuyErr(''); }} />
-            </div>
-            <div className="field">
-              <label htmlFor="cardNumber">Card number</label>
-              <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="cc-number" maxLength={19} value={cardNumber} onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 16); setCardNumber(digits.replace(/(.{4})/g, '$1 ').trim()); setBuyErr(''); }} />
-            </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="cardExpiry">Expiry</label>
-                <input type="text" id="cardExpiry" placeholder="MM / YY" inputMode="numeric" autoComplete="cc-exp" maxLength={7} value={cardExpiry} onChange={(e) => { let d = e.target.value.replace(/\D/g, '').slice(0, 4); if (d.length >= 3) d = d.slice(0, 2) + ' / ' + d.slice(2); setCardExpiry(d); setBuyErr(''); }} />
-              </div>
-              <div className="field">
-                <label htmlFor="cardCvc">CVC</label>
-                <input type="text" id="cardCvc" placeholder="123" inputMode="numeric" autoComplete="cc-csc" maxLength={4} value={cardCvc} onChange={(e) => { setCardCvc(e.target.value.replace(/\D/g, '').slice(0, 4)); setBuyErr(''); }} />
-              </div>
-            </div>
-            <div className="field">
-              <label htmlFor="cardZip">Billing ZIP</label>
-              <input type="text" id="cardZip" placeholder="94305" inputMode="numeric" autoComplete="postal-code" maxLength={10} value={cardZip} onChange={(e) => { setCardZip(e.target.value.replace(/[^0-9-]/g, '').slice(0, 10)); setBuyErr(''); }} />
-            </div>
-
-            <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || 'Please fill in your full card details.'}</div>
-            <button className="modal-btn" onClick={handlePay} disabled={paying}>{paying ? 'Processing…' : <>Pay <span>{curEssay.price || ''}</span> &amp; unlock</>}</button>
+            <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
+            <button className="modal-btn" onClick={handleStripeCheckout} disabled={paying}>
+              {paying ? 'Opening Stripe…' : <>Pay ${curItem.price ?? ''} with Stripe</>}
+            </button>
             <div className="buy-secure">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-              Encrypted &amp; secure · One-time charge
+              Payments handled by Stripe · Card details never touch our servers
             </div>
-          </div>
-
-          <div className={buyClass(2)}>
-            <div className="success-check">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <h3>Essay unlocked!</h3>
-            <p className="sub">Payment received 🎉 We&apos;ve emailed the full essay, stats, and margin notes, plus your receipt, to <strong>{buySentTo}</strong>. Check your email!</p>
-            <button className="modal-btn" onClick={closeBuy}>Read the essay</button>
-            <button className="modal-back" onClick={closeBuy}>Close</button>
           </div>
         </div>
       </div>
@@ -1810,7 +1826,7 @@ export default function Page() {
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Pending payout</div>
                 <div className="dash-stat-value">{fmt(earnings.pendingPayout)}</div>
-                <div className="dash-stat-sub">{earnings.pendingPayout > 0 ? 'Payouts start when buying launches' : 'No sales yet'}</div>
+                <div className="dash-stat-sub">{earnings.pendingPayout > 0 ? 'Paid out biweekly via PayPal, starting when buying launches' : 'No sales yet'}</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total sales</div>
@@ -1870,6 +1886,24 @@ export default function Page() {
                 />
                 <div className="field-hint">Shown on your listings according to your display choice: full name, first name only, or hidden.</div>
               </div>
+
+              {/* Payout details only matter once there is something to pay out */}
+              {earnings.totalSales > 0 && (
+                <div className="field">
+                  <label htmlFor="profPaypal">PayPal email <span className="floor-hint">(for payouts)</span></label>
+                  <input
+                    type="email"
+                    id="profPaypal"
+                    maxLength={254}
+                    placeholder="you@paypal.com"
+                    autoComplete="email"
+                    spellCheck={false}
+                    value={profPaypal}
+                    onChange={(e) => { setProfPaypal(e.target.value); setProfMsg({ text: '', kind: '' }); }}
+                  />
+                  <div className="field-hint">You have sales waiting to be paid out. Earnings go to this PayPal address <b>every two weeks</b>, starting when buying launches. Never shown to buyers.</div>
+                </div>
+              )}
 
               <div className="field">
                 <label htmlFor="profBio">Short bio</label>
@@ -1987,6 +2021,52 @@ function AltValue({ v }: { v: string }) {
     );
   }
   return <>{v}</>;
+}
+
+/* Real, purchasable listing card (launch mode). */
+const BADGE_COLORS = ['#7d1d2d', '#00356B', '#1D4F91', '#365314', '#7c2d12', '#4a1d6b'];
+function schoolColor(name: string): string {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return BADGE_COLORS[h % BADGE_COLORS.length];
+}
+
+function PublicListingCard({ listing, onUnlock }: { listing: PublicListing; onUnlock: () => void }) {
+  const prompts = listing.essays.map((e) => e.question || e.prompt);
+  const promptLine = prompts.slice(0, 2).join(' · ') + (prompts.length > 2 ? ` · +${prompts.length - 2} more` : '');
+  const count = listing.essays.length;
+  return (
+    <div className="ecard">
+      <div className="ecard-head">
+        <LogoBadge letter={(listing.school[0] || 'A').toUpperCase()} color={schoolColor(listing.school)} school={listing.school} size={44} fontSize={18} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="ecard-school">{listing.school}</div>
+          <div className="ecard-meta">{listing.seller.displayName} · {count} essay{count === 1 ? '' : 's'}</div>
+        </div>
+      </div>
+      <div className="ecard-prompt">{promptLine}</div>
+      {listing.teaser && <div className="ecard-hook">{listing.teaser}</div>}
+      {listing.seller.backgroundTags.length > 0 && (
+        <div className="ecard-tags">
+          {listing.seller.backgroundTags.map((t) => (
+            <span key={t} className="etag">{t}</span>
+          ))}
+        </div>
+      )}
+      {listing.admitTags.length > 0 && (
+        <div className="ecard-meta" style={{ marginTop: 10 }}>
+          Admitted to <b>{listing.admitTags.join(', ')}</b>
+        </div>
+      )}
+      <div className="ecard-foot">
+        <div className="ecard-price">
+          <span className="p">{listing.price != null ? `$${listing.price}` : ''}</span>
+          <span className="w">{count > 1 ? 'whole set' : 'full essay'}</span>
+        </div>
+        <div className="ecard-unlock" onClick={onUnlock}>Unlock</div>
+      </div>
+    </div>
+  );
 }
 
 function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) {

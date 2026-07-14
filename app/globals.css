@@ -1198,3 +1198,10 @@ body { -webkit-tap-highlight-color: transparent; }
   background: #fff; color: var(--accent); border: 1.5px solid color-mix(in srgb, var(--accent) 45%, #fff);
 }
 .modal-btn.modal-btn-secondary:hover { border-color: var(--accent); }
+
+/* Launch-mode catalog states */
+.pub-empty {
+  margin-top: 40px; padding: 44px 24px; text-align: center;
+  font-size: 15px; color: var(--faint); font-style: italic;
+  background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
+}

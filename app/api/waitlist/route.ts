@@ -5,7 +5,25 @@ export const runtime = 'nodejs';
 
 const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+// Best-effort per-IP throttle (in-memory, per instance) so the open endpoint
+// can't be used to spray rows into the table.
+const hits = new Map<string, number[]>();
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 6;
+function throttled(ip: string): boolean {
+  const now = Date.now();
+  const list = (hits.get(ip) || []).filter((t) => now - t < WINDOW_MS);
+  list.push(now);
+  hits.set(ip, list);
+  return list.length > MAX_PER_WINDOW;
+}
+
 export async function POST(req: Request) {
+  const ip = (req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
+  if (throttled(ip)) {
+    return NextResponse.json({ error: 'Too many attempts. Please wait a minute.' }, { status: 429 });
+  }
+
   let body: { email?: string };
   try {
     body = await req.json();

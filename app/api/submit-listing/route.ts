@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     anonymity?: string;
     pricingMode?: string;
     packagePrice?: number;
+    teaser?: string;
     sellerNote?: string;
     essays?: EssayIn[];
   };
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
       { status: 401 },
     );
   }
-  const school = String(body?.school || '').trim();
+  const school = String(body?.school || '').trim().slice(0, 120);
   if (!school) return NextResponse.json({ error: 'A school is required.' }, { status: 400 });
 
   const essays = Array.isArray(body?.essays) ? body.essays : [];
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
     : 'anonymous';
   const pricingMode = body?.pricingMode === 'separate' ? 'separate' : 'package';
   const sellerNote = String(body?.sellerNote || '').trim().slice(0, 500) || null;
+  const teaser = String(body?.teaser || '').trim().slice(0, 90) || null;
 
   // The tier is fixed by the seller's admits and its floor is enforced here,
   // not just in the wizard UI - a direct request can't undercut it. Admits are
@@ -115,6 +117,7 @@ export async function POST(req: Request) {
       anonymity,
       pricingMode,
       packagePrice: pricingMode === 'package' ? packagePrice : null,
+      teaser,
       sellerNote,
       status: 'pending',
       essays: {

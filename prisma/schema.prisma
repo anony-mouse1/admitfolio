@@ -22,6 +22,7 @@ model Seller {
   failedLogins   Int       @default(0) // consecutive bad passwords; reset on success
   lockedUntil    DateTime? // brute-force lockout expiry
   name           String? // full name; display follows the listing's anonymity choice
+  paypalEmail    String? // where biweekly payouts go once buying launches
   bio            String? // short "about me" shown on the seller profile
   photoPath      String? // Supabase Storage path for the profile photo
   backgroundTags String    @default("[]") // JSON array of profile tags (e.g. First-generation)
@@ -41,6 +42,7 @@ model Listing {
   anonymity    String     @default("anonymous") // anonymous | firstName | full
   pricingMode  String     @default("package") // package | separate
   packagePrice Int? // whole dollars, when pricingMode = package
+  teaser       String? // optional one-line hook shown on the public browse card
   status       String     @default("pending") // pending | approved | rejected | removed (seller take-down)
   adminNote    String?
   sellerNote   String? // optional note from the seller, shown to the admin during review
@@ -80,14 +82,15 @@ model WaitlistEntry {
 // optional so demo/sample-catalog purchases are still recorded; itemLabel keeps
 // a human-readable description regardless.
 model Purchase {
-  id         String   @id @default(cuid())
-  buyerEmail String
-  listing    Listing? @relation(fields: [listingId], references: [id])
-  listingId  String?
-  essayId    String? // null when the whole package was bought
-  itemLabel  String? // e.g. "Stanford — Common App"
-  amount     Int // whole dollars charged
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  buyerEmail      String
+  listing         Listing? @relation(fields: [listingId], references: [id])
+  listingId       String?
+  essayId         String? // null when the whole package was bought
+  itemLabel       String? // e.g. "Stanford — Common App"
+  amount          Int // whole dollars charged
+  stripeSessionId String?  @unique // idempotency key for Stripe webhook retries
+  createdAt       DateTime @default(now())
 
   @@index([listingId])
 }
