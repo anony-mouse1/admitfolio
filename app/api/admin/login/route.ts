@@ -10,9 +10,9 @@ import {
 
 export const runtime = 'nodejs';
 
-// Password sign-in for the admin console - an alternative to the email-code
-// flow so admins aren't forced through OTP every session. Admins live in
-// ADMIN_EMAILS (not the database), so the shared password hash comes from env.
+// The ONLY way into the admin console: the admin email + password. There is
+// no email-code path for admins. Admins live in ADMIN_EMAILS (not the
+// database), and the password hash comes from env (ADMIN_PASSWORD_HASH).
 
 const MAX_FAILED_LOGINS = 10;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -36,15 +36,15 @@ export async function POST(req: Request) {
   }
   if (!ADMIN_PASSWORD_HASH) {
     return NextResponse.json(
-      { error: 'Password login is not set up. Use an email code instead.' },
-      { status: 400 },
+      { error: 'Admin login is not configured.' },
+      { status: 500 },
     );
   }
 
   const f = failures.get(email);
   if (f && f.lockedUntil > Date.now()) {
     return NextResponse.json(
-      { error: 'Too many attempts. Try again in 15 minutes, or use an email code.' },
+      { error: 'Too many attempts. Try again in 15 minutes.' },
       { status: 429 },
     );
   }
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
   failures.delete(email);
   const res = NextResponse.json({ ok: true, admin: true });
-  res.cookies.set(SESSION_COOKIE, makeSession(email), {
+  res.cookies.set(SESSION_COOKIE, makeSession(email, 'admin'), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

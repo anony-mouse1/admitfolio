@@ -5,7 +5,7 @@ import { makeSession } from '@/lib/session';
 import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 
 function withSellerCookie(res: NextResponse, email: string): NextResponse {
-  res.cookies.set(SELLER_COOKIE, makeSession(email), {
+  res.cookies.set(SELLER_COOKIE, makeSession(email, 'seller'), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

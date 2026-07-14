@@ -26,8 +26,9 @@ export const TEST_EMAILS = new Set(
 // code always verifies. Never set in production.
 export const DEV_LOGIN_CODE = process.env.DEV_LOGIN_CODE || '';
 
-// Optional password login for the admin console (scrypt "salt:hash", same
-// format as seller passwords). When unset, admins sign in with email codes only.
+// Password for the admin console (scrypt "salt:hash", same format as seller
+// passwords). Email + password is the ONLY admin login - there is no
+// email-code path. When unset, no one can enter the console.
 export const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
 
 // Secret for signing admin session cookies and upload tokens. The dev fallback

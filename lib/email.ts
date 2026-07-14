@@ -26,7 +26,8 @@ export async function sendLoginCode(email: string, code: string): Promise<SendRe
       <div style="font-size:34px;font-weight:800;letter-spacing:.18em;margin:16px 0;color:#7d1d2d">${code}</div>
       <p style="color:#8a857b;font-size:13px">If you didn't request this, you can ignore this email.</p>
     </div>`;
-  return send(email, `Your Admitfolio verification code: ${code}`, html);
+  const text = `Your Admitfolio verification code is ${code}. Enter it to continue - it expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`;
+  return send(email, `Your Admitfolio verification code: ${code}`, html, text);
 }
 
 // Notifies a seller that one of their essays sold. The first sale carries an
@@ -69,7 +70,12 @@ export async function sendSaleNotification(
   const subject = firstSale
     ? 'Your first Admitfolio sale! One quick action needed'
     : `You made a sale: ${itemLabel}`;
-  return send(email, subject, html);
+  const text =
+    `${itemLabel} just sold for $${amount}. Your share: $${net.toFixed(2)}.\n\n` +
+    (firstSale
+      ? 'This was your first sale! Payouts go out every two weeks via PayPal. Log in to your seller dashboard (https://admitfolio.com/?login=1) and add your PayPal email under "Your seller profile" so we know where to send your earnings.'
+      : 'Your share is paid out every two weeks via PayPal to the address on your seller profile.');
+  return send(email, subject, html, text);
 }
 
 // Buyer receipt + delivery: the private access link is how they read the
@@ -98,10 +104,16 @@ export async function sendPurchaseReceipt(
         and can carry serious consequences, including rescinded admissions.
       </p>
     </div>`;
-  return send(email, `Your Admitfolio purchase: ${itemLabel}`, html);
+  const text =
+    `Thanks for your purchase of ${itemLabel} ($${amount}). Read your essays at your private link (keep this email, the link is yours):\n\n${accessUrl}\n\n` +
+    'A note on how to use them: these essays are for inspiration and learning only. Submitting them (or close rewrites) as your own work violates our Terms of Service and can carry serious consequences, including rescinded admissions.';
+  return send(email, `Your Admitfolio purchase: ${itemLabel}`, html, text);
 }
 
-async function send(to: string, subject: string, html: string): Promise<SendResult> {
+// Every email includes a plain-text part alongside the HTML - HTML-only
+// messages score noticeably worse with spam filters (university inboxes
+// especially), and login codes have to land in the inbox.
+async function send(to: string, subject: string, html: string, text: string): Promise<SendResult> {
   try {
     const resp = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -109,7 +121,7 @@ async function send(to: string, subject: string, html: string): Promise<SendResu
         Authorization: `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html, text }),
     });
     if (!resp.ok) {
       const detail = await resp.text().catch(() => '');

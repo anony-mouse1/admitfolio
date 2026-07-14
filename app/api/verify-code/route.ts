@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdminEmail, MAX_ATTEMPTS, SESSION_COOKIE, SESSION_TTL_MS } from '@/lib/config';
-import { makeSession } from '@/lib/session';
+import { MAX_ATTEMPTS } from '@/lib/config';
 import { makeEmailToken } from '@/lib/emailToken';
 
 export const runtime = 'nodejs';
@@ -33,17 +32,8 @@ export async function POST(req: Request) {
   }
 
   await prisma.loginCode.delete({ where: { email } }).catch(() => {});
-  const admin = isAdminEmail(email);
   // emailToken is the server-side proof of verification that /api/submit-listing requires.
-  const res = NextResponse.json({ ok: true, admin, emailToken: makeEmailToken(email) });
-  if (admin) {
-    res.cookies.set(SESSION_COOKIE, makeSession(email), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: Math.floor(SESSION_TTL_MS / 1000),
-    });
-  }
-  return res;
+  // Note: email codes never grant an admin session - the admin console signs in
+  // exclusively through /api/admin/login with the admin email + password.
+  return NextResponse.json({ ok: true, emailToken: makeEmailToken(email) });
 }

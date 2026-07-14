@@ -31,14 +31,13 @@ type Listing = {
 };
 type ListingFull = Listing & { essays: Essay[] };
 
-type Stage = 'loading' | 'email' | 'code' | 'console';
+type Stage = 'loading' | 'email' | 'console';
 type Filter = 'all' | 'pending' | 'approved' | 'rejected';
 
 export default function AdminPage() {
   const [stage, setStage] = useState<Stage>('loading');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [listings, setListings] = useState<ListingFull[]>([]);
@@ -79,51 +78,6 @@ export default function AdminPage() {
     }
   }
 
-  async function sendCode() {
-    setErr('');
-    setBusy(true);
-    try {
-      const r = await fetch('/api/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setErr(data.error || 'Could not send a code.');
-        return;
-      }
-      setStage('code');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyCode() {
-    setErr('');
-    setBusy(true);
-    try {
-      const r = await fetch('/api/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setErr(data.error || 'That code is incorrect.');
-        return;
-      }
-      if (!data.admin) {
-        setErr('That email is verified but is not an admin.');
-        return;
-      }
-      await loadListings();
-      setStage('console');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function decide(id: string, decision: 'approved' | 'rejected') {
     let note: string | undefined;
     if (decision === 'rejected') {
@@ -142,7 +96,7 @@ export default function AdminPage() {
     await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
     setListings([]);
     setEmail('');
-    setCode('');
+    setPassword('');
     setStage('email');
   }
 
@@ -301,7 +255,7 @@ export default function AdminPage() {
 
           {stage === 'email' && (
             <>
-              <p>Sign in with your admin email to review essay submissions.</p>
+              <p>Sign in with your admin email and password to review essay submissions.</p>
               <input
                 className={styles.input}
                 type="email"
@@ -327,46 +281,6 @@ export default function AdminPage() {
                 onClick={passwordLogin}
               >
                 {busy ? 'Signing in…' : 'Sign in'}
-              </button>
-              <button
-                className={`${styles.btn} ${styles.btnGhost} ${styles.full}`}
-                disabled={busy || !email}
-                onClick={sendCode}
-              >
-                Email me a code instead
-              </button>
-            </>
-          )}
-
-          {stage === 'code' && (
-            <>
-              <p>
-                Enter the 6-digit code we sent to <b>{email}</b>.
-              </p>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder="123456"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !busy && verifyCode()}
-              />
-              <div className={styles.err}>{err}</div>
-              <button className={`${styles.btn} ${styles.full}`} disabled={busy || !code} onClick={verifyCode}>
-                {busy ? 'Verifying…' : 'Verify & enter'}
-              </button>
-              <button
-                className={`${styles.btn} ${styles.btnGhost} ${styles.full}`}
-                onClick={() => {
-                  setStage('email');
-                  setErr('');
-                  setCode('');
-                }}
-              >
-                ← Use a different email
               </button>
             </>
           )}

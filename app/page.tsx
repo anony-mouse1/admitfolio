@@ -1463,6 +1463,7 @@ export default function Page() {
             <div className="modal-eyebrow">Step 2 of 5 · Confirm your email</div>
             <h3>Enter your code</h3>
             <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>.</p>
+            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder — school inboxes often filter new senders.</p>
             <div className="code-inputs">
               {code.map((c, i) => (
                 <input
@@ -1794,7 +1795,7 @@ export default function Page() {
           <div className={slClass(3)}>
             <div className="modal-eyebrow">Reset password</div>
             <h3>Set a new password</h3>
-            <p className="sub">We sent a 6-digit code to <strong>{slEmail || 'your email'}</strong>. Enter it and choose a new password.</p>
+            <p className="sub">We sent a 6-digit code to <strong>{slEmail || 'your email'}</strong>. Enter it and choose a new password. Don&apos;t see it? Check your spam folder.</p>
             <div className="field">
               <label htmlFor="slCode">6-digit code</label>
               <input ref={slCodeRef} type="text" id="slCode" inputMode="numeric" maxLength={6} placeholder="123456" autoComplete="one-time-code" value={slCode} onChange={(e) => { setSlCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setSlResetErr(''); }} />

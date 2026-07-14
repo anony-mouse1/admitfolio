@@ -8,5 +8,5 @@ import { verifySession } from './session';
 
 export function currentSeller(): { email: string } | null {
   const token = cookies().get(SELLER_COOKIE)?.value;
-  return verifySession(token);
+  return verifySession(token, 'seller');
 }

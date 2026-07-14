@@ -5,7 +5,7 @@ import { isAdminEmail, SESSION_COOKIE } from './config';
 // Returns the signed-in admin, or null if the request has no valid admin session.
 export function currentAdmin(): { email: string } | null {
   const token = cookies().get(SESSION_COOKIE)?.value;
-  const s = verifySession(token);
+  const s = verifySession(token, 'admin');
   if (!s || !isAdminEmail(s.email)) return null;
   return s;
 }

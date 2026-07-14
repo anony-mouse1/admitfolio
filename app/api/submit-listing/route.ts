@@ -148,7 +148,7 @@ export async function POST(req: Request) {
   // The OTP signup flow just proved this email, so start a seller session -
   // the success screen can open the dashboard (photo, bio) without a login.
   if (tokenOk) {
-    res.cookies.set(SELLER_COOKIE, makeSession(email), {
+    res.cookies.set(SELLER_COOKIE, makeSession(email, 'seller'), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
