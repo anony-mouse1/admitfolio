@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { emailAllowed } from '@/lib/config';
+import { emailAllowed, isAdminEmail, TEST_EMAILS } from '@/lib/config';
+import { sendAdminSubmissionNotification } from '@/lib/email';
 import { makeUploadToken } from '@/lib/uploadToken';
 import { verifyEmailToken } from '@/lib/emailToken';
 import { currentSeller } from '@/lib/sellerAuth';
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
       { status: 401 },
     );
   }
-  const school = String(body?.school || '').trim().slice(0, 120);
+  const school = String(body?.school || '').replace(/[\r\n]/g, ' ').trim().slice(0, 120);
   if (!school) return NextResponse.json({ error: 'A school is required.' }, { status: 400 });
 
   const essays = Array.isArray(body?.essays) ? body.essays : [];
@@ -71,7 +72,10 @@ export async function POST(req: Request) {
   // The tier is fixed by the seller's admits and its floor is enforced here,
   // not just in the wizard UI - a direct request can't undercut it. Admits are
   // required server-side too: with none, no tier (and no floor) would apply.
-  const admitTags = Array.isArray(body?.admitTags) ? body.admitTags.map(String).filter(Boolean) : [];
+  const admitTags = (Array.isArray(body?.admitTags) ? body.admitTags : [])
+    .slice(0, 20)
+    .map((t) => String(t).trim().slice(0, 80))
+    .filter(Boolean);
   if (admitTags.length === 0) {
     return NextResponse.json({ error: 'Add at least one school you got into.' }, { status: 400 });
   }
@@ -138,6 +142,20 @@ export async function POST(req: Request) {
     },
     include: { essays: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
   });
+
+  // Listings sit in 'pending' until someone reviews them, so the admin has to
+  // hear about each one. Awaited (fire-and-forget dies with the serverless
+  // invocation) but never fatal - the submission already succeeded.
+  const notify = await sendAdminSubmissionNotification({
+    school,
+    sellerEmail: email,
+    essayCount: listing.essays.length,
+    admitTags,
+    isTest: isAdminEmail(email) || TEST_EMAILS.has(email),
+  });
+  if (!notify.ok) {
+    console.error('admin submission notification failed:', notify.status, notify.detail);
+  }
 
   const res = NextResponse.json({
     ok: true,

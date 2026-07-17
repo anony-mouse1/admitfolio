@@ -13,6 +13,18 @@ export const ADMIN_EMAILS = new Set(
 );
 export const isAdminEmail = (e: string) => ADMIN_EMAILS.has(String(e).trim().toLowerCase());
 
+// Where new-submission notifications go. Separate from ADMIN_EMAILS because
+// that set doubles as the admin login allowlist - you may want notifications
+// at an address that can't sign in (or that just delivers more reliably).
+// Falls back to ADMIN_EMAILS when unset.
+export const ADMIN_NOTIFY_EMAILS = (() => {
+  const list = (process.env.ADMIN_NOTIFY_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return list.length > 0 ? list : [...ADMIN_EMAILS];
+})();
+
 // TEST-ONLY: extra non-.edu emails allowed to sign up while testing (Resend
 // sandbox only delivers to your account email). Remove before launch.
 export const TEST_EMAILS = new Set(

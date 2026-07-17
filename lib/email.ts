@@ -1,4 +1,4 @@
-import { RESEND_API_KEY, FROM_EMAIL } from './config';
+import { RESEND_API_KEY, FROM_EMAIL, ADMIN_NOTIFY_EMAILS } from './config';
 
 // Minimal Resend wrapper (ported from the prototype). Returns {ok, simulated?}.
 // When no API key is configured, it logs the code to the server console instead
@@ -76,6 +76,48 @@ export async function sendSaleNotification(
       ? 'This was your first sale! Payouts go out every two weeks via PayPal. Log in to your seller dashboard (https://admitfolio.com/?login=1) and add your PayPal email under "Your seller profile" so we know where to send your earnings.'
       : 'Your share is paid out every two weeks via PayPal to the address on your seller profile.');
   return send(email, subject, html, text);
+}
+
+// Tells the admin(s) a new listing just landed in the review queue. Submissions
+// only go live after manual review, so this is the signal to go approve them.
+export async function sendAdminSubmissionNotification(opts: {
+  school: string;
+  sellerEmail: string;
+  essayCount: number;
+  admitTags: string[];
+  isTest: boolean;
+}): Promise<SendResult> {
+  const { school, sellerEmail, essayCount, admitTags, isTest } = opts;
+  const admins = ADMIN_NOTIFY_EMAILS;
+  if (admins.length === 0) {
+    console.warn('[email] new submission but no admin notify address configured - no one notified');
+    return { ok: false, detail: 'ADMIN_NOTIFY_EMAILS/ADMIN_EMAILS not configured' };
+  }
+  if (!RESEND_API_KEY) {
+    console.log(`[email:dev] admin notification: ${sellerEmail} submitted ${essayCount} essay(s) from ${school}`);
+    return { ok: true, simulated: true };
+  }
+  const testTag = isTest ? ' [test]' : '';
+  const essayLabel = `${essayCount} essay${essayCount === 1 ? '' : 's'}`;
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1b1a17">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
+      <h2 style="margin:22px 0 6px">New submission to review${testTag}</h2>
+      <p style="color:#56524a;font-size:15px;line-height:1.6">
+        <b>${esc(sellerEmail)}</b> submitted <b>${essayLabel}</b> from <b>${esc(school)}</b>.<br>
+        Admits: ${esc(admitTags.join(', ') || 'none')}
+      </p>
+      <a href="https://admitfolio.com/admin" style="display:inline-block;margin:14px 0;background:#7d1d2d;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;padding:12px 24px">Open review console</a>
+    </div>`;
+  const text =
+    `${sellerEmail} submitted ${essayLabel} from ${school}.\n` +
+    `Admits: ${admitTags.join(', ') || 'none'}\n\n` +
+    'Review it at https://admitfolio.com/admin';
+  const results = await Promise.all(
+    admins.map((to) => send(to, `New submission${testTag}: ${school} (${essayLabel})`, html, text)),
+  );
+  const failed = results.find((r) => !r.ok);
+  return failed ?? { ok: true };
 }
 
 // Buyer receipt + delivery: the private access link is how they read the
