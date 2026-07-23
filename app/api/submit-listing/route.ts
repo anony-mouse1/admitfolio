@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { emailAllowed, isAdminEmail, TEST_EMAILS } from '@/lib/config';
-import { sendAdminSubmissionNotification } from '@/lib/email';
+import { emailAllowed } from '@/lib/config';
 import { makeUploadToken } from '@/lib/uploadToken';
 import { verifyEmailToken } from '@/lib/emailToken';
 import { currentSeller } from '@/lib/sellerAuth';
@@ -139,28 +138,28 @@ export async function POST(req: Request) {
           };
         }),
       },
+      // One acceptance-letter slot per admit school. The PDFs upload in a
+      // follow-up request (like essays), so these rows start with no pdfPath.
+      admitProofs: {
+        create: admitTags.map((school, i) => ({ school, sortOrder: i })),
+      },
     },
-    include: { essays: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
+    include: {
+      essays: { orderBy: { sortOrder: 'asc' }, select: { id: true } },
+      admitProofs: { orderBy: { sortOrder: 'asc' }, select: { id: true, school: true } },
+    },
   });
 
-  // Listings sit in 'pending' until someone reviews them, so the admin has to
-  // hear about each one. Awaited (fire-and-forget dies with the serverless
-  // invocation) but never fatal - the submission already succeeded.
-  const notify = await sendAdminSubmissionNotification({
-    school,
-    sellerEmail: email,
-    essayCount: listing.essays.length,
-    admitTags,
-    isTest: isAdminEmail(email) || TEST_EMAILS.has(email),
-  });
-  if (!notify.ok) {
-    console.error('admin submission notification failed:', notify.status, notify.detail);
-  }
+  // Listings sit in 'pending' until someone reviews them in the admin console.
+  // We intentionally do NOT email the admin per submission - it flooded the
+  // inbox (especially repeat submissions from the same seller). Review the
+  // pending queue at /admin instead.
 
   const res = NextResponse.json({
     ok: true,
     listingId: listing.id,
     essays: listing.essays,
+    admitProofs: listing.admitProofs,
     uploadToken: makeUploadToken(listing.id),
   });
   // The OTP signup flow just proved this email, so start a seller session -

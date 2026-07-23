@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentAdmin } from '@/lib/adminAuth';
+import { sendListingDecisionNotification } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -21,14 +22,38 @@ export async function POST(req: Request) {
   }
 
   try {
+    const note = body?.note ? String(body.note) : null;
+    const existing = await prisma.listing.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+    if (!existing) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
+
     const listing = await prisma.listing.update({
       where: { id },
       data: {
         status: decision,
-        adminNote: body?.note ? String(body.note) : null,
+        adminNote: note,
         reviewedAt: new Date(),
       },
+      include: { seller: { select: { email: true } } },
     });
+
+    // Only email the seller when the decision actually flips the status -
+    // re-confirming an already-approved (or already-rejected) listing shouldn't
+    // notify them again. Awaited but never fatal: the decision is already saved,
+    // so a mail hiccup shouldn't fail the request or block re-review.
+    if (existing.status !== decision) {
+      const notify = await sendListingDecisionNotification(listing.seller.email, {
+        school: listing.school,
+        decision: decision as 'approved' | 'rejected',
+        note,
+      });
+      if (!notify.ok) {
+        console.error('listing decision notification failed:', notify.status, notify.detail);
+      }
+    }
+
     return NextResponse.json({ ok: true, status: listing.status });
   } catch {
     return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
