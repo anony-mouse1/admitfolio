@@ -1,10 +1,19 @@
-import { RESEND_API_KEY, FROM_EMAIL, ADMIN_NOTIFY_EMAILS } from './config';
+import { RESEND_API_KEY, FROM_EMAIL, ADMIN_NOTIFY_EMAILS, SUPPORT_EMAIL } from './config';
 
 // Minimal Resend wrapper (ported from the prototype). Returns {ok, simulated?}.
 // When no API key is configured, it logs the code to the server console instead
 // of sending - handy for local development.
 
 type SendResult = { ok: boolean; simulated?: boolean; status?: number; detail?: string };
+
+// Seller-facing mail (submission confirmation, approve/reject) invites replies,
+// so route them to the support inbox. We only put SUPPORT_EMAIL in the visible
+// "from" when it's on our verified sending domain - sending "from" an
+// unverified domain fails DKIM and tanks deliverability - otherwise we keep the
+// system from and just set Reply-To, which is safe for any address.
+const supportOnSendingDomain = /@admitfolio\.com$/i.test(SUPPORT_EMAIL);
+const SELLER_FROM = supportOnSendingDomain ? `Admitfolio <${SUPPORT_EMAIL}>` : FROM_EMAIL;
+const SELLER_REPLY_TO = SUPPORT_EMAIL || undefined;
 
 const wineDot = '<span style="color:#7d1d2d">.</span>';
 
@@ -120,6 +129,90 @@ export async function sendAdminSubmissionNotification(opts: {
   return failed ?? { ok: true };
 }
 
+// Instant "we got it" to the seller the moment they submit: sets expectations
+// (2-3 business days to a decision) and invites questions, which reply to the
+// support inbox. Their submission already succeeded - this is never fatal.
+export async function sendSubmissionConfirmation(
+  email: string,
+  opts: { school: string; essayCount: number },
+): Promise<SendResult> {
+  const { school, essayCount } = opts;
+  const essayLabel = `${essayCount} essay${essayCount === 1 ? '' : 's'}`;
+  if (!RESEND_API_KEY) {
+    console.log(`[email:dev] submission confirmation for ${email}: ${essayLabel} from ${school} (reply-to ${SELLER_REPLY_TO ?? 'none'})`);
+    return { ok: true, simulated: true };
+  }
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1b1a17">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
+      <h2 style="margin:22px 0 6px">Submission received 🎉</h2>
+      <p style="color:#56524a;font-size:15px;line-height:1.6">
+        Thanks - we've got your <b>${essayLabel}</b> from <b>${esc(school)}</b>.
+        Our team reviews every submission by hand, and you'll hear back with a
+        decision within <b>2-3 business days</b>.
+      </p>
+      <p style="color:#56524a;font-size:15px;line-height:1.6">
+        Have a question in the meantime? Just reply to this email and it'll reach us directly.
+      </p>
+      <a href="https://admitfolio.com/?login=1" style="display:inline-block;margin:14px 0;background:#7d1d2d;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;padding:12px 24px">Open seller dashboard</a>
+    </div>`;
+  const text =
+    `Thanks - we've got your ${essayLabel} from ${school}.\n\n` +
+    `Our team reviews every submission by hand, and you'll hear back with a decision within 2-3 business days.\n\n` +
+    `Have a question in the meantime? Just reply to this email and it'll reach us directly.\n\n` +
+    `Open your seller dashboard: https://admitfolio.com/?login=1`;
+  return send(email, `We got your Admitfolio submission: ${school}`, html, text, {
+    from: SELLER_FROM,
+    replyTo: SELLER_REPLY_TO,
+  });
+}
+
+// Tells a seller the outcome of admin review. Approval means their listing is
+// live; rejection includes the admin's note verbatim so they know exactly what
+// to fix. This is the seller's only signal that review happened.
+export async function sendListingDecisionNotification(
+  email: string,
+  opts: { school: string; decision: 'approved' | 'rejected'; note?: string | null },
+): Promise<SendResult> {
+  const { school, decision, note } = opts;
+  const approved = decision === 'approved';
+  if (!RESEND_API_KEY) {
+    console.log(`[email:dev] listing ${decision} for ${email} (${school})${note ? ` note: ${note}` : ''}`);
+    return { ok: true, simulated: true };
+  }
+  // The note is admin-authored free text - escape it before it hits the HTML,
+  // and preserve the writer's line breaks in the rendered message.
+  const noteBox = note
+    ? `
+      <div style="margin:18px 0;padding:14px 16px;background:#faf3f4;border:1px solid #e6c9ce;border-radius:12px">
+        <div style="font-size:14px;font-weight:700;color:#7d1d2d">${approved ? 'A note from the review team' : 'What to fix'}</div>
+        <p style="color:#56524a;font-size:14px;line-height:1.6;margin:6px 0 0;white-space:pre-wrap">${esc(note)}</p>
+      </div>`
+    : '';
+  const body = approved
+    ? `Your listing from <b>${esc(school)}</b> passed review and is now live on Admitfolio. Buyers can find and purchase it.`
+    : `Your submission from <b>${esc(school)}</b> wasn't approved this time. See the note below for what to change, then resubmit from your seller dashboard.`;
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1b1a17">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
+      <h2 style="margin:22px 0 6px">${approved ? 'Your listing is live 🎉' : 'Your submission needs changes'}</h2>
+      <p style="color:#56524a;font-size:15px;line-height:1.6">${body}</p>
+      ${noteBox}
+      <a href="https://admitfolio.com/?login=1" style="display:inline-block;margin:14px 0;background:#7d1d2d;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;padding:12px 24px">Open seller dashboard</a>
+    </div>`;
+  const textBody = approved
+    ? `Your listing from ${school} passed review and is now live on Admitfolio. Buyers can find and purchase it.`
+    : `Your submission from ${school} wasn't approved this time. See the note below for what to change, then resubmit from your seller dashboard.`;
+  const text =
+    `${textBody}\n\n` +
+    (note ? `${approved ? 'Note from the review team' : 'What to fix'}:\n${note}\n\n` : '') +
+    'Open your seller dashboard: https://admitfolio.com/?login=1';
+  const subject = approved
+    ? `Your Admitfolio listing is live: ${school}`
+    : `Your Admitfolio submission needs changes: ${school}`;
+  return send(email, subject, html, text, { from: SELLER_FROM, replyTo: SELLER_REPLY_TO });
+}
+
 // Buyer receipt + delivery: the private access link is how they read the
 // essays, so this email IS the product handoff.
 export async function sendPurchaseReceipt(
@@ -155,7 +248,13 @@ export async function sendPurchaseReceipt(
 // Every email includes a plain-text part alongside the HTML - HTML-only
 // messages score noticeably worse with spam filters (university inboxes
 // especially), and login codes have to land in the inbox.
-async function send(to: string, subject: string, html: string, text: string): Promise<SendResult> {
+async function send(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  opts?: { from?: string; replyTo?: string },
+): Promise<SendResult> {
   try {
     const resp = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -163,7 +262,14 @@ async function send(to: string, subject: string, html: string, text: string): Pr
         Authorization: `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html, text }),
+      body: JSON.stringify({
+        from: opts?.from || FROM_EMAIL,
+        to,
+        subject,
+        html,
+        text,
+        ...(opts?.replyTo ? { reply_to: opts.replyTo } : {}),
+      }),
     });
     if (!resp.ok) {
       const detail = await resp.text().catch(() => '');

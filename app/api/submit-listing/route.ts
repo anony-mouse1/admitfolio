@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { emailAllowed, isAdminEmail, TEST_EMAILS } from '@/lib/config';
-import { sendAdminSubmissionNotification } from '@/lib/email';
+import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
 import { makeUploadToken } from '@/lib/uploadToken';
 import { verifyEmailToken } from '@/lib/emailToken';
 import { currentSeller } from '@/lib/sellerAuth';
@@ -155,6 +155,17 @@ export async function POST(req: Request) {
   });
   if (!notify.ok) {
     console.error('admin submission notification failed:', notify.status, notify.detail);
+  }
+
+  // Confirm receipt to the seller and set the 2-3 business day expectation.
+  // Replies route to the support inbox. Awaited but never fatal - the
+  // submission already succeeded.
+  const confirm = await sendSubmissionConfirmation(email, {
+    school,
+    essayCount: listing.essays.length,
+  });
+  if (!confirm.ok) {
+    console.error('submission confirmation failed:', confirm.status, confirm.detail);
   }
 
   const res = NextResponse.json({

@@ -4,6 +4,16 @@
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 export const FROM_EMAIL = process.env.FROM_EMAIL || 'Admitfolio <onboarding@resend.dev>';
 
+// Support address for seller-facing mail: replies (questions) route here, and
+// when it's on our own verified sending domain it also becomes the visible
+// "from". Set to hello@admitfolio.com once Cloudflare Email Routing is live;
+// falls back to the public contact email, then empty (no reply-to).
+export const SUPPORT_EMAIL = (
+  process.env.SUPPORT_EMAIL ||
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
+  ''
+).trim();
+
 // Who can sign into the admin review console. Comma-separated in ADMIN_EMAILS.
 export const ADMIN_EMAILS = new Set(
   (process.env.ADMIN_EMAILS || '')
