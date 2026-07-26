@@ -6,4 +6,6 @@ import Stripe from 'stripe';
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://admitfolio.com').replace(/\/$/, '');
+// Re-exported so existing `from '@/lib/stripe'` imports keep working; the
+// definition moved to config.ts so email templates can use it too.
+export { SITE_URL } from './config';
