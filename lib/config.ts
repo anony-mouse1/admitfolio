@@ -68,6 +68,13 @@ export const isEduEmail = (e: string) => eduRe.test(e);
 export const emailAllowed = (e: string) =>
   eduRe.test(e) || TEST_EMAILS.has(e.toLowerCase()) || isAdminEmail(e);
 
+// Absolute site origin. Lives here (not in stripe.ts) because email templates
+// need it too and must not pull in the Stripe SDK to get it.
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://admitfolio.com').replace(
+  /\/$/,
+  '',
+);
+
 export const CODE_TTL_MS = 10 * 60 * 1000; // codes valid 10 minutes
 export const MAX_ATTEMPTS = 5;
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
