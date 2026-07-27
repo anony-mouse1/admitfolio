@@ -131,8 +131,13 @@ export async function POST(req: Request) {
         create: essays.map((e, i) => {
           const wc = e?.wordCount != null ? Math.round(Number(e.wordCount)) : null;
           return {
-            prompt: String(e?.prompt || 'Essay'),
-            question: e?.question ? String(e.question) : null,
+            // Bounded and newline-stripped like `school` above: these two land
+            // in the reviewer panel's prompt, so unbounded seller text here is
+            // an injection surface as well as a display problem.
+            prompt: String(e?.prompt || 'Essay').replace(/[\r\n]/g, ' ').trim().slice(0, 200) || 'Essay',
+            question: e?.question
+              ? String(e.question).replace(/[\r\n]/g, ' ').trim().slice(0, 500) || null
+              : null,
             price: pricingMode === 'separate' ? essayPrices[i] : null,
             wordCount: wc != null && Number.isFinite(wc) ? wc : null,
             sortOrder: i,

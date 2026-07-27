@@ -32,7 +32,9 @@ export async function applyListingDecision(
     where: { id },
     data: {
       status: decision,
-      adminNote: note,
+      // Only overwrite when a note was actually supplied - re-confirming a
+      // decision with an empty box shouldn't wipe the note you left last time.
+      ...(note ? { adminNote: note } : {}),
       reviewedAt: new Date(),
       ...(opts.human ? { humanReviewedAt: new Date() } : {}),
     },

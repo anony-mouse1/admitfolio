@@ -77,6 +77,258 @@ function badgeCount(key: Filter, listings: Listing[]): number {
   return 0;
 }
 
+// Dev-only visual preview. `/admin?preview=1` renders this console against the
+// mock data below so the UI can be eyeballed without a session, a database, or
+// a configured review panel. It is inert in a production build, and even in dev
+// it only seeds client state - it never calls an API, so it grants no access to
+// anything real. Decisions are no-ops while it's on.
+const previewOn = () =>
+  process.env.NODE_ENV === 'development' &&
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('preview') === '1';
+
+// A 568-byte stand-in PDF so preview cards render a working "View PDF"
+// link. Inlined rather than served from /public so no demo artifact ends up
+// deployed. Real listings get short-lived signed Supabase URLs instead.
+const MOCK_PDF = 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgNjEyIDc5Ml0vQ29udGVudHMgNCAwIFIvUmVzb3VyY2VzPDwvRm9udDw8L0YxIDUgMCBSPj4+Pj4+ZW5kb2JqCjQgMCBvYmo8PC9MZW5ndGggNzI+PnN0cmVhbQpCVCAvRjEgMTYgVGYgNzIgNzAwIFRkIChTYW1wbGUgZXNzYXkgLSBhZG1pbiBjb25zb2xlIHByZXZpZXcgb25seSkgVGogRVQKZW5kc3RyZWFtZW5kb2JqCjUgMCBvYmo8PC9UeXBlL0ZvbnQvU3VidHlwZS9UeXBlMS9CYXNlRm9udC9IZWx2ZXRpY2E+PmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1MiAwMDAwMCBuIAowMDAwMDAwMTAxIDAwMDAwIG4gCjAwMDAwMDAyMTEgMDAwMDAgbiAKMDAwMDAwMDMyOCAwMDAwMCBuIAp0cmFpbGVyPDwvU2l6ZSA2L1Jvb3QgMSAwIFI+PgpzdGFydHhyZWYKMzg5CiUlRU9GCg==';
+
+const MOCK: ListingFull[] = [
+  {
+    id: 'mock-1',
+    school: 'Stanford University',
+    gradYear: '2028',
+    major: 'Symbolic Systems',
+    appliedMajors: 'Computer Science, Symbolic Systems',
+    admitTags: ['Stanford', 'MIT', 'Duke'],
+    anonymity: 'anonymous',
+    pricingMode: 'package',
+    packagePrice: 45,
+    status: 'pending',
+    adminNote: null,
+    sellerNote: 'Happy to answer questions about the roommate essay!',
+    createdAt: '2026-07-24T15:04:00.000Z',
+    aiReviewedAt: '2026-07-24T15:09:00.000Z',
+    aiDecision: 'flagged',
+    aiConfidence: 'medium',
+    aiReasons:
+      '[Policy & safety] The final paragraph includes what appears to be a personal Instagram handle.\n[Quality & fit] Essay 2 runs ~180 words over the claimed word count.',
+    aiSuggestion: 'reject',
+    aiLenses: [
+      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [] },
+      {
+        key: 'policy',
+        label: 'Policy & safety',
+        pass: false,
+        confidence: 'medium',
+        concerns: ['The final paragraph includes what appears to be a personal Instagram handle.'],
+      },
+      {
+        key: 'quality',
+        label: 'Quality & fit',
+        pass: true,
+        confidence: 'medium',
+        concerns: ['Essay 2 runs ~180 words over the claimed word count.'],
+      },
+    ],
+    humanReviewedAt: null,
+    sellerEmail: 'j.rivera@example.edu',
+    isTest: false,
+    essays: [
+      {
+        id: 'm1e1',
+        prompt: 'Roommate letter',
+        question: 'Write a note to your future roommate.',
+        price: null,
+        wordCount: 250,
+        pdfPath: 'mock/1.pdf',
+        pdfUrl: MOCK_PDF,
+      },
+      {
+        id: 'm1e2',
+        prompt: 'What matters to you',
+        question: 'What matters to you, and why?',
+        price: null,
+        wordCount: 250,
+        pdfPath: 'mock/2.pdf',
+        pdfUrl: MOCK_PDF,
+      },
+    ],
+  },
+  {
+    id: 'mock-2',
+    school: 'Yale University',
+    gradYear: '2027',
+    major: 'History',
+    appliedMajors: 'History',
+    admitTags: ['Yale', 'Brown'],
+    anonymity: 'firstName',
+    pricingMode: 'separate',
+    packagePrice: null,
+    status: 'approved',
+    adminNote: null,
+    sellerNote: null,
+    createdAt: '2026-07-23T09:12:00.000Z',
+    aiReviewedAt: '2026-07-23T09:15:00.000Z',
+    aiDecision: 'approved',
+    aiConfidence: 'high',
+    aiReasons: null,
+    aiSuggestion: 'approve',
+    aiLenses: [
+      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [] },
+      { key: 'policy', label: 'Policy & safety', pass: true, confidence: 'high', concerns: [] },
+      { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [] },
+    ],
+    humanReviewedAt: null,
+    sellerEmail: 'amara.k@example.edu',
+    isTest: false,
+    essays: [
+      {
+        id: 'm2e1',
+        prompt: 'Community essay',
+        question: 'Reflect on a community you belong to.',
+        price: 20,
+        wordCount: 400,
+        pdfPath: 'mock/3.pdf',
+        pdfUrl: MOCK_PDF,
+      },
+    ],
+  },
+  {
+    id: 'mock-3',
+    school: 'Princeton University',
+    gradYear: '2028',
+    major: 'Molecular Biology',
+    appliedMajors: 'Molecular Biology',
+    admitTags: ['Princeton'],
+    anonymity: 'anonymous',
+    pricingMode: 'package',
+    packagePrice: 35,
+    status: 'approved',
+    adminNote: 'Looks great — nice work.',
+    sellerNote: null,
+    createdAt: '2026-07-21T18:40:00.000Z',
+    aiReviewedAt: '2026-07-21T18:44:00.000Z',
+    aiDecision: 'approved',
+    aiConfidence: 'high',
+    aiReasons: null,
+    aiSuggestion: 'approve',
+    aiLenses: [
+      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [] },
+      { key: 'policy', label: 'Policy & safety', pass: true, confidence: 'high', concerns: [] },
+      { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [] },
+    ],
+    humanReviewedAt: '2026-07-22T11:02:00.000Z',
+    sellerEmail: 'dpatel@example.edu',
+    isTest: false,
+    essays: [
+      {
+        id: 'm3e1',
+        prompt: 'Extracurricular',
+        question: null,
+        price: null,
+        wordCount: 150,
+        pdfPath: 'mock/4.pdf',
+        pdfUrl: MOCK_PDF,
+      },
+    ],
+  },
+  {
+    id: 'mock-4',
+    school: 'Columbia University',
+    gradYear: '2029',
+    major: null,
+    appliedMajors: 'Undecided',
+    admitTags: ['Columbia', 'NYU'],
+    anonymity: 'anonymous',
+    pricingMode: 'package',
+    packagePrice: 30,
+    status: 'pending',
+    adminNote: null,
+    sellerNote: null,
+    createdAt: '2026-07-27T08:02:00.000Z',
+    aiReviewedAt: null,
+    aiDecision: null,
+    aiConfidence: null,
+    aiReasons: null,
+    aiSuggestion: null,
+    aiLenses: [],
+    humanReviewedAt: null,
+    sellerEmail: 'sofia.l@example.edu',
+    isTest: false,
+    essays: [
+      {
+        id: 'm4e1',
+        prompt: 'Why Columbia',
+        question: null,
+        price: null,
+        wordCount: 200,
+        pdfPath: 'mock/5.pdf',
+        pdfUrl: MOCK_PDF,
+      },
+    ],
+  },
+  {
+    id: 'mock-5',
+    school: 'Cornell University',
+    gradYear: '2027',
+    major: 'Hotel Administration',
+    appliedMajors: 'Hotel Administration',
+    admitTags: ['Cornell'],
+    anonymity: 'anonymous',
+    pricingMode: 'package',
+    packagePrice: 25,
+    status: 'rejected',
+    adminNote: 'The uploaded file was a resume, not an essay. Please re-upload.',
+    sellerNote: null,
+    createdAt: '2026-07-19T13:20:00.000Z',
+    aiReviewedAt: '2026-07-19T13:25:00.000Z',
+    aiDecision: 'flagged',
+    aiConfidence: 'high',
+    aiReasons: '[Policy & safety] The attached PDF is a résumé, not a college-admission essay.',
+    aiSuggestion: 'reject',
+    aiLenses: [
+      {
+        key: 'authenticity',
+        label: 'Authenticity',
+        pass: false,
+        confidence: 'high',
+        concerns: ['Document is not a first-person narrative essay.'],
+      },
+      {
+        key: 'policy',
+        label: 'Policy & safety',
+        pass: false,
+        confidence: 'high',
+        concerns: [
+          'The attached PDF is a résumé, not a college-admission essay.',
+          'Contains a home address and phone number.',
+        ],
+      },
+      {
+        key: 'quality',
+        label: 'Quality & fit',
+        pass: false,
+        confidence: 'high',
+        concerns: ['Not on-topic for the stated prompt.'],
+      },
+    ],
+    humanReviewedAt: '2026-07-19T17:45:00.000Z',
+    sellerEmail: 'mchen@example.edu',
+    isTest: false,
+    essays: [
+      {
+        id: 'm5e1',
+        prompt: 'Why this major',
+        question: null,
+        price: null,
+        wordCount: 300,
+        pdfPath: 'mock/6.pdf',
+        pdfUrl: MOCK_PDF,
+      },
+    ],
+  },
+];
+
 export default function AdminPage() {
   const [stage, setStage] = useState<Stage>('loading');
   const [email, setEmail] = useState('');
@@ -102,8 +354,14 @@ export default function AdminPage() {
     return true;
   }, []);
 
-  // On mount, check whether we already have a valid admin session.
+  // On mount, check whether we already have a valid admin session. In dev
+  // preview mode, skip the session entirely and render the mock data instead.
   useEffect(() => {
+    if (previewOn()) {
+      setListings(MOCK);
+      setStage('console');
+      return;
+    }
     loadListings().then((ok) => setStage(ok ? 'console' : 'email'));
   }, [loadListings]);
 
@@ -130,6 +388,22 @@ export default function AdminPage() {
   }
 
   async function decide(id: string, decision: 'approved' | 'rejected') {
+    // Preview renders against mock data with no backend - never post a decision.
+    if (previewOn()) {
+      setListings((ls) =>
+        ls.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                status: decision,
+                adminNote: (notes[id] || '').trim() || null,
+                humanReviewedAt: new Date().toISOString(),
+              }
+            : l,
+        ),
+      );
+      return;
+    }
     const note = (notes[id] || '').trim() || undefined;
     setDeciding(id);
     try {

@@ -36,6 +36,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'That action is not available.' }, { status: 400 });
   }
 
-  await prisma.listing.update({ where: { id: listing.id }, data: { status } });
+  // A resubmission is new content as far as review is concerned, so clear the
+  // panel's verdict. Without this the cron skips it forever (its selector needs
+  // aiReviewedAt: null) and a previously auto-approved listing would sit
+  // pending in no actionable queue, still showing its old sign-off.
+  const reviewReset =
+    status === 'pending'
+      ? {
+          aiReviewedAt: null,
+          aiDecision: null,
+          aiConfidence: null,
+          aiReasons: null,
+          aiSuggestion: null,
+          aiLenses: null,
+          humanReviewedAt: null,
+        }
+      : {};
+
+  await prisma.listing.update({
+    where: { id: listing.id },
+    data: { status, ...reviewReset },
+  });
   return NextResponse.json({ ok: true, status });
 }

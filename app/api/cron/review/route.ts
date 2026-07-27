@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { CRON_SECRET } from '@/lib/config';
 import { fetchEssayPdfsBase64, runReviewPanel } from '@/lib/review';
@@ -17,9 +18,18 @@ const BATCH_SIZE = 5;
 // GET /api/cron/review — invoked by Vercel Cron (see vercel.json). Gated by
 // CRON_SECRET, which Vercel sends as `Authorization: Bearer <CRON_SECRET>`.
 // currentAdmin() is cookie-bound and unavailable to cron, so we use the secret.
+// Constant-time bearer check. `!==` short-circuits on the first differing byte,
+// which is a (remote, faint) timing oracle; lib/uploadToken.ts already compares
+// this way, so match it.
+function authorized(header: string): boolean {
+  if (!CRON_SECRET) return false; // unconfigured deploys stay closed
+  const got = Buffer.from(header);
+  const want = Buffer.from(`Bearer ${CRON_SECRET}`);
+  return got.length === want.length && crypto.timingSafeEqual(got, want);
+}
+
 export async function GET(req: Request) {
-  const auth = req.headers.get('authorization') || '';
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
+  if (!authorized(req.headers.get('authorization') || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
