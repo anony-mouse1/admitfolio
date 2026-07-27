@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { currentAdmin } from '@/lib/adminAuth';
-import { sendListingDecisionNotification } from '@/lib/email';
+import { applyListingDecision } from '@/lib/listingDecision';
 
 export const runtime = 'nodejs';
 
@@ -21,41 +20,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'decision must be approved or rejected.' }, { status: 400 });
   }
 
-  try {
-    const note = body?.note ? String(body.note) : null;
-    const existing = await prisma.listing.findUnique({
-      where: { id },
-      select: { status: true },
-    });
-    if (!existing) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
+  const note = body?.note ? String(body.note) : null;
+  // human: true - this decision came from a person in the console, so it stamps
+  // humanReviewedAt and clears the listing off the audit queue.
+  const result = await applyListingDecision(id, decision as 'approved' | 'rejected', note, {
+    human: true,
+  });
+  if (!result.ok) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
 
-    const listing = await prisma.listing.update({
-      where: { id },
-      data: {
-        status: decision,
-        adminNote: note,
-        reviewedAt: new Date(),
-      },
-      include: { seller: { select: { email: true } } },
-    });
-
-    // Only email the seller when the decision actually flips the status -
-    // re-confirming an already-approved (or already-rejected) listing shouldn't
-    // notify them again. Awaited but never fatal: the decision is already saved,
-    // so a mail hiccup shouldn't fail the request or block re-review.
-    if (existing.status !== decision) {
-      const notify = await sendListingDecisionNotification(listing.seller.email, {
-        school: listing.school,
-        decision: decision as 'approved' | 'rejected',
-        note,
-      });
-      if (!notify.ok) {
-        console.error('listing decision notification failed:', notify.status, notify.detail);
-      }
-    }
-
-    return NextResponse.json({ ok: true, status: listing.status });
-  } catch {
-    return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
-  }
+  return NextResponse.json({ ok: true, status: result.status });
 }

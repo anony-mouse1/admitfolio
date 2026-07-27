@@ -48,6 +48,14 @@ export async function GET() {
     sellerNote: l.sellerNote,
     createdAt: l.createdAt,
     reviewedAt: l.reviewedAt,
+    aiReviewedAt: l.aiReviewedAt,
+    aiDecision: l.aiDecision,
+    aiConfidence: l.aiConfidence,
+    aiReasons: l.aiReasons,
+    aiSuggestion: l.aiSuggestion,
+    // Parsed here rather than in the client so the console gets a real array.
+    aiLenses: safeParseLenses(l.aiLenses),
+    humanReviewedAt: l.humanReviewedAt,
     sellerEmail: l.seller.email,
     // Submissions from admin/test accounts are dummy data, not real students -
     // the console badges them so they're never mistaken for the real thing.
@@ -70,6 +78,34 @@ function safeParse(s: string): string[] {
   try {
     const v = JSON.parse(s);
     return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+type LensRow = {
+  key: string;
+  label: string;
+  pass: boolean;
+  confidence: string;
+  concerns: string[];
+};
+
+// aiLenses is JSON written by the review panel. Older rows predate the column,
+// so treat anything unparseable as "no breakdown available" rather than failing
+// the whole console request.
+function safeParseLenses(s: string | null): LensRow[] {
+  if (!s) return [];
+  try {
+    const v = JSON.parse(s);
+    if (!Array.isArray(v)) return [];
+    return v.map((r) => ({
+      key: String(r?.key ?? ''),
+      label: String(r?.label ?? r?.key ?? 'Lens'),
+      pass: r?.pass === true,
+      confidence: String(r?.confidence ?? 'low'),
+      concerns: Array.isArray(r?.concerns) ? r.concerns.map(String).filter(Boolean) : [],
+    }));
   } catch {
     return [];
   }

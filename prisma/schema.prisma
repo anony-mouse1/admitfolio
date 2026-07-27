@@ -49,6 +49,19 @@ model Listing {
   sellerNote   String? // optional note from the seller, shown to the admin during review
   createdAt    DateTime   @default(now())
   reviewedAt   DateTime?
+  // Automated review (Claude reviewer panel). aiReviewedAt doubles as the
+  // "already screened" guard for the cron query. Auto-approve flips `status`;
+  // a flagged listing stays `pending` with these fields populated for the admin.
+  aiReviewedAt DateTime? // set once the panel has run
+  aiDecision   String? // approved | flagged
+  aiConfidence String? // high | medium | low (lowest across the panel's lenses)
+  aiReasons    String? // panel's concerns, shown to the admin on flagged listings
+  aiSuggestion String? // approve | reject — pre-fills the flagged listing's action
+  aiLenses     String? // JSON array of per-lens verdicts, so the admin can read the full review
+  // Set only when a human admin decides from the console - never by the cron.
+  // This is what separates "the panel cleared it" from "I looked at it myself",
+  // and drives the unaudited counts on the review tabs.
+  humanReviewedAt DateTime?
   essays       Essay[]
   purchases    Purchase[]
 

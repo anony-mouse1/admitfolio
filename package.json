@@ -12,6 +12,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@prisma/client": "5.18.0",
     "@supabase/supabase-js": "^2.109.0",
     "@vercel/analytics": "^2.0.1",

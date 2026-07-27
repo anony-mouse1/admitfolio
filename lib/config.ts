@@ -68,6 +68,17 @@ export const isEduEmail = (e: string) => eduRe.test(e);
 export const emailAllowed = (e: string) =>
   eduRe.test(e) || TEST_EMAILS.has(e.toLowerCase()) || isAdminEmail(e);
 
+// Automated review: the Claude reviewer panel that pre-screens submissions.
+// When ANTHROPIC_API_KEY is unset, lib/review.ts skips the real panel and flags
+// everything for manual review (it never silently auto-approves without a review).
+export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+// Model for the review panel. Defaults to Opus 5; drop to claude-sonnet-5 via
+// AI_REVIEW_MODEL if you want to cut cost.
+export const REVIEW_MODEL = process.env.AI_REVIEW_MODEL || 'claude-opus-5';
+// Shared secret gating the cron review route. Vercel Cron sends it as
+// `Authorization: Bearer <CRON_SECRET>`. When unset, the route refuses to run.
+export const CRON_SECRET = process.env.CRON_SECRET || '';
+
 export const CODE_TTL_MS = 10 * 60 * 1000; // codes valid 10 minutes
 export const MAX_ATTEMPTS = 5;
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
