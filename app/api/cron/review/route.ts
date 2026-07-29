@@ -8,11 +8,14 @@ import { applyListingDecision } from '@/lib/listingDecision';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 // The panel makes several Claude calls over PDFs per listing; give it room.
-export const maxDuration = 300;
+// 60s is the ceiling on Vercel's Hobby plan (Pro allows 300) - raise this if
+// the project is upgraded, together with the cron cadence in vercel.json.
+export const maxDuration = 60;
 
-// How many pending submissions to screen per invocation. The cron runs
-// frequently, so a small batch drains the queue while keeping each run bounded
-// in time and cost.
+// How many pending submissions to screen per invocation. Each listing is
+// committed as it finishes, so if the run hits maxDuration mid-batch the
+// already-screened listings are saved and the rest keep aiReviewedAt = null,
+// so the next run picks them up. Safe to leave above what one run can finish.
 const BATCH_SIZE = 5;
 
 // GET /api/cron/review — invoked by Vercel Cron (see vercel.json). Gated by
