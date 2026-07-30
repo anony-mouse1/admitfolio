@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Your essays · Admitfolio',
   robots: { index: false, follow: false },
+  // The access token is in this page's own URL, so never let it ride out in a
+  // Referer header to anything this page loads or links to. Browsers default to
+  // trimming the path cross-origin; this does not depend on that default.
+  referrer: 'no-referrer',
 };
 
 function Shell({ children }: { children: React.ReactNode }) {
