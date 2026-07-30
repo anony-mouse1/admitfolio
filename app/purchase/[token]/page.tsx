@@ -1,15 +1,13 @@
 import type { Metadata } from 'next';
 import { verifyAccessToken } from '@/lib/accessToken';
 import { prisma } from '@/lib/prisma';
-import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
+import EssayReader from '@/components/EssayReader';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Your essays · Admitfolio',
   robots: { index: false, follow: false },
 };
-
-const SIGNED_URL_TTL_S = 60 * 60;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -45,11 +43,6 @@ export default async function PurchasePage({ params }: { params: { token: string
   }
 
   const essays = purchase.listing.essays;
-  const paths = essays.filter((e) => e.pdfPath).map((e) => e.pdfPath as string);
-  const { data: signed } = paths.length
-    ? await supabaseAdmin.storage.from(ESSAYS_BUCKET).createSignedUrls(paths, SIGNED_URL_TTL_S)
-    : { data: [] as { path: string | null; signedUrl: string }[] };
-  const urlByPath = new Map((signed || []).map((s) => [s.path, s.signedUrl]));
 
   return (
     <Shell>
@@ -59,25 +52,26 @@ export default async function PurchasePage({ params }: { params: { token: string
         Thanks for supporting a real student. These essays are for <b>inspiration and learning only</b>,
         never for copying or submitting as your own; see our <a href="/terms">Terms</a>.
       </p>
-      <ul>
-        {essays.map((e) => {
-          const url = e.pdfPath ? urlByPath.get(e.pdfPath) : null;
-          return (
-            <li key={e.id}>
-              {e.question || e.prompt}
-              {' · '}
-              {url ? (
-                <a href={url} target="_blank" rel="noreferrer">Open PDF</a>
-              ) : (
-                <span>PDF unavailable, contact us</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
       <p>
-        Download links refresh each time you open this page, so bookmark <b>this page</b> (or keep your
-        purchase email) rather than the PDF links themselves.
+        Each essay is watermarked with your email (<b>{purchase.buyerEmail}</b>) and opens here for
+        reading. Reads are logged.
+      </p>
+      {essays.map((e) =>
+        e.pdfPath ? (
+          <EssayReader
+            key={e.id}
+            essayId={e.id}
+            token={params.token}
+            label={e.question || e.prompt}
+          />
+        ) : (
+          <p key={e.id}>
+            {e.question || e.prompt} · PDF unavailable, contact us
+          </p>
+        ),
+      )}
+      <p>
+        Bookmark <b>this page</b> (or keep your purchase email) to come back to these essays.
       </p>
     </Shell>
   );
