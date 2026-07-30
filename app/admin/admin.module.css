@@ -481,3 +481,88 @@
   color: var(--faint);
   white-space: nowrap;
 }
+
+/* T20 split panels on the review tabs, so sellers at a top school are the
+   first thing worked through. */
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 34px 0 2px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.panelCount {
+  font-size: 12.5px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.panelEmpty {
+  color: var(--faint);
+  font-size: 13.5px;
+  padding: 14px 0 2px;
+}
+.t20Badge {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  color: #fff;
+  background: var(--accent);
+}
+
+/* The seller's own profile, shown regardless of their anonymity choice -
+   that choice governs the public listing, not this review. */
+.anonTag {
+  font-weight: 700;
+  color: var(--ink);
+}
+.profile {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 10px;
+}
+.profileName {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.profileTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.profileTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.profileBio {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+}

@@ -110,8 +110,9 @@ const LENSES: Lens[] = [
     system:
       TRUST_BOUNDARY +
       'You are reviewing a college-admission essay submitted to a marketplace where admitted students sell their real essays. ' +
-      'Judge AUTHENTICITY and INTEGRITY: is this a genuine, human-written, coherent first-person college essay - not AI-generated boilerplate, not a plagiarized or generic template - and is it consistent with the claimed school, major, and prompt? ' +
-      'pass=false if it reads as machine-generated, templated, plagiarized, or clearly inconsistent with the stated metadata. ' +
+      'Judge AUTHENTICITY and INTEGRITY: is this a genuine, human-written, coherent first-person college essay - not AI-generated boilerplate, not a plagiarized or generic template? ' +
+      'The metadata names the university the seller now attends, NOT the school each essay was written for - that is not recorded, so an essay addressed to some other school is entirely expected and is NOT a discrepancy. ' +
+      'pass=false if it reads as machine-generated, templated, or plagiarized. ' +
       'confidence reflects how sure you are. List concrete concerns; empty array if none.',
   },
   {
@@ -138,8 +139,13 @@ function buildUserContent(listing: ReviewableListing, pdfs: EssayPdf[]): Anthrop
   const admits = safeParseTags(listing.admitTags);
   const meta =
     `Submission metadata:\n` +
-    `- School (essays are for): ${listing.school}\n` +
-    `- Seller's current major: ${listing.major ?? '(not given)'}\n` +
+    // `school` is the university the seller currently ATTENDS - the sell wizard
+    // collects it as "Current university" and posts it as `school`. The school
+    // each essay was actually written FOR is asked in the wizard but never
+    // persisted, so it cannot be stated here; don't imply otherwise, or the
+    // authenticity lens will flag good essays for a mismatch we invented.
+    `- University the seller currently attends: ${listing.school}\n` +
+    `- Seller's current major there: ${listing.major ?? '(not given)'}\n` +
     `- Major(s) applied to with these essays: ${listing.appliedMajors ?? '(not given)'}\n` +
     `- Schools admitted to: ${admits.length ? admits.join(', ') : '(none listed)'}\n` +
     `- Essays in this submission (${pdfs.length}):\n` +

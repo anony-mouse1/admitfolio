@@ -43,6 +43,12 @@ type Listing = {
   aiLenses: Lens[]; // per-lens breakdown of the panel's review
   humanReviewedAt: string | null; // set only when YOU decided from this console
   sellerEmail: string;
+  // Seller profile as they filled it in. `anonymity` decides what buyers see;
+  // these are shown to you either way so you can sanity-check the pairing.
+  sellerName: string | null;
+  sellerBio: string | null;
+  sellerTags: string[];
+  isT20: boolean; // seller attends a Tier 1 school (lib/pricing schoolTier === 1)
   isTest: boolean; // seller is an admin/test account - dummy data, not a real student
 };
 type ListingFull = Listing & { essays: Essay[] };
@@ -58,6 +64,19 @@ const autoApproved = (l: Listing) => l.aiDecision === 'approved';
 const unaudited = (l: Listing) => autoApproved(l) && !l.humanReviewedAt;
 // Submitted, but the cron hasn't screened it yet.
 const awaitingAi = (l: Listing) => l.status === 'pending' && !l.aiReviewedAt;
+
+// How the seller chose to be credited publicly, in words. The stored value is a
+// bare enum ('anonymous' | 'firstName' | 'full') which reads as noise on a card.
+const ANONYMITY_LABEL: Record<string, string> = {
+  anonymous: 'Anonymous — name hidden from buyers',
+  firstName: 'First name only',
+  full: 'Full name shown to buyers',
+};
+const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
+
+// Tabs where you are deciding what to look at next, so T20 sellers are worth
+// separating out. Settled tabs (approved/rejected/all) stay a flat list.
+const SPLIT_TABS: Filter[] = ['needsReview', 'awaitingAi'];
 
 const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
   { key: 'needsReview', label: 'Needs manual review', match: needsReview },
@@ -133,6 +152,10 @@ const MOCK: ListingFull[] = [
     humanReviewedAt: null,
     sellerEmail: 'j.rivera@example.edu',
     isTest: false,
+    sellerName: 'Jordan Rivera',
+    sellerBio: 'CS major who fell into linguistics by accident. Happy to share what worked.',
+    sellerTags: ['First-generation', 'STEM'],
+    isT20: true,
     essays: [
       {
         id: 'm1e1',
@@ -181,6 +204,10 @@ const MOCK: ListingFull[] = [
     humanReviewedAt: null,
     sellerEmail: 'amara.k@example.edu',
     isTest: false,
+    sellerName: 'Amara K.',
+    sellerBio: 'Wrote about my grandmother\u2019s kitchen and somehow it worked.',
+    sellerTags: ['Low-income', 'Humanities'],
+    isT20: true,
     essays: [
       {
         id: 'm2e1',
@@ -220,6 +247,10 @@ const MOCK: ListingFull[] = [
     humanReviewedAt: '2026-07-22T11:02:00.000Z',
     sellerEmail: 'dpatel@example.edu',
     isTest: false,
+    sellerName: 'Dev Patel',
+    sellerBio: null,
+    sellerTags: ['Transfer student'],
+    isT20: true,
     essays: [
       {
         id: 'm3e1',
@@ -234,7 +265,7 @@ const MOCK: ListingFull[] = [
   },
   {
     id: 'mock-4',
-    school: 'Columbia University',
+    school: 'Arizona State University',
     gradYear: '2029',
     major: null,
     appliedMajors: 'Undecided',
@@ -255,6 +286,10 @@ const MOCK: ListingFull[] = [
     humanReviewedAt: null,
     sellerEmail: 'sofia.l@example.edu',
     isTest: false,
+    sellerName: 'Sofia L.',
+    sellerBio: 'Debate kid turned public-health nerd.',
+    sellerTags: ['First-generation'],
+    isT20: false,
     essays: [
       {
         id: 'm4e1',
@@ -269,7 +304,7 @@ const MOCK: ListingFull[] = [
   },
   {
     id: 'mock-5',
-    school: 'Cornell University',
+    school: 'Boston University',
     gradYear: '2027',
     major: 'Hotel Administration',
     appliedMajors: 'Hotel Administration',
@@ -315,6 +350,10 @@ const MOCK: ListingFull[] = [
     humanReviewedAt: '2026-07-19T17:45:00.000Z',
     sellerEmail: 'mchen@example.edu',
     isTest: false,
+    sellerName: null,
+    sellerBio: null,
+    sellerTags: [],
+    isT20: false,
     essays: [
       {
         id: 'm5e1',
@@ -438,22 +477,39 @@ export default function AdminPage() {
   const shown = listings
     .filter(activeTab.match)
     // Float submissions that need a human decision to the top, then ones you
-    // haven't signed off on; the seller grouping below preserves this order, so
-    // their groups bubble up too.
+    // haven't signed off on, then sellers at a T20; the seller grouping below
+    // preserves this order, so their groups bubble up too. T20 is last so it
+    // orders within equal urgency rather than pushing a T20 that is already
+    // settled above something that actually needs a decision.
     .sort(
       (a, b) =>
         Number(needsReview(b)) - Number(needsReview(a)) ||
-        Number(unaudited(b)) - Number(unaudited(a)),
+        Number(unaudited(b)) - Number(unaudited(a)) ||
+        Number(b.isT20) - Number(a.isT20),
     );
 
   // Group by seller so it's obvious which submissions belong to the same
   // person (order of first appearance is preserved - newest sellers first).
-  const sellerGroups: { email: string; isTest: boolean; items: ListingFull[] }[] = [];
-  for (const l of shown) {
-    const g = sellerGroups.find((s) => s.email === l.sellerEmail);
-    if (g) g.items.push(l);
-    else sellerGroups.push({ email: l.sellerEmail, isTest: l.isTest, items: [l] });
+  function groupBySeller(items: ListingFull[]) {
+    const groups: { email: string; isTest: boolean; items: ListingFull[] }[] = [];
+    for (const l of items) {
+      const g = groups.find((s) => s.email === l.sellerEmail);
+      if (g) g.items.push(l);
+      else groups.push({ email: l.sellerEmail, isTest: l.isTest, items: [l] });
+    }
+    return groups;
   }
+
+  // On the review tabs, split into two panels so T20 sellers are the first
+  // thing you work through. Grouping happens per panel, so a seller never
+  // straddles both. Empty panels still render their heading - "none right now"
+  // is information when you are triaging.
+  const panels = SPLIT_TABS.includes(filter)
+    ? [
+        { key: 't20', label: 'Going to a T20 school', items: shown.filter((l) => l.isT20) },
+        { key: 'other', label: 'Not going to a T20 school', items: shown.filter((l) => !l.isT20) },
+      ].map((p) => ({ ...p, groups: groupBySeller(p.items) }))
+    : [{ key: 'all', label: null, items: shown, groups: groupBySeller(shown) }];
 
   return (
     <div className={styles.page}>
@@ -499,7 +555,23 @@ export default function AdminPage() {
                     : `Nothing in ${activeTab.label.toLowerCase()}.`}
               </div>
             ) : (
-              sellerGroups.map((g) => (
+              panels.map((panel) => (
+                <div key={panel.key}>
+                  {panel.label && (
+                    <div className={styles.panelHead}>
+                      <h2 className={styles.panelTitle}>
+                        {panel.key === 't20' && <span className={styles.t20Badge}>T20</span>}
+                        {panel.label}
+                      </h2>
+                      <span className={styles.panelCount}>
+                        {panel.items.length} submission{panel.items.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  )}
+                  {panel.items.length === 0 ? (
+                    <div className={styles.panelEmpty}>None right now.</div>
+                  ) : (
+                    panel.groups.map((g) => (
                 <section key={g.email} className={styles.sellerGroup}>
                   <div className={styles.sellerHead}>
                     <span className={styles.sellerEmail}>
@@ -517,12 +589,34 @@ export default function AdminPage() {
                   <div className={styles.cardTop}>
                     <div>
                       <h3 className={styles.serif}>
+                        {l.isT20 && <span className={styles.t20Badge}>T20</span>}
                         {l.school}
                         {l.gradYear ? ` · Class of ${l.gradYear}` : ''}
                       </h3>
                       <div className={styles.who}>
-                        {l.major ? `${l.major} · ` : ''}{l.anonymity}
+                        {l.major ? `${l.major} · ` : ''}
+                        <span className={styles.anonTag}>{anonymityLabel(l.anonymity)}</span>
                       </div>
+                      {/* What the seller wrote about themselves. Shown to you no
+                          matter their anonymity choice - that choice governs the
+                          public listing, not your review. */}
+                      {(l.sellerName || l.sellerBio || l.sellerTags.length > 0) && (
+                        <div className={styles.profile}>
+                          {l.sellerName && (
+                            <div className={styles.profileName}>{l.sellerName}</div>
+                          )}
+                          {l.sellerTags.length > 0 && (
+                            <div className={styles.profileTags}>
+                              {l.sellerTags.map((t) => (
+                                <span key={t} className={styles.profileTag}>
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {l.sellerBio && <div className={styles.profileBio}>{l.sellerBio}</div>}
+                        </div>
+                      )}
                     </div>
                     <span className={`${styles.status} ${styles[l.status] || styles.rejected}`}>{l.status}</span>
                   </div>
@@ -697,6 +791,9 @@ export default function AdminPage() {
                 </div>
                   ))}
                 </section>
+                    ))
+                  )}
+                </div>
               ))
             )}
           </div>
