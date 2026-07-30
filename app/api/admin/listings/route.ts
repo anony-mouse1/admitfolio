@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { currentAdmin } from '@/lib/adminAuth';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
+import { schoolTier } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,17 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
     include: {
       essays: { orderBy: { sortOrder: 'asc' } },
-      seller: { select: { email: true } },
+      // The seller's own profile, so the console can show who is behind a
+      // submission and what display name they actually consented to.
+      seller: {
+        select: {
+          email: true,
+          name: true,
+          bio: true,
+          photoPath: true,
+          backgroundTags: true,
+        },
+      },
     },
   });
 
@@ -57,6 +68,16 @@ export async function GET() {
     aiLenses: safeParseLenses(l.aiLenses),
     humanReviewedAt: l.humanReviewedAt,
     sellerEmail: l.seller.email,
+    // Seller profile. `anonymity` above governs what BUYERS see; these fields
+    // are what the seller filled in, shown to you regardless so you can check
+    // the two line up before approving.
+    sellerName: l.seller.name,
+    sellerBio: l.seller.bio,
+    sellerTags: safeParse(l.seller.backgroundTags),
+    // `school` is the university the seller attends (the wizard's "Current
+    // university"), so tier 1 here means they are AT a top school - which is
+    // the prioritisation the console sorts and panels on.
+    isT20: schoolTier(l.school) === 1,
     // Submissions from admin/test accounts are dummy data, not real students -
     // the console badges them so they're never mistaken for the real thing.
     isTest: isAdminEmail(l.seller.email) || TEST_EMAILS.has(l.seller.email.toLowerCase()),
