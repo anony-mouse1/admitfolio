@@ -57,6 +57,21 @@ export default function PrivacyPage() {
         requested) for security and debugging.
       </p>
 
+      <h3>Purchased essays</h3>
+      <p>
+        Essays you buy are licensed to you personally. Every copy we display is watermarked with your
+        email address and purchase reference, and each time an essay is opened we record the date and
+        time, your IP address, and your browser&apos;s user-agent string, linked to your purchase. We
+        also store the IP address used at checkout.
+      </p>
+      <p>
+        We use this only to enforce the licence — to investigate redistribution or other misuse of a
+        student&apos;s work — and to resolve payment disputes. We do not use it for advertising or
+        profiling, and we do not sell it. Access records are kept for 24 months and then deleted;
+        watermarks remain in any copy that has already been issued. If you believe a record is
+        inaccurate, or you want to ask us to delete yours, contact us using the details below.
+      </p>
+
       <h2>2. Cookies</h2>
       <p>
         We only use essential cookies: a session cookie that keeps you signed in to your seller account, and

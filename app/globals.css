@@ -1205,3 +1205,53 @@ body { -webkit-tap-highlight-color: transparent; }
   font-size: 15px; color: var(--faint); font-style: italic;
   background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
 }
+
+/* ── Purchased-essay reader ───────────────────────────────
+   Pages render to <canvas> (see components/EssayReader.tsx), so there is no
+   text layer to select. user-select:none additionally stops a drag-select from
+   grabbing the surrounding markup, and -webkit-touch-callout suppresses iOS
+   Safari's "Save Image" long-press sheet. Neither is a real control - a
+   screenshot still works - the per-buyer watermark is what makes a leaked copy
+   traceable. */
+.essay-reader {
+  margin: 0 0 22px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
+}
+.essay-reader-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.essay-reader-head button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  cursor: pointer;
+}
+.essay-reader-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.essay-reader-pages {
+  margin-top: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.essay-reader-pages canvas {
+  pointer-events: none;
+  max-width: 100%;
+}

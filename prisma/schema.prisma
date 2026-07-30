@@ -104,9 +104,30 @@ model Purchase {
   itemLabel       String? // e.g. "Stanford — Common App"
   amount          Int // whole dollars charged
   stripeSessionId String?  @unique // idempotency key for Stripe webhook retries
+  // Buyer's IP at checkout. Captured in /api/checkout (which the buyer's
+  // browser calls) and carried through Stripe session metadata - reading
+  // x-forwarded-for in the webhook would record Stripe's servers instead.
+  buyerIp         String?
   createdAt       DateTime @default(now())
+  views           EssayView[]
 
   @@index([listingId])
+}
+
+// One row per essay read. Buyers have no account, so a view is attributed via
+// the purchase (which carries Stripe's verified buyerEmail) rather than a user
+// id. This is what makes a leaked watermark traceable to a person.
+model EssayView {
+  id         String   @id @default(cuid())
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId String
+  essayId    String // which essay in the package was opened
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([essayId])
 }
 
 // Short-lived 6-digit login codes (replaces the in-memory Map from the

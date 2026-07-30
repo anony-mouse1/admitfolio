@@ -65,6 +65,10 @@ export async function POST(req: Request) {
         itemLabel: label,
         amount,
         stripeSessionId: session.id,
+        // Set in /api/checkout from the buyer's own request. Deliberately not
+        // read from this request's headers: Stripe calls this endpoint, so that
+        // address would be Stripe's, not the buyer's.
+        buyerIp: session.metadata?.buyerIp || null,
       },
     });
   } catch (e) {

@@ -63,7 +63,11 @@ export async function POST(req: Request) {
           },
         },
       ],
-      metadata: { listingId: listing.id },
+      // buyerIp rides through Stripe metadata because THIS request comes from
+      // the buyer's browser. The webhook that writes the Purchase row is called
+      // by Stripe, so its own x-forwarded-for is Stripe's address - reading it
+      // there would record our payment processor and look like buyer data.
+      metadata: { listingId: listing.id, buyerIp: ip.slice(0, 100) },
       success_url: `${SITE_URL}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/?checkout=canceled`,
     });
