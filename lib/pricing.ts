@@ -17,8 +17,11 @@ export const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: numbe
   3: { label: 'Tier 3 · Standard', base: 20, extra: 9, perEssay: 15 },
 };
 
-// Revenue split: sellers keep this share of every sale.
-export const SELLER_SHARE = 0.7;
+// Revenue split: sellers keep this share of every sale, the platform keeps the
+// rest. Single source of truth - the seller dashboard's earnings figures, the
+// "you earned" line in sale-notification emails, and the split quoted in
+// /terms all derive from it, and they must never disagree.
+export const SELLER_SHARE = 0.6;
 
 export const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
 export const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;

@@ -98,7 +98,7 @@ export default function TermsPage() {
         <a href="/privacy">Privacy Policy</a>.
       </p>
       <p>
-        <b>Getting paid.</b> When purchasing launches, revenue from each sale is split approximately 70/30
+        <b>Getting paid.</b> When purchasing launches, revenue from each sale is split approximately 60/40
         in the Seller&rsquo;s favor. Payouts will be made through a third-party payment processor after a
         purchase clears, subject to any payout schedule, minimum amounts, and verification requirements
         described in your seller dashboard. You are responsible for any taxes on your earnings.

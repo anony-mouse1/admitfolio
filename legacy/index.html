@@ -1433,7 +1433,7 @@
         <div class="dash-section-head">
           <h2 class="dash-h2">Earnings overview</h2>
           <!-- Updated dynamically from SELLER_SHARE constant -->
-          <div class="dash-fee-badge" id="dashFeeBadge">Platform takes 30% · you keep 70%</div>
+          <div class="dash-fee-badge" id="dashFeeBadge">Platform takes 40% · you keep 60%</div>
         </div>
         <!-- Four stat cards: total net, this-month net, pending payout, total sales -->
         <div class="dash-stats-row" id="dashStats"></div>
@@ -2470,8 +2470,8 @@
     // CONFIGURABLE FEE SPLIT
     // Seller keeps SELLER_SHARE of each gross sale; platform keeps the rest.
     //
-    //   Option A (current): SELLER_SHARE = 0.70  →  seller 70%, platform 30%
-    //   Option B:           SELLER_SHARE = 0.60  →  seller 60%, platform 40%
+    //   Option A:           SELLER_SHARE = 0.70  →  seller 70%, platform 30%
+    //   Option B (current): SELLER_SHARE = 0.60  →  seller 60%, platform 40%
     //
     // Change ONLY this one constant — every earnings figure updates automatically.
     //
@@ -2484,19 +2484,19 @@
     //   $10 sale @ 0.60 → seller $6.00, platform $4.00  ✓
     //
     // Rounding: Math.round(x × 100) / 100  — rounds half-up to 2 decimal places.
-    const SELLER_SHARE = 0.70;
+    const SELLER_SHARE = 0.60;
     // ─────────────────────────────────────────────────────────────────────────
 
     // ===== DEMO DATA — replace with real API calls once backend is live =====
     // These are realistic mock figures for UI development and design review.
     // All amounts are in USD.
     //
-    // Earnings breakdown at SELLER_SHARE = 0.70:
-    //   Harvard PS:    14 × $15.00 = $210.00 gross  →  $147.00 net
-    //   Why Harvard:    6 ×  $8.00 =  $48.00 gross  →   $33.60 net
-    //   Total gross: $258.00  |  Net to seller: $180.60  |  Platform fee: $77.40
+    // Earnings breakdown at SELLER_SHARE = 0.60:
+    //   Harvard PS:    14 × $15.00 = $210.00 gross  →  $126.00 net
+    //   Why Harvard:    6 ×  $8.00 =  $48.00 gross  →   $28.80 net
+    //   Total gross: $258.00  |  Net to seller: $154.80  |  Platform fee: $103.20
     //
-    // June 2026 gross: $87.00  →  $60.90 net this month
+    // June 2026 gross: $87.00  →  $52.20 net this month
     const DEMO_ESSAYS = [
       { id:1, title:'Common App · Personal Statement', school:'Harvard', status:'published', sales:14, price:15.00, addedAt:'Apr 1, 2026'  },
       { id:2, title:'Why Harvard · Supplement',        school:'Harvard', status:'published', sales: 6, price: 8.00, addedAt:'Apr 1, 2026'  },
@@ -2511,7 +2511,7 @@
     const DEMO_PAYOUT = {
       status:   'Processing',      // next payout is being prepared
       nextDate: 'Jul 1, 2026',     // scheduled disbursement date
-      pending:  Math.round(DEMO_MONTH_GROSS * SELLER_SHARE * 100) / 100,  // e.g. $87.00 × 0.70 = $60.90
+      pending:  Math.round(DEMO_MONTH_GROSS * SELLER_SHARE * 100) / 100,  // e.g. $87.00 × 0.60 = $52.20
     };
     // ===== END DEMO DATA =====
 
