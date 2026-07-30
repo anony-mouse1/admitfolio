@@ -67,9 +67,10 @@ export default function PrivacyPage() {
       <p>
         We use this only to enforce the licence — to investigate redistribution or other misuse of a
         student&apos;s work — and to resolve payment disputes. We do not use it for advertising or
-        profiling, and we do not sell it. Access records are kept for 24 months and then deleted;
-        watermarks remain in any copy that has already been issued. If you believe a record is
-        inaccurate, or you want to ask us to delete yours, contact us using the details below.
+        profiling, and we do not sell it. We keep access records for as long as we may need them for
+        those purposes, and watermarks remain in any copy that has already been issued. If you believe
+        a record is inaccurate, or you want to ask us to delete yours, contact us using the details
+        below — see also <a href="#retention">Data retention</a>.
       </p>
 
       <h2>2. Cookies</h2>
@@ -134,7 +135,7 @@ export default function PrivacyPage() {
         case this policy would continue to apply until updated).
       </p>
 
-      <h2>6. Data retention</h2>
+      <h2 id="retention">6. Data retention</h2>
       <p>
         We keep your information for as long as your account is active or as needed to provide the service.
         If you delete your account or ask us to delete your data, we remove your personal information and
