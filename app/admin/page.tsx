@@ -54,33 +54,28 @@ type Listing = {
 type ListingFull = Listing & { essays: Essay[] };
 
 type Stage = 'loading' | 'email' | 'console';
-type Filter =
-  | 'aiReview'
-  | 'needsReview'
-  | 'autoApproved'
-  | 'awaitingAi'
-  | 'approved'
-  | 'rejected'
-  | 'all';
+// Two tabs only. The top level answers "whose turn is it" - yours, or already
+// settled - and the sections inside answer "what was decided". The console used
+// to have seven tabs that sliced the same listings several ways at once (two of
+// them showed the identical 19), which made it read as more state than there is.
+type Filter = 'needsReview' | 'reviewed';
 
-// A submission the panel flagged and that still needs a human decision.
-const needsReview = (l: Listing) => l.aiDecision === 'flagged' && l.status === 'pending';
-// The panel found nothing wrong. With auto-approve off (the default - see
-// AUTO_APPROVE in app/api/cron/review/route.ts) this does NOT mean the listing
-// is live; it means the panel would have cleared it and is waiting on you.
-const aiAccepted = (l: Listing) => l.aiDecision === 'approved';
-// The panel cleared this one AND it actually went live on its own. Deliberately
-// stricter than aiAccepted: while auto-approve is off nothing lands here, which
-// is what keeps this tab honest to its name.
-const autoApproved = (l: Listing) => aiAccepted(l) && l.status === 'approved';
-// Auto-approved but you haven't personally signed off on it yet.
-const unaudited = (l: Listing) => autoApproved(l) && !l.humanReviewedAt;
-// Submitted, but the cron hasn't screened it yet.
+// --- What the AI said -------------------------------------------------------
+// The panel found nothing wrong. With auto-approve off (AUTO_APPROVE in
+// app/api/cron/review/route.ts) this does NOT mean the listing is live; it means
+// the panel would have cleared it and is waiting on you.
+const aiApproved = (l: Listing) => l.aiDecision === 'approved';
+const aiFlagged = (l: Listing) => l.aiDecision === 'flagged';
+
+// --- Whose turn it is -------------------------------------------------------
+// Screened by the panel and still pending: it has had its say, you haven't.
+const needsReview = (l: Listing) => !!l.aiReviewedAt && l.status === 'pending';
+// Settled by a human, whichever way it went.
+const reviewed = (l: Listing) => l.status === 'approved' || l.status === 'rejected';
+// Submitted, but the cron hasn't screened it yet. Deliberately NOT a tab: there
+// is nothing for you to do with these, you're waiting on the nightly run. It
+// renders as a plain count beside the tabs so the number stays visible.
 const awaitingAi = (l: Listing) => l.status === 'pending' && !l.aiReviewedAt;
-// Screened by the panel, accepted or flagged, and still waiting on your
-// decision. This is the queue while the panel is annotating rather than
-// deciding: everything it has looked at and nothing it has acted on.
-const aiReview = (l: Listing) => !!l.aiReviewedAt && l.status === 'pending';
 
 // How the seller chose to be credited publicly, in words. The stored value is a
 // bare enum ('anonymous' | 'firstName' | 'full') which reads as noise on a card.
@@ -91,29 +86,30 @@ const ANONYMITY_LABEL: Record<string, string> = {
 };
 const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
 
-// Tabs where you are deciding what to look at next, so T20 sellers are worth
-// separating out. Settled tabs (approved/rejected/all) stay a flat list.
-const SPLIT_TABS: Filter[] = ['aiReview', 'needsReview', 'awaitingAi'];
-
 const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
-  { key: 'aiReview', label: 'AI review — your call', match: aiReview },
-  { key: 'needsReview', label: 'Needs manual review', match: needsReview },
-  { key: 'autoApproved', label: 'Auto-approved', match: autoApproved },
-  { key: 'awaitingAi', label: 'Awaiting AI', match: awaitingAi },
-  { key: 'approved', label: 'Approved', match: (l) => l.status === 'approved' },
-  { key: 'rejected', label: 'Rejected', match: (l) => l.status === 'rejected' },
-  { key: 'all', label: 'All', match: () => true },
+  { key: 'needsReview', label: 'Needs your review', match: needsReview },
+  { key: 'reviewed', label: 'Reviewed', match: reviewed },
 ];
 
-// The badge on a tab counts what still wants your attention, not the tab's
-// total - on Auto-approved that's the ones you haven't signed off on yet.
-function badgeCount(key: Filter, listings: Listing[]): number {
-  if (key === 'aiReview') return listings.filter(aiReview).length;
-  if (key === 'needsReview') return listings.filter(needsReview).length;
-  if (key === 'autoApproved') return listings.filter(unaudited).length;
-  if (key === 'awaitingAi') return listings.filter(awaitingAi).length;
-  return 0;
-}
+// The sections inside each tab. Two apiece, and they partition their tab
+// exactly - every listing the tab matches lands in one of them, so nothing can
+// be in the tab yet invisible inside it.
+const SECTIONS: Record<Filter, { key: string; label: string; match: (l: Listing) => boolean }[]> = {
+  needsReview: [
+    { key: 'aiApproved', label: '✓ Approved by AI', match: aiApproved },
+    { key: 'aiFlagged', label: '⚑ Flagged by AI', match: aiFlagged },
+  ],
+  reviewed: [
+    { key: 'accepted', label: 'Accepted', match: (l) => l.status === 'approved' },
+    { key: 'rejected', label: 'Rejected', match: (l) => l.status === 'rejected' },
+  ],
+};
+
+// Tab badges are plain totals now. The old badges counted "what still wants your
+// attention", which differed from the tab's own contents and meant a tab could
+// read 0 while listing rows - one more thing to hold in your head.
+const badgeCount = (key: Filter, listings: Listing[]): number =>
+  listings.filter(TABS.find((t) => t.key === key)!.match).length;
 
 // Dev-only visual preview. `/admin?preview=1` renders this console against the
 // mock data below so the UI can be eyeballed without a session, a database, or
@@ -492,20 +488,20 @@ export default function AdminPage() {
     setStage('email');
   }
 
-  const activeTab = TABS.find((t) => t.key === filter) ?? TABS[TABS.length - 1];
+  const activeTab = TABS.find((t) => t.key === filter) ?? TABS[0];
   const shown = listings
     .filter(activeTab.match)
-    // Float submissions that need a human decision to the top, then ones you
-    // haven't signed off on, then sellers at a T20; the seller grouping below
-    // preserves this order, so their groups bubble up too. T20 is last so it
-    // orders within equal urgency rather than pushing a T20 that is already
-    // settled above something that actually needs a decision.
-    .sort(
-      (a, b) =>
-        Number(needsReview(b)) - Number(needsReview(a)) ||
-        Number(unaudited(b)) - Number(unaudited(a)) ||
-        Number(b.isT20) - Number(a.isT20),
-    );
+    // T20 sellers first. This used to be a pair of labelled panels, but the
+    // decision sections below now occupy that level, and nesting T20 inside them
+    // would put three headings between you and a card. As a sort it keeps the
+    // prioritisation with nothing extra to read past. The urgency terms that
+    // used to lead this comparison are gone: a tab is now one kind of thing, so
+    // there is no mixed urgency left inside it to order by.
+    .sort((a, b) => Number(b.isT20) - Number(a.isT20));
+
+  // Everything the panel hasn't screened yet. Not a tab - there's nothing to do
+  // with these - but the number belongs on screen, so it renders beside the tabs.
+  const awaitingCount = listings.filter(awaitingAi).length;
 
   // Group by seller so it's obvious which submissions belong to the same
   // person (order of first appearance is preserved - newest sellers first).
@@ -519,16 +515,14 @@ export default function AdminPage() {
     return groups;
   }
 
-  // On the review tabs, split into two panels so T20 sellers are the first
-  // thing you work through. Grouping happens per panel, so a seller never
-  // straddles both. Empty panels still render their heading - "none right now"
-  // is information when you are triaging.
-  const panels = SPLIT_TABS.includes(filter)
-    ? [
-        { key: 't20', label: 'Going to a T20 school', items: shown.filter((l) => l.isT20) },
-        { key: 'other', label: 'Not going to a T20 school', items: shown.filter((l) => !l.isT20) },
-      ].map((p) => ({ ...p, groups: groupBySeller(p.items) }))
-    : [{ key: 'all', label: null, items: shown, groups: groupBySeller(shown) }];
+  // The two sections inside the active tab. Grouping happens per section, so a
+  // seller never straddles both. Empty sections still render their heading -
+  // "none right now" is information when you are triaging, and it's how you can
+  // tell "the AI approved nothing" apart from "the section isn't there".
+  const panels = SECTIONS[filter].map((s) => {
+    const items = shown.filter(s.match);
+    return { key: s.key, label: s.label, items, groups: groupBySeller(items) };
+  });
 
   return (
     <div className={styles.page}>
@@ -561,34 +555,29 @@ export default function AdminPage() {
                 })}
               </div>
               <span className={styles.count}>
-                {shown.length} of {listings.length} submission{listings.length === 1 ? '' : 's'}
+                {awaitingCount > 0
+                  ? `${awaitingCount} waiting on the AI`
+                  : `${listings.length} submission${listings.length === 1 ? '' : 's'}`}
               </span>
             </div>
 
             {shown.length === 0 ? (
               <div className={styles.empty}>
-                {filter === 'all'
+                {listings.length === 0
                   ? 'No submissions yet.'
                   : filter === 'needsReview'
-                    ? 'Nothing needs manual review right now. 🎉'
-                    : filter === 'aiReview'
-                      ? 'Nothing screened is waiting on you.'
-                      : `Nothing in ${activeTab.label.toLowerCase()}.`}
+                    ? 'Nothing is waiting on you. 🎉'
+                    : 'Nothing reviewed yet.'}
               </div>
             ) : (
               panels.map((panel) => (
                 <div key={panel.key}>
-                  {panel.label && (
-                    <div className={styles.panelHead}>
-                      <h2 className={styles.panelTitle}>
-                        {panel.key === 't20' && <span className={styles.t20Badge}>T20</span>}
-                        {panel.label}
-                      </h2>
-                      <span className={styles.panelCount}>
-                        {panel.items.length} submission{panel.items.length === 1 ? '' : 's'}
-                      </span>
-                    </div>
-                  )}
+                  <div className={styles.panelHead}>
+                    <h2 className={styles.panelTitle}>{panel.label}</h2>
+                    <span className={styles.panelCount}>
+                      {panel.items.length} submission{panel.items.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
                   {panel.items.length === 0 ? (
                     <div className={styles.panelEmpty}>None right now.</div>
                   ) : (
@@ -643,22 +632,29 @@ export default function AdminPage() {
                   </div>
 
                   {!l.aiReviewedAt ? (
-                    <div className={styles.aiPending}>Awaiting automated review…</div>
+                    // Only worth saying while it's still coming. On a listing you
+                    // already settled - including the ones decided before the
+                    // panel existed - "awaiting review" would be stale, not news.
+                    l.status === 'pending' ? (
+                      <div className={styles.aiPending}>Awaiting automated review…</div>
+                    ) : null
                   ) : (
-                    <div className={needsReview(l) ? styles.flagBox : styles.aiBox}>
-                      <div className={needsReview(l) ? styles.flagTitle : styles.aiTitle}>
-                        {/* Accepted vs flagged, stated plainly - and for an
-                            accepted one, whether it actually went live or is
-                            still parked waiting on you. */}
-                        {needsReview(l)
-                          ? '⚑ Flagged by the panel — your decision'
-                          : autoApproved(l)
-                            ? '✓ Auto-approved by the review panel'
-                            : aiAccepted(l)
-                              ? '✓ Accepted by the panel — awaiting your approval'
-                              : 'Reviewed by the panel'}
+                    <div className={aiFlagged(l) ? styles.flagBox : styles.aiBox}>
+                      <div className={aiFlagged(l) ? styles.flagTitle : styles.aiTitle}>
+                        {/* Matches the section heading this card sits under, so
+                            the two never appear to disagree. Keyed off the AI's
+                            verdict, not the tab - a card keeps its label after
+                            you decide, in the Reviewed tab. */}
+                        {aiFlagged(l)
+                          ? '⚑ Flagged by AI'
+                          : aiApproved(l)
+                            ? '✓ Approved by AI'
+                            : 'Reviewed by the panel'}
                         {l.aiConfidence ? ` · confidence: ${l.aiConfidence}` : ''}
-                        {needsReview(l) && l.aiSuggestion ? ` · suggests ${l.aiSuggestion}` : ''}
+                        {/* Shown on every screened card now. Everything the panel
+                            has seen is flagged, so this is the line that actually
+                            separates "typo" from "this is not an essay". */}
+                        {l.aiSuggestion ? ` · suggests ${l.aiSuggestion}` : ''}
                       </div>
                       {l.aiReasons && <div className={styles.flagReasons}>{l.aiReasons}</div>}
 
@@ -708,10 +704,10 @@ export default function AdminPage() {
                         <div className={styles.signedOff}>
                           ✓ You signed off on {new Date(l.humanReviewedAt).toLocaleDateString()}
                         </div>
-                      ) : autoApproved(l) ? (
-                        <div className={styles.unaudited}>Awaiting your sign-off</div>
-                      ) : aiAccepted(l) ? (
-                        // Not live yet - it needs your approve, not a sign-off.
+                      ) : l.status === 'pending' ? (
+                        // Nothing the panel screens is published until you say
+                        // so, whether it approved or flagged it, so this line is
+                        // the same for both.
                         <div className={styles.unaudited}>
                           Not published — approve to put it live
                         </div>
