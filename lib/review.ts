@@ -5,9 +5,15 @@ import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 
 // The automated reviewer panel. Each pending submission is screened by three
 // specialized Claude "lenses" running concurrently; they vote. A submission is
-// auto-approved ONLY when every lens passes with high confidence and no
-// concerns. Anything else - a fail, low/medium confidence, any concern, or a
-// review error - is flagged for the human admin. We never auto-reject.
+// approved when every lens passes, and flagged otherwise - a lens failure, or a
+// deterministic review error. Confidence and concerns are recorded alongside and
+// shown to the admin, but do not by themselves flag a submission; see the note
+// on the decision rule below for why they used to and no longer do.
+//
+// We never auto-reject. And whether an approved verdict actually publishes the
+// listing is a separate question entirely - see AUTO_APPROVE in
+// app/api/cron/review/route.ts, which is currently off, so nothing the panel
+// approves goes live without a human.
 
 type Confidence = 'high' | 'medium' | 'low';
 // `transient` marks a verdict that isn't a verdict: the lens never got an answer
@@ -289,28 +295,36 @@ export async function runReviewPanel(
     return { decision: 'retry', confidence: 'low', reasons: detail, suggestion: null, lenses: [] };
   }
 
-  const allPass = verdicts.every((v) => v.pass);
-  const allHigh = verdicts.every((v) => v.confidence === 'high');
-  const noConcerns = verdicts.every((v) => v.concerns.length === 0);
-  const decision: PanelResult['decision'] =
-    allPass && allHigh && noConcerns ? 'approved' : 'flagged';
+  // Approved means every lens passed. Nothing more.
+  //
+  // It used to also require every lens at high confidence AND zero concerns
+  // between them, which sounds prudent and is in practice unreachable: the
+  // lenses are instructed to list concerns, so a careful reviewer always
+  // returns one. Across the first 19 real listings the rule approved zero -
+  // and 19 of 19 were blocked by the zero-concerns clause specifically, 10
+  // also by confidence. Fifteen of those 19 had all three lenses pass; they
+  // were held back by typos, an approximate word count, and in one case a
+  // concern whose own text read "not a material discrepancy".
+  //
+  // A verdict nothing can satisfy carries no information. Confidence and
+  // concerns are still recorded and still shown on every card - they inform
+  // the human decision rather than silently deciding it.
+  const decision: PanelResult['decision'] = verdicts.every((v) => v.pass)
+    ? 'approved'
+    : 'flagged';
 
   const confidence = verdicts
     .map((v) => v.confidence)
     .reduce((lo, c) => (CONFIDENCE_RANK[c] < CONFIDENCE_RANK[lo] ? c : lo), 'high' as Confidence);
 
-  const labeledConcerns = LENSES.flatMap((lens, i) =>
+  // Concerns are surfaced whether or not the panel approved. An approved
+  // listing with notes is the common case now, and hiding its notes would make
+  // the console claim the panel had nothing to say when it did.
+  const reasons = LENSES.flatMap((lens, i) =>
     verdicts[i].concerns.map((c) => `[${lens.label}] ${c}`),
-  );
-  const reasons =
-    decision === 'approved'
-      ? ''
-      : labeledConcerns.length > 0
-        ? labeledConcerns.join('\n')
-        : 'The panel passed the submission but not with full confidence.';
+  ).join('\n');
 
-  const suggestion: PanelResult['suggestion'] =
-    decision === 'approved' ? 'approve' : allPass ? 'approve' : 'reject';
+  const suggestion: PanelResult['suggestion'] = decision === 'approved' ? 'approve' : 'reject';
 
   const lenses: LensReport[] = LENSES.map((lens, i) => ({
     key: lens.key,
