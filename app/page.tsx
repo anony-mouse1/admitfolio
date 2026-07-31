@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
-import { TIER, packageFloor, perEssayFloor, admitsTier } from '@/lib/pricing';
+import { TIER, packageFloor, perEssayFloor, admitsTier, SELLER_SHARE } from '@/lib/pricing';
 import { PROFILE_TAGS } from '@/lib/site';
 
 /* ============================================================================
@@ -128,7 +128,10 @@ const anonApiValue: Record<AnonMode, 'anonymous' | 'firstName' | 'full'> = {
 /* ---- Smart pricing engine: see lib/pricing.ts (shared with the server) ---- */
 
 /* ---- Dashboard ---- */
-const SELLER_SHARE = 0.7;
+// SELLER_SHARE is imported from lib/pricing, not redeclared here. This file and
+// the Stripe webhook quote the same seller the same money - the dashboard total
+// and the "you earned" line - so they must read one constant, not two copies
+// that can drift apart.
 const listingPrice = (l: SellerListing) =>
   l.packagePrice ?? l.essays.reduce((sum, e) => sum + (e.price || 0), 0);
 const listingTitle = (l: SellerListing) =>
