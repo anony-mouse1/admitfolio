@@ -54,16 +54,33 @@ type Listing = {
 type ListingFull = Listing & { essays: Essay[] };
 
 type Stage = 'loading' | 'email' | 'console';
-type Filter = 'needsReview' | 'autoApproved' | 'awaitingAi' | 'approved' | 'rejected' | 'all';
+type Filter =
+  | 'aiReview'
+  | 'needsReview'
+  | 'autoApproved'
+  | 'awaitingAi'
+  | 'approved'
+  | 'rejected'
+  | 'all';
 
 // A submission the panel flagged and that still needs a human decision.
 const needsReview = (l: Listing) => l.aiDecision === 'flagged' && l.status === 'pending';
-// The panel cleared this one and pushed it live on its own.
-const autoApproved = (l: Listing) => l.aiDecision === 'approved';
+// The panel found nothing wrong. With auto-approve off (the default - see
+// AUTO_APPROVE in app/api/cron/review/route.ts) this does NOT mean the listing
+// is live; it means the panel would have cleared it and is waiting on you.
+const aiAccepted = (l: Listing) => l.aiDecision === 'approved';
+// The panel cleared this one AND it actually went live on its own. Deliberately
+// stricter than aiAccepted: while auto-approve is off nothing lands here, which
+// is what keeps this tab honest to its name.
+const autoApproved = (l: Listing) => aiAccepted(l) && l.status === 'approved';
 // Auto-approved but you haven't personally signed off on it yet.
 const unaudited = (l: Listing) => autoApproved(l) && !l.humanReviewedAt;
 // Submitted, but the cron hasn't screened it yet.
 const awaitingAi = (l: Listing) => l.status === 'pending' && !l.aiReviewedAt;
+// Screened by the panel, accepted or flagged, and still waiting on your
+// decision. This is the queue while the panel is annotating rather than
+// deciding: everything it has looked at and nothing it has acted on.
+const aiReview = (l: Listing) => !!l.aiReviewedAt && l.status === 'pending';
 
 // How the seller chose to be credited publicly, in words. The stored value is a
 // bare enum ('anonymous' | 'firstName' | 'full') which reads as noise on a card.
@@ -76,9 +93,10 @@ const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
 
 // Tabs where you are deciding what to look at next, so T20 sellers are worth
 // separating out. Settled tabs (approved/rejected/all) stay a flat list.
-const SPLIT_TABS: Filter[] = ['needsReview', 'awaitingAi'];
+const SPLIT_TABS: Filter[] = ['aiReview', 'needsReview', 'awaitingAi'];
 
 const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
+  { key: 'aiReview', label: 'AI review — your call', match: aiReview },
   { key: 'needsReview', label: 'Needs manual review', match: needsReview },
   { key: 'autoApproved', label: 'Auto-approved', match: autoApproved },
   { key: 'awaitingAi', label: 'Awaiting AI', match: awaitingAi },
@@ -90,6 +108,7 @@ const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
 // The badge on a tab counts what still wants your attention, not the tab's
 // total - on Auto-approved that's the ones you haven't signed off on yet.
 function badgeCount(key: Filter, listings: Listing[]): number {
+  if (key === 'aiReview') return listings.filter(aiReview).length;
   if (key === 'needsReview') return listings.filter(needsReview).length;
   if (key === 'autoApproved') return listings.filter(unaudited).length;
   if (key === 'awaitingAi') return listings.filter(awaitingAi).length;
@@ -552,7 +571,9 @@ export default function AdminPage() {
                   ? 'No submissions yet.'
                   : filter === 'needsReview'
                     ? 'Nothing needs manual review right now. 🎉'
-                    : `Nothing in ${activeTab.label.toLowerCase()}.`}
+                    : filter === 'aiReview'
+                      ? 'Nothing screened is waiting on you.'
+                      : `Nothing in ${activeTab.label.toLowerCase()}.`}
               </div>
             ) : (
               panels.map((panel) => (
@@ -626,11 +647,16 @@ export default function AdminPage() {
                   ) : (
                     <div className={needsReview(l) ? styles.flagBox : styles.aiBox}>
                       <div className={needsReview(l) ? styles.flagTitle : styles.aiTitle}>
+                        {/* Accepted vs flagged, stated plainly - and for an
+                            accepted one, whether it actually went live or is
+                            still parked waiting on you. */}
                         {needsReview(l)
-                          ? '⚑ Needs your review'
-                          : l.aiDecision === 'approved'
+                          ? '⚑ Flagged by the panel — your decision'
+                          : autoApproved(l)
                             ? '✓ Auto-approved by the review panel'
-                            : 'Reviewed by the panel'}
+                            : aiAccepted(l)
+                              ? '✓ Accepted by the panel — awaiting your approval'
+                              : 'Reviewed by the panel'}
                         {l.aiConfidence ? ` · confidence: ${l.aiConfidence}` : ''}
                         {needsReview(l) && l.aiSuggestion ? ` · suggests ${l.aiSuggestion}` : ''}
                       </div>
@@ -684,6 +710,11 @@ export default function AdminPage() {
                         </div>
                       ) : autoApproved(l) ? (
                         <div className={styles.unaudited}>Awaiting your sign-off</div>
+                      ) : aiAccepted(l) ? (
+                        // Not live yet - it needs your approve, not a sign-off.
+                        <div className={styles.unaudited}>
+                          Not published — approve to put it live
+                        </div>
                       ) : null}
                     </div>
                   )}
