@@ -10,7 +10,16 @@ import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 // review error - is flagged for the human admin. We never auto-reject.
 
 type Confidence = 'high' | 'medium' | 'low';
-type LensVerdict = { pass: boolean; confidence: Confidence; concerns: string[] };
+// `transient` marks a verdict that isn't a verdict: the lens never got an answer
+// because the transport failed (rate limit, 5xx, connection drop). It is not a
+// judgement about the essay and must never be aggregated as one - see
+// runReviewPanel, which discards the whole panel when any lens carries it.
+type LensVerdict = {
+  pass: boolean;
+  confidence: Confidence;
+  concerns: string[];
+  transient?: boolean;
+};
 
 // One lens's verdict as the admin console renders it. Persisted as JSON on the
 // listing so the full review is readable later - including for auto-approved
@@ -24,7 +33,12 @@ export type LensReport = {
 };
 
 export type PanelResult = {
-  decision: 'approved' | 'flagged';
+  // 'retry' is not a verdict - it means the panel could not reach a judgement
+  // because the API was unavailable. Callers must persist NOTHING for it, so the
+  // listing stays unscreened and is picked up again next run. Recording it as a
+  // decision would leave a good essay permanently marked "flagged: review error"
+  // with no way back into the queue.
+  decision: 'approved' | 'flagged' | 'retry';
   confidence: Confidence;
   reasons: string; // human-readable, shown to the admin on flagged listings
   suggestion: 'approve' | 'reject' | null; // pre-fills the flagged action; null when unreviewed
@@ -197,8 +211,36 @@ async function runLens(
     const parsed = JSON.parse(text) as Partial<LensVerdict>;
     return normalizeVerdict(parsed);
   } catch (e) {
+    // The SDK already retried this twice with backoff (its default maxRetries),
+    // so reaching here means the outage outlasted those attempts - not that the
+    // essay is bad. Hand it back as retryable rather than as a failing verdict.
+    if (isTransient(e)) {
+      return { ...errVerdict(`review unavailable: ${describeError(e)}`), transient: true };
+    }
     return errVerdict(`review error: ${e instanceof Error ? e.message : 'unknown'}`);
   }
+}
+
+// Transport failures that a later run has a real chance of getting past. Kept
+// deliberately narrow: anything not listed here (a 400, a schema mismatch, a
+// safety refusal) is deterministic, would fail identically next run, and must
+// stay a recorded verdict so it doesn't retry forever.
+//
+// APIConnectionError is checked before APIError because in this SDK it is a
+// subclass, so the broader test would swallow it.
+function isTransient(e: unknown): boolean {
+  if (e instanceof Anthropic.APIConnectionError) return true; // incl. timeouts
+  if (e instanceof Anthropic.RateLimitError) return true; // 429
+  if (e instanceof Anthropic.InternalServerError) return true; // 5xx, incl. 529 overloaded
+  return false;
+}
+
+function describeError(e: unknown): string {
+  // An APIError's message already begins with its status code, so prefixing the
+  // status again reads as "500 500 ...". Fall back to the bare status only when
+  // the message is empty.
+  if (e instanceof Anthropic.APIError) return e.message || `HTTP ${e.status}`;
+  return e instanceof Error ? e.message : 'unknown';
 }
 
 // Run the three lenses concurrently and aggregate into a single decision.
@@ -231,6 +273,21 @@ export async function runReviewPanel(
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
   const content = buildUserContent(listing, pdfs);
   const verdicts = await Promise.all(LENSES.map((lens) => runLens(client, lens, content)));
+
+  // One unreachable lens is enough to void the panel. A transient failure comes
+  // back as pass=false, which alone can drag the aggregate to 'flagged' - so
+  // aggregating a partial panel would attribute an outage to the essay. Bail
+  // before any of that, and let the next run screen this listing properly.
+  const unavailable = LENSES.map((lens, i) => ({ lens, v: verdicts[i] })).filter(
+    ({ v }) => v.transient,
+  );
+  if (unavailable.length > 0) {
+    const detail = unavailable.map(({ lens, v }) => `[${lens.label}] ${v.concerns[0]}`).join('\n');
+    console.warn(
+      `[review] deferring "${listing.school}": ${unavailable.length}/${LENSES.length} lenses unavailable\n${detail}`,
+    );
+    return { decision: 'retry', confidence: 'low', reasons: detail, suggestion: null, lenses: [] };
+  }
 
   const allPass = verdicts.every((v) => v.pass);
   const allHigh = verdicts.every((v) => v.confidence === 'high');
