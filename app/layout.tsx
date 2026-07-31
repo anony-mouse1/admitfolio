@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import SiteAnalytics from '@/components/SiteAnalytics';
 import './fonts.css';
 import './globals.css';
 
@@ -24,9 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
-        {/* Cookieless analytics - exactly what the privacy policy describes */}
-        <Analytics />
-        <SpeedInsights />
+        {/* Cookieless analytics - exactly what the privacy policy describes.
+            Wrapped so buyer reading tokens are stripped from reported URLs. */}
+        <SiteAnalytics />
       </body>
     </html>
   );
