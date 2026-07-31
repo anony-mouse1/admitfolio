@@ -17,7 +17,13 @@ export const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: numbe
   3: { label: 'Tier 3 · Standard', base: 20, extra: 9, perEssay: 15 },
 };
 
-// Revenue split: sellers keep this share of every sale.
+// Revenue split: sellers keep this share of every sale, the platform keeps the
+// rest. Single source of truth - the Stripe webhook's `net`, the seller
+// dashboard's earnings and payout figures, and its "you keep N%" label all
+// derive from it. Keep it that way: a split change that reached the webhook but
+// not the dashboard would pay a seller one number and show them another.
+// The published split in app/terms/page.tsx does NOT derive from this and must
+// be edited by hand to match - it is a commitment to sellers, not a computation.
 export const SELLER_SHARE = 0.7;
 
 export const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
