@@ -11,10 +11,11 @@ export const dynamic = 'force-dynamic';
 // 300s is the Pro ceiling (Hobby caps at 60); the project is on Pro, so this
 // no longer has to sit at the 60 that f10310a was forced back down to.
 //
-// The cadence in vercel.json is deliberately NOT raised to match. Pro allows
-// */5, but the schedule stays daily while the panel's judgement is being
-// spot-checked by hand - a faster cron would screen the whole backlog before
-// anyone had read the first batch. Raise them together, later, on purpose.
+// vercel.json now runs this every 5 minutes, which is the Pro floor. It stayed
+// daily while the panel's judgement was unproven; that hold is over - the
+// decision rule was recalibrated once the first batch showed it approved
+// nothing, so the backlog is worth clearing at speed. A batch of 10 takes ~27s
+// of the 300s, so runs cannot overlap.
 export const maxDuration = 300;
 
 // How many pending submissions to screen per invocation. Each listing is
