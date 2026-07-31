@@ -80,10 +80,19 @@ type PendingListing = ReviewableListing & { id: string };
 // listing public depends on AUTO_APPROVE; the verdict recorded is the same
 // either way, so turning the flag on later changes what happens next, not how
 // past listings were judged.
-async function screenListing(listing: PendingListing): Promise<'accepted' | 'flagged' | 'errored'> {
+async function screenListing(
+  listing: PendingListing,
+): Promise<'accepted' | 'flagged' | 'errored' | 'deferred'> {
   try {
     const pdfs = await fetchEssayPdfsBase64(listing);
     const result = await runReviewPanel(listing, pdfs);
+
+    // The API was unreachable, so there is no judgement to record. Write nothing
+    // - not even aiReviewedAt - so the listing stays in the queue and the next
+    // run screens it for real. Writing here is what would strand a good essay as
+    // "flagged: review error" forever, since the batch selector only picks up
+    // listings with aiReviewedAt still null.
+    if (result.decision === 'retry') return 'deferred';
 
     // Record the panel's verdict regardless of decision (aiReviewedAt also
     // stops this listing from being picked up again next run).
@@ -176,13 +185,20 @@ export async function GET(req: Request) {
   const accepted = outcomes.filter((o) => o === 'accepted').length;
   const flagged = outcomes.filter((o) => o === 'flagged').length;
   const errored = outcomes.filter((o) => o === 'errored').length;
+  // Nothing was written for these; they are still queued for the next run.
+  // Reported separately from `errored` because they are not failures of the
+  // listing - a non-zero count here means the API was struggling, not that
+  // sellers submitted bad essays.
+  const deferred = outcomes.filter((o) => o === 'deferred').length;
 
   return NextResponse.json({
     ok: true,
-    reviewed: listings.length,
+    selected: listings.length,
+    reviewed: listings.length - deferred,
     accepted,
     flagged,
     errored,
+    deferred,
     // Explicit so a run's output says whether anything went live, rather than
     // leaving it to be inferred from the deployed constant.
     autoApproved: AUTO_APPROVE,
