@@ -227,17 +227,33 @@ async function runLens(
   }
 }
 
-// Transport failures that a later run has a real chance of getting past. Kept
-// deliberately narrow: anything not listed here (a 400, a schema mismatch, a
-// safety refusal) is deterministic, would fail identically next run, and must
-// stay a recorded verdict so it doesn't retry forever.
+// Does this failure say something about the essay, or only about our ability to
+// call the API at all?
 //
-// APIConnectionError is checked before APIError because in this SDK it is a
-// subclass, so the broader test would swallow it.
+// Only the first kind may be recorded as a verdict. The second kind is an
+// operator problem - it hits every listing identically, so it cannot leave one
+// poison listing looping, and recording it would blame a seller for our billing.
+//
+// This started narrower (429 / 5xx / connection) and that was wrong. On
+// 2026-07-31 the account ran out of credit mid-run and Anthropic reported it as
+// HTTP 400 invalid_request_error - which the old rule read as "deterministic,
+// record it" - so 99 listings were stamped flagged with "review error: 400 ...
+// credit balance is too low" and, because aiReviewedAt was set, were never
+// going to be re-screened. Status is the wrong axis; what matters is whether
+// the failure is about the content or about the account.
+//
+// APIConnectionError is checked before the status codes because in this SDK it
+// is an APIError subclass carrying no meaningful status.
 function isTransient(e: unknown): boolean {
   if (e instanceof Anthropic.APIConnectionError) return true; // incl. timeouts
   if (e instanceof Anthropic.RateLimitError) return true; // 429
   if (e instanceof Anthropic.InternalServerError) return true; // 5xx, incl. 529 overloaded
+  if (e instanceof Anthropic.AuthenticationError) return true; // 401 - bad/rotated key
+  if (e instanceof Anthropic.PermissionDeniedError) return true; // 403 - key lacks access
+  // Credit exhaustion arrives as a 400 invalid_request_error. It is entirely an
+  // account condition and clears the moment credit is added, so match it by
+  // message - there is no distinct status or error type to key off.
+  if (e instanceof Anthropic.APIError && /credit balance is too low/i.test(e.message)) return true;
   return false;
 }
 
