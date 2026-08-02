@@ -52,6 +52,12 @@ model AdmitProof {
   adminNote   String? // why it was rejected, shown to the seller
   createdAt   DateTime  @default(now())
   reviewedAt  DateTime?
+  // What the review panel made of the letter. Advisory only: the panel never
+  // sets `status`, exactly as it never publishes a listing. It puts a note
+  // beside the Verify button so a human decides with the reading already done.
+  aiCheckedAt DateTime?
+  aiGenuine   Boolean? // panel's read: does this look like a real admission decision
+  aiNote      String? // one sentence - what it shows, or what is wrong with it
 
   @@unique([sellerId, schoolKey])
   @@index([status])

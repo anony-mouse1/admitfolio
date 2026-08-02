@@ -27,6 +27,15 @@ type Listing = {
   major: string | null;
   appliedMajors: string | null;
   admitTags: string[];
+  // One row per distinct school claimed. `missing` means no proof row exists at
+  // all: the listing predates proof-of-admission, so nobody ever asked.
+  admitProofs: {
+    id: string | null;
+    school: string;
+    status: 'missing' | 'pending' | 'verified' | 'rejected';
+    adminNote: string | null;
+    pdfUrl: string | null;
+  }[];
   anonymity: string;
   pricingMode: string;
   packagePrice: number | null;
@@ -134,6 +143,11 @@ const MOCK: ListingFull[] = [
     major: 'Symbolic Systems',
     appliedMajors: 'Computer Science, Symbolic Systems',
     admitTags: ['Stanford', 'MIT', 'Duke'],
+    admitProofs: [
+      { id: 'proof-stanford', school: 'Stanford', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
+      { id: 'proof-mit', school: 'MIT', status: 'pending', adminNote: null, pdfUrl: MOCK_PDF },
+      { id: 'proof-duke', school: 'Duke', status: 'rejected', adminNote: 'Screenshot shows a portal page with no name or decision date.', pdfUrl: MOCK_PDF },
+    ],
     anonymity: 'anonymous',
     pricingMode: 'package',
     packagePrice: 45,
@@ -199,6 +213,10 @@ const MOCK: ListingFull[] = [
     major: 'History',
     appliedMajors: 'History',
     admitTags: ['Yale', 'Brown'],
+    admitProofs: [
+      { id: 'proof-yale', school: 'Yale', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
+      { id: 'proof-brown', school: 'Brown', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
+    ],
     anonymity: 'firstName',
     pricingMode: 'separate',
     packagePrice: null,
@@ -242,6 +260,9 @@ const MOCK: ListingFull[] = [
     major: 'Molecular Biology',
     appliedMajors: 'Molecular Biology',
     admitTags: ['Princeton'],
+    admitProofs: [
+      { id: 'proof-princeton', school: 'Princeton', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
+    ],
     anonymity: 'anonymous',
     pricingMode: 'package',
     packagePrice: 35,
@@ -285,6 +306,10 @@ const MOCK: ListingFull[] = [
     major: null,
     appliedMajors: 'Undecided',
     admitTags: ['Columbia', 'NYU'],
+    admitProofs: [
+      { id: 'proof-columbia', school: 'Columbia', status: 'pending', adminNote: null, pdfUrl: MOCK_PDF },
+      { id: null, school: 'NYU', status: 'missing', adminNote: null, pdfUrl: null },
+    ],
     anonymity: 'anonymous',
     pricingMode: 'package',
     packagePrice: 30,
@@ -324,6 +349,9 @@ const MOCK: ListingFull[] = [
     major: 'Hotel Administration',
     appliedMajors: 'Hotel Administration',
     admitTags: ['Cornell'],
+    admitProofs: [
+      { id: null, school: 'Cornell', status: 'missing', adminNote: null, pdfUrl: null },
+    ],
     anonymity: 'anonymous',
     pricingMode: 'package',
     packagePrice: 25,
@@ -439,6 +467,43 @@ export default function AdminPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Verify or reject one acceptance letter. Separate from decide() below: this
+  // says whether an admit CLAIM is proven, not whether the listing is published.
+  async function decideProof(proofId: string, status: 'verified' | 'rejected') {
+    let note: string | undefined;
+    if (status === 'rejected') {
+      // The seller is shown this, so the API requires it rather than letting a
+      // letter be rejected with no explanation.
+      const typed = window.prompt('Why is this letter not accepted? The seller will see this.');
+      if (typed == null) return;
+      note = typed.trim();
+      if (!note) return;
+    }
+    if (previewOn()) {
+      setListings((ls) =>
+        ls.map((l) => ({
+          ...l,
+          admitProofs: l.admitProofs.map((p) =>
+            p.id === proofId ? { ...p, status, adminNote: note ?? null } : p,
+          ),
+        })),
+      );
+      return;
+    }
+    const resp = await fetch('/api/admin/admit-proof', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ proofId, status, note }),
+    });
+    if (!resp.ok) {
+      const d = (await resp.json().catch(() => ({}))) as { error?: string };
+      window.alert(d.error || 'Could not save that decision.');
+      return;
+    }
+    await loadListings();
   }
 
   async function decide(id: string, decision: 'approved' | 'rejected') {
@@ -712,6 +777,50 @@ export default function AdminPage() {
                           Not published — approve to put it live
                         </div>
                       ) : null}
+                    </div>
+                  )}
+
+                  {l.admitProofs.length > 0 && (
+                    <div className={styles.proofs}>
+                      <div className={styles.proofsHead}>
+                        Proof of admission
+                        <span>
+                          {l.admitProofs.filter((p) => p.status === 'verified').length} of{' '}
+                          {l.admitProofs.length} verified
+                        </span>
+                      </div>
+                      {l.admitProofs.map((p) => (
+                        <div key={p.school} className={styles.proofRow}>
+                          <span className={styles.proofSchool}>{p.school}</span>
+                          <span className={`${styles.proofStatus} ${styles['proof_' + p.status]}`}>
+                            {p.status === 'missing' ? 'never asked' : p.status}
+                          </span>
+                          {p.pdfUrl && (
+                            <a className={styles.proofLink} href={p.pdfUrl} target="_blank" rel="noopener noreferrer">
+                              View letter
+                            </a>
+                          )}
+                          {p.id && p.pdfUrl && p.status !== 'verified' && (
+                            <button
+                              type="button"
+                              className={styles.proofOk}
+                              onClick={() => decideProof(p.id as string, 'verified')}
+                            >
+                              Verify
+                            </button>
+                          )}
+                          {p.id && p.pdfUrl && p.status !== 'rejected' && (
+                            <button
+                              type="button"
+                              className={styles.proofNo}
+                              onClick={() => decideProof(p.id as string, 'rejected')}
+                            >
+                              Reject
+                            </button>
+                          )}
+                          {p.adminNote && <span className={styles.proofNote}>{p.adminNote}</span>}
+                        </div>
+                      ))}
                     </div>
                   )}
 

@@ -49,6 +49,10 @@ export type PanelResult = {
   reasons: string; // human-readable, shown to the admin on flagged listings
   suggestion: 'approve' | 'reject' | null; // pre-fills the flagged action; null when unreviewed
   lenses: LensReport[]; // per-lens breakdown; empty when the panel could not run
+  // Per-acceptance-letter findings, so the console can put a note beside each
+  // Verify button. Empty when the seller uploaded no letters - which the
+  // admissions lens reports as a concern rather than passing silently.
+  admitChecks: AdmitCheck[];
 };
 
 // Minimal shape the panel needs from a listing (with essays included).
@@ -92,6 +96,30 @@ export async function fetchEssayPdfsBase64(listing: ReviewableListing): Promise<
     });
   }
   return pdfs;
+}
+
+// One acceptance letter, ready to attach to a review request.
+export type ProofPdf = { proofId: string; school: string; base64: string };
+
+// Download the seller's uploaded acceptance letters. Unlike essays, a missing
+// file is NOT fatal: a listing can be submitted before every letter lands, and
+// the panel should report that as an unproven claim rather than crashing the
+// whole review. Same reason a download failure is skipped rather than thrown.
+export async function fetchAdmitProofPdfsBase64(
+  proofs: { id: string; schoolLabel: string; pdfPath: string | null }[],
+): Promise<ProofPdf[]> {
+  const out: ProofPdf[] = [];
+  for (const proof of proofs) {
+    if (!proof.pdfPath) continue;
+    const { data, error } = await supabaseAdmin.storage.from(ESSAYS_BUCKET).download(proof.pdfPath);
+    if (error || !data) {
+      console.warn(`[review] could not read admit proof ${proof.pdfPath}: ${error?.message ?? 'no data'}`);
+      continue;
+    }
+    const buf = Buffer.from(await data.arrayBuffer());
+    out.push({ proofId: proof.id, school: proof.schoolLabel, base64: buf.toString('base64') });
+  }
+  return out;
 }
 
 const CONFIDENCE_RANK: Record<Confidence, number> = { low: 0, medium: 1, high: 2 };
@@ -154,6 +182,46 @@ const LENSES: Lens[] = [
       'pass=false if it is very low quality, off-topic, or grossly inconsistent with the claimed word count. confidence reflects certainty. List concrete concerns; empty array if none.',
   },
 ];
+
+// The admissions lens is its own request rather than a fourth entry in LENSES,
+// because it reads a different set of documents: the acceptance letters, not the
+// essays. It also returns a per-letter breakdown so the console can put a note
+// beside each Verify button instead of one verdict for the whole listing.
+const ADMIT_LENS_SYSTEM =
+  TRUST_BOUNDARY.replace('Judge only the essay content, on the criteria below.', 'Judge only the documents, on the criteria below.') +
+  'You are verifying PROOF OF ADMISSION for a marketplace where admitted students sell their essays. ' +
+  'Each attached PDF is a document a seller uploaded to prove they were admitted to one specific school, listed in order below. ' +
+  'For each letter judge: is it a genuine admission decision (an offer of admission, an admitted-student portal page, or an enrollment confirmation) from the school it is supposed to prove, and does it look like it belongs to one person rather than a template or a blank form? ' +
+  'A letter naming a different school than the one claimed is the most important failure to catch. ' +
+  'Deferrals, waitlists, and rejections are NOT proof of admission. ' +
+  'Do not penalise a seller for redacting their address, student ID, or financial details - they are told they may. A redacted name is acceptable only if the school and the decision remain legible. ' +
+  'Set the top-level pass=false if ANY letter fails, and name which. confidence is your certainty overall.';
+
+// Per-letter breakdown on top of the usual pass/confidence/concerns.
+const ADMIT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['pass', 'confidence', 'concerns', 'letters'],
+  properties: {
+    pass: { type: 'boolean' },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+    concerns: { type: 'array', items: { type: 'string' } },
+    letters: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['index', 'looksGenuine', 'confidence', 'note'],
+        properties: {
+          index: { type: 'integer', description: '1-based position in the attached list' },
+          looksGenuine: { type: 'boolean' },
+          confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+          note: { type: 'string', description: 'One sentence: what it shows, or what is wrong' },
+        },
+      },
+    },
+  },
+} as const;
 
 function buildUserContent(listing: ReviewableListing, pdfs: EssayPdf[]): Anthropic.MessageParam['content'] {
   const admits = safeParseTags(listing.admitTags);
@@ -227,6 +295,83 @@ async function runLens(
   }
 }
 
+/** One letter's verdict, keyed back to the AdmitProof row it came from. */
+export type AdmitCheck = {
+  proofId: string;
+  school: string;
+  looksGenuine: boolean;
+  confidence: Confidence;
+  note: string;
+};
+
+// Runs the admissions lens over the seller's uploaded letters. Returns the
+// overall verdict plus a per-letter breakdown; a letter the model didn't report
+// on is treated as unproven rather than assumed fine.
+async function runAdmitLens(
+  client: Anthropic,
+  proofs: ProofPdf[],
+): Promise<{ verdict: LensVerdict; checks: AdmitCheck[] }> {
+  const content: Anthropic.MessageParam['content'] = proofs.map((p) => ({
+    type: 'document' as const,
+    source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: p.base64 },
+  }));
+  content.push({
+    type: 'text',
+    text:
+      `Letters attached, in order:\n` +
+      proofs.map((p, i) => `  ${i + 1}. claimed to prove admission to: ${p.school}`).join('\n') +
+      `\n\nReturn JSON matching the required schema. Include one entry in "letters" for every attached document.`,
+  });
+
+  try {
+    const resp = await client.messages.create({
+      model: REVIEW_MODEL,
+      max_tokens: 4096,
+      system: ADMIT_LENS_SYSTEM,
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: ADMIT_SCHEMA } },
+      messages: [{ role: 'user', content }],
+    } as Anthropic.MessageCreateParamsNonStreaming);
+
+    if (resp.stop_reason === 'refusal') {
+      return { verdict: errVerdict('admissions check was refused by the safety system'), checks: [] };
+    }
+    const text = resp.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text;
+    if (!text) return { verdict: errVerdict('empty admissions-check response'), checks: [] };
+
+    const parsed = JSON.parse(text) as Partial<LensVerdict> & {
+      letters?: { index?: number; looksGenuine?: boolean; confidence?: Confidence; note?: string }[];
+    };
+    const byIndex = new Map((parsed.letters ?? []).map((l) => [Number(l.index), l]));
+    const checks: AdmitCheck[] = proofs.map((p, i) => {
+      const l = byIndex.get(i + 1);
+      return {
+        proofId: p.proofId,
+        school: p.school,
+        // Absent from the response means it was not assessed. Defaulting to
+        // "genuine" would let a dropped entry read as a clean bill of health.
+        looksGenuine: l?.looksGenuine === true,
+        confidence:
+          l?.confidence === 'high' || l?.confidence === 'medium' || l?.confidence === 'low'
+            ? l.confidence
+            : 'low',
+        note: String(l?.note ?? 'The reviewer did not report on this letter.').slice(0, 400),
+      };
+    });
+    return { verdict: normalizeVerdict(parsed), checks };
+  } catch (e) {
+    if (isTransient(e)) {
+      return {
+        verdict: { ...errVerdict(`admissions check unavailable: ${describeError(e)}`), transient: true },
+        checks: [],
+      };
+    }
+    return {
+      verdict: errVerdict(`admissions check error: ${e instanceof Error ? e.message : 'unknown'}`),
+      checks: [],
+    };
+  }
+}
+
 // Does this failure say something about the essay, or only about our ability to
 // call the API at all?
 //
@@ -269,6 +414,7 @@ function describeError(e: unknown): string {
 export async function runReviewPanel(
   listing: ReviewableListing,
   pdfs: EssayPdf[],
+  proofs: ProofPdf[] = [],
 ): Promise<PanelResult> {
   // Dev fallback: with no key configured we cannot review, so flag - never
   // silently auto-approve. Mirrors lib/email.ts's "simulate when unconfigured".
@@ -280,6 +426,7 @@ export async function runReviewPanel(
       reasons: 'Automated review is not configured (no ANTHROPIC_API_KEY); needs manual review.',
       suggestion: null,
       lenses: [],
+      admitChecks: [],
     };
   }
   if (pdfs.length === 0) {
@@ -289,26 +436,51 @@ export async function runReviewPanel(
       reasons: 'No essay PDFs were available to review.',
       suggestion: null,
       lenses: [],
+      admitChecks: [],
     };
   }
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
   const content = buildUserContent(listing, pdfs);
-  const verdicts = await Promise.all(LENSES.map((lens) => runLens(client, lens, content)));
+
+  // The admissions lens reads the letters, the other three read the essays, so
+  // it is a separate request - but it runs concurrently with them and its
+  // verdict joins the same vote.
+  const claimed = safeParseTags(listing.admitTags);
+  const [verdicts, admit] = await Promise.all([
+    Promise.all(LENSES.map((lens) => runLens(client, lens, content))),
+    proofs.length > 0
+      ? runAdmitLens(client, proofs)
+      : Promise.resolve<{ verdict: LensVerdict; checks: AdmitCheck[] }>({
+          // No letters at all. Not a transient failure and not a pass: the
+          // seller claimed admissions and proved none of them.
+          verdict: {
+            pass: false,
+            confidence: 'high',
+            concerns: [
+              claimed.length > 0
+                ? `No acceptance letter was uploaded for ${claimed.length === 1 ? 'the school claimed' : `any of the ${claimed.length} schools claimed`} (${claimed.join(', ')}).`
+                : 'No schools were claimed and no acceptance letters were uploaded.',
+            ],
+          },
+          checks: [],
+        }),
+  ]);
 
   // One unreachable lens is enough to void the panel. A transient failure comes
   // back as pass=false, which alone can drag the aggregate to 'flagged' - so
   // aggregating a partial panel would attribute an outage to the essay. Bail
   // before any of that, and let the next run screen this listing properly.
-  const unavailable = LENSES.map((lens, i) => ({ lens, v: verdicts[i] })).filter(
-    ({ v }) => v.transient,
-  );
+  const unavailable = [
+    ...LENSES.map((lens, i) => ({ label: lens.label, v: verdicts[i] })),
+    { label: 'Proof of admission', v: admit.verdict },
+  ].filter(({ v }) => v.transient);
   if (unavailable.length > 0) {
-    const detail = unavailable.map(({ lens, v }) => `[${lens.label}] ${v.concerns[0]}`).join('\n');
+    const detail = unavailable.map(({ label, v }) => `[${label}] ${v.concerns[0]}`).join('\n');
     console.warn(
-      `[review] deferring "${listing.school}": ${unavailable.length}/${LENSES.length} lenses unavailable\n${detail}`,
+      `[review] deferring "${listing.school}": ${unavailable.length}/${LENSES.length + 1} lenses unavailable\n${detail}`,
     );
-    return { decision: 'retry', confidence: 'low', reasons: detail, suggestion: null, lenses: [] };
+    return { decision: 'retry', confidence: 'low', reasons: detail, suggestion: null, lenses: [], admitChecks: [] };
   }
 
   // Approved means every lens passed. Nothing more.
@@ -325,32 +497,46 @@ export async function runReviewPanel(
   // A verdict nothing can satisfy carries no information. Confidence and
   // concerns are still recorded and still shown on every card - they inform
   // the human decision rather than silently deciding it.
-  const decision: PanelResult['decision'] = verdicts.every((v) => v.pass)
+  // The admissions lens votes with the rest: an unproven admit claim flags the
+  // listing, exactly like a failed authenticity check would.
+  const allVerdicts = [...verdicts, admit.verdict];
+
+  const decision: PanelResult['decision'] = allVerdicts.every((v) => v.pass)
     ? 'approved'
     : 'flagged';
 
-  const confidence = verdicts
+  const confidence = allVerdicts
     .map((v) => v.confidence)
     .reduce((lo, c) => (CONFIDENCE_RANK[c] < CONFIDENCE_RANK[lo] ? c : lo), 'high' as Confidence);
 
   // Concerns are surfaced whether or not the panel approved. An approved
   // listing with notes is the common case now, and hiding its notes would make
   // the console claim the panel had nothing to say when it did.
-  const reasons = LENSES.flatMap((lens, i) =>
-    verdicts[i].concerns.map((c) => `[${lens.label}] ${c}`),
-  ).join('\n');
+  const reasons = [
+    ...LENSES.flatMap((lens, i) => verdicts[i].concerns.map((c) => `[${lens.label}] ${c}`)),
+    ...admit.verdict.concerns.map((c) => `[Proof of admission] ${c}`),
+  ].join('\n');
 
   const suggestion: PanelResult['suggestion'] = decision === 'approved' ? 'approve' : 'reject';
 
-  const lenses: LensReport[] = LENSES.map((lens, i) => ({
-    key: lens.key,
-    label: lens.label,
-    pass: verdicts[i].pass,
-    confidence: verdicts[i].confidence,
-    concerns: verdicts[i].concerns,
-  }));
+  const lenses: LensReport[] = [
+    ...LENSES.map((lens, i) => ({
+      key: lens.key,
+      label: lens.label,
+      pass: verdicts[i].pass,
+      confidence: verdicts[i].confidence,
+      concerns: verdicts[i].concerns,
+    })),
+    {
+      key: 'admits',
+      label: 'Proof of admission',
+      pass: admit.verdict.pass,
+      confidence: admit.verdict.confidence,
+      concerns: admit.verdict.concerns,
+    },
+  ];
 
-  return { decision, confidence, reasons, suggestion, lenses };
+  return { decision, confidence, reasons, suggestion, lenses, admitChecks: admit.checks };
 }
 
 function normalizeVerdict(v: Partial<LensVerdict>): LensVerdict {
