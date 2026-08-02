@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { TIER, packageFloor, perEssayFloor, admitsTier, SELLER_SHARE } from '@/lib/pricing';
+import { schoolKey } from '@/lib/admitProof';
 import { PROFILE_TAGS } from '@/lib/site';
 
 /* ============================================================================
@@ -203,6 +204,21 @@ export default function Page() {
   const [admitInput, setAdmitInput] = useState('');
   const [admitFocus, setAdmitFocus] = useState(false);
   const [essayRows, setEssayRows] = useState<EssayRow[]>([newEssayRow()]);
+  // One acceptance letter per school claimed in `admits`, keyed by the same
+  // normalised key the server uses, so "Tufts" and "Tufts University" ask once.
+  const [admitFiles, setAdmitFiles] = useState<Record<string, File | null>>({});
+  // Distinct schools needing a letter, in the order the seller typed them.
+  const admitProofRows = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { key: string; label: string }[] = [];
+    for (const label of admits) {
+      const key = schoolKey(label);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ key, label });
+    }
+    return out;
+  }, [admits]);
   // Pricing toggle removed: every listing has one price for the whole set.
   // 'separate' support stays in the API/dashboard for existing data.
   const pricingMode: PricingMode = 'package';
@@ -462,6 +478,8 @@ export default function Page() {
     let msg = '';
     if (!targetSchool) msg = 'Pick the application type for these essays.';
     else if (admits.length === 0) msg = 'Add at least one school you got into.';
+    else if (admitProofRows.some((a) => !admitFiles[a.key])) msg = 'Upload an acceptance letter for every school you got into.';
+    else if (admitProofRows.some((a) => (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each acceptance letter must be 4MB or smaller.';
     else if (rows.some((r) => !r.prompt)) msg = 'Choose a prompt type for every essay.';
     else if (rows.some((r) => /^other/i.test(r.prompt) && !r.question.trim())) msg = 'Type the essay question for every "Other" essay.';
     else if (rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
@@ -511,10 +529,31 @@ export default function Page() {
         error?: string;
         essays?: { id: string }[];
         uploadToken?: string;
+        admitProofs?: { id: string; school: string; status: string; needsUpload: boolean }[];
       };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not submit your listing. Please try again.');
       if (!data.essays || !data.uploadToken || data.essays.length !== rows.length) {
         throw new Error('Could not submit your listing. Please try again.');
+      }
+
+      // Acceptance letters first: they gate whether the admit claims can ever be
+      // shown as verified, and a listing without them is not reviewable. The
+      // server tells us which it still needs, so a returning seller whose letter
+      // is already on file is not asked to re-send it.
+      const needed = (data.admitProofs ?? []).filter((p) => p.needsUpload);
+      for (let i = 0; i < needed.length; i++) {
+        const file = admitFiles[schoolKey(needed[i].school)];
+        if (!file) continue;
+        setSubmitLabel(`Uploading acceptance letter ${i + 1} of ${needed.length}…`);
+        const fd = new FormData();
+        fd.append('token', data.uploadToken);
+        fd.append('proofId', needed[i].id);
+        fd.append('file', file);
+        const up = await fetch('/api/upload-admit-proof', { method: 'POST', body: fd });
+        const upData = (await up.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!up.ok || upData.ok === false) {
+          throw new Error(upData.error || 'Could not upload one of your acceptance letters. Please try again.');
+        }
       }
 
       // Listing created - now upload each PDF (one request per file).
@@ -1579,6 +1618,39 @@ export default function Page() {
               </div>
               <div className="field-hint">Add every school these essays helped you get into.</div>
             </div>
+
+            {admitProofRows.length > 0 && (
+              <div className="field">
+                <label>Proof of admission</label>
+                <div>
+                  {admitProofRows.map((a) => {
+                    const f = admitFiles[a.key];
+                    return (
+                      <label key={a.key} className={`proof-row${f ? ' has-file' : ''}`}>
+                        <span className="proof-school">{a.label}</span>
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          hidden
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            setAdmitFiles((prev) => ({ ...prev, [a.key]: file }));
+                            setDetailsErr('');
+                          }}
+                        />
+                        <span className="proof-file">{f ? f.name : 'Upload letter (PDF)'}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="field-hint">
+                  Upload the acceptance letter or admitted-student portal screenshot for each school, saved as a
+                  PDF. Buyers choose an essay by where it got in, so we check every school before a listing goes
+                  live. Letters are seen only by our review team, never by buyers, and you can black out anything
+                  that isn&apos;t your name, the school, and the decision.
+                </div>
+              </div>
+            )}
 
             <div className="field">
               <label htmlFor="appliedMajors">Major(s) you applied to with these essays <span className="floor-hint">(optional)</span></label>

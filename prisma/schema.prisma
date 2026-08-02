@@ -28,6 +28,33 @@ model Seller {
   backgroundTags String    @default("[]") // JSON array of profile tags (e.g. First-generation)
   createdAt      DateTime  @default(now())
   listings       Listing[]
+  admitProofs    AdmitProof[]
+}
+
+// An acceptance letter backing one school a seller claims in `Listing.admitTags`.
+//
+// Keyed on the SELLER, not the listing: a seller reuses the same admits across
+// listings, and re-uploading the same letter each time would be busywork. The
+// `schoolKey` is a normalised form (see lib/admitProof.ts) so "Tufts" and
+// "Tufts University" are one proof rather than two.
+//
+// `pending` is the only status a seller can create. Only the admin console
+// moves a proof to `verified` or `rejected`, and only a `verified` proof lets
+// the public catalogue describe that admit as confirmed.
+model AdmitProof {
+  id          String    @id @default(cuid())
+  seller      Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId    String
+  schoolKey   String // normalised; collapses spellings of the same school
+  schoolLabel String // what the seller actually typed, for display
+  pdfPath     String? // Supabase Storage path, null until the upload lands
+  status      String    @default("pending") // pending | verified | rejected
+  adminNote   String? // why it was rejected, shown to the seller
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+
+  @@unique([sellerId, schoolKey])
+  @@index([status])
 }
 
 // One submission = one seller's package of essays for a school.

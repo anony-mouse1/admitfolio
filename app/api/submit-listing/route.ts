@@ -9,6 +9,7 @@ import { hashPassword } from '@/lib/password';
 import { makeSession } from '@/lib/session';
 import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 import { admitsTier, packageFloor, perEssayFloor, TIER } from '@/lib/pricing';
+import { schoolKey } from '@/lib/admitProof';
 
 export const runtime = 'nodejs';
 
@@ -173,11 +174,42 @@ export async function POST(req: Request) {
     console.error('submission confirmation failed:', confirm.status, confirm.detail);
   }
 
+  // Every school claimed here needs an acceptance letter. Create a pending proof
+  // per distinct school, reusing any the seller already has so a returning
+  // seller isn't asked to upload the same letter twice. `upsert` on the
+  // (sellerId, schoolKey) unique index makes this idempotent, and the update
+  // branch deliberately touches nothing: an already-verified proof must not be
+  // reset to pending just because the seller listed that school again.
+  const seenKeys = new Set<string>();
+  for (const label of admitTags) {
+    const key = schoolKey(label);
+    if (!key || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    await prisma.admitProof.upsert({
+      where: { sellerId_schoolKey: { sellerId: seller.id, schoolKey: key } },
+      update: {},
+      create: { sellerId: seller.id, schoolKey: key, schoolLabel: label },
+    });
+  }
+  // Return the proofs still needing a file so the wizard knows what to ask for.
+  // A verified proof is skipped: that letter is already on file.
+  const proofs = await prisma.admitProof.findMany({
+    where: { sellerId: seller.id, schoolKey: { in: [...seenKeys] } },
+    orderBy: { schoolLabel: 'asc' },
+    select: { id: true, schoolLabel: true, status: true, pdfPath: true },
+  });
+
   const res = NextResponse.json({
     ok: true,
     listingId: listing.id,
     essays: listing.essays,
     uploadToken: makeUploadToken(listing.id),
+    admitProofs: proofs.map((p) => ({
+      id: p.id,
+      school: p.schoolLabel,
+      status: p.status,
+      needsUpload: p.status !== 'verified' && !p.pdfPath,
+    })),
   });
   // The OTP signup flow just proved this email, so start a seller session -
   // the success screen can open the dashboard (photo, bio) without a login.
