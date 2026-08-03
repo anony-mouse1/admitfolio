@@ -74,6 +74,12 @@ export async function GET() {
         status: p ? p.status : 'missing',
         adminNote: p?.adminNote ?? null,
         pdfUrl: (p?.pdfPath && urlByPath.get(p.pdfPath)) || null,
+        // What the review panel made of the letter. Advisory - it never sets
+        // `status` - but it is the whole point of having the panel read them,
+        // so it belongs beside the Verify button rather than in a log.
+        aiGenuine: p?.aiGenuine ?? null,
+        aiNote: p?.aiNote ?? null,
+        aiCheckedAt: p?.aiCheckedAt ?? null,
       }];
     });
     return {

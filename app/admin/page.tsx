@@ -35,6 +35,10 @@ type Listing = {
     status: 'missing' | 'pending' | 'verified' | 'rejected';
     adminNote: string | null;
     pdfUrl: string | null;
+    // The review panel's read of the letter. Advisory: it never sets `status`.
+    aiGenuine: boolean | null;
+    aiNote: string | null;
+    aiCheckedAt: string | null;
   }[];
   anonymity: string;
   pricingMode: string;
@@ -144,9 +148,9 @@ const MOCK: ListingFull[] = [
     appliedMajors: 'Computer Science, Symbolic Systems',
     admitTags: ['Stanford', 'MIT', 'Duke'],
     admitProofs: [
-      { id: 'proof-stanford', school: 'Stanford', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
-      { id: 'proof-mit', school: 'MIT', status: 'pending', adminNote: null, pdfUrl: MOCK_PDF },
-      { id: 'proof-duke', school: 'Duke', status: 'rejected', adminNote: 'Screenshot shows a portal page with no name or decision date.', pdfUrl: MOCK_PDF },
+      { id: 'proof-stanford', school: 'Stanford', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
+      { id: 'proof-mit', school: 'MIT', status: 'pending', adminNote: null, pdfUrl: MOCK_PDF, aiGenuine: true, aiNote: 'Offer of admission on MIT letterhead, names the student, dated 14 March.', aiCheckedAt: '2026-07-24T15:09:00.000Z' },
+      { id: 'proof-duke', school: 'Duke', status: 'rejected', adminNote: 'Screenshot shows a portal page with no name or decision date.', pdfUrl: MOCK_PDF, aiGenuine: false, aiNote: 'Portal screenshot names no student and shows no decision text.', aiCheckedAt: '2026-07-24T15:09:00.000Z' },
     ],
     anonymity: 'anonymous',
     pricingMode: 'package',
@@ -214,8 +218,8 @@ const MOCK: ListingFull[] = [
     appliedMajors: 'History',
     admitTags: ['Yale', 'Brown'],
     admitProofs: [
-      { id: 'proof-yale', school: 'Yale', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
-      { id: 'proof-brown', school: 'Brown', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
+      { id: 'proof-yale', school: 'Yale', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
+      { id: 'proof-brown', school: 'Brown', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
     ],
     anonymity: 'firstName',
     pricingMode: 'separate',
@@ -261,7 +265,7 @@ const MOCK: ListingFull[] = [
     appliedMajors: 'Molecular Biology',
     admitTags: ['Princeton'],
     admitProofs: [
-      { id: 'proof-princeton', school: 'Princeton', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF },
+      { id: 'proof-princeton', school: 'Princeton', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
     ],
     anonymity: 'anonymous',
     pricingMode: 'package',
@@ -307,8 +311,8 @@ const MOCK: ListingFull[] = [
     appliedMajors: 'Undecided',
     admitTags: ['Columbia', 'NYU'],
     admitProofs: [
-      { id: 'proof-columbia', school: 'Columbia', status: 'pending', adminNote: null, pdfUrl: MOCK_PDF },
-      { id: null, school: 'NYU', status: 'missing', adminNote: null, pdfUrl: null },
+      { id: 'proof-columbia', school: 'Columbia', status: 'pending', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
+      { id: null, school: 'NYU', status: 'missing', adminNote: null, pdfUrl: null , aiGenuine: null, aiNote: null, aiCheckedAt: null },
     ],
     anonymity: 'anonymous',
     pricingMode: 'package',
@@ -350,7 +354,7 @@ const MOCK: ListingFull[] = [
     appliedMajors: 'Hotel Administration',
     admitTags: ['Cornell'],
     admitProofs: [
-      { id: null, school: 'Cornell', status: 'missing', adminNote: null, pdfUrl: null },
+      { id: null, school: 'Cornell', status: 'missing', adminNote: null, pdfUrl: null , aiGenuine: null, aiNote: null, aiCheckedAt: null },
     ],
     anonymity: 'anonymous',
     pricingMode: 'package',
@@ -818,7 +822,14 @@ export default function AdminPage() {
                               Reject
                             </button>
                           )}
-                          {p.adminNote && <span className={styles.proofNote}>{p.adminNote}</span>}
+                          {p.aiNote && (
+                            <span
+                              className={`${styles.proofAi} ${p.aiGenuine ? styles.proofAiOk : styles.proofAiWarn}`}
+                            >
+                              <b>{p.aiGenuine ? 'AI: looks genuine' : 'AI: questionable'}</b> {p.aiNote}
+                            </span>
+                          )}
+                          {p.adminNote && <span className={styles.proofNote}>Your note: {p.adminNote}</span>}
                         </div>
                       ))}
                     </div>
