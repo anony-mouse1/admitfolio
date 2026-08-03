@@ -566,3 +566,74 @@
   color: var(--muted);
   white-space: pre-wrap;
 }
+
+/* ── Proof of admission ──────────────────────────────────────
+   One row per school the listing claims. `missing` is its own state, distinct
+   from `pending`: those listings were submitted before proof-of-admission
+   existed, so nothing is waiting on you - the seller was simply never asked. */
+.proofs {
+  margin-top: 14px;
+  border: 1px solid #e7e3da;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fcfbf9;
+}
+.proofsHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8a857b;
+  margin-bottom: 8px;
+}
+.proofRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  border-top: 1px solid #f0ede6;
+  font-size: 13px;
+}
+.proofRow:first-of-type { border-top: 0; }
+.proofSchool { font-weight: 600; color: #1b1a17; }
+.proofStatus {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.proof_verified { background: #e6f4ea; color: #1e6b34; }
+.proof_pending  { background: #fdf3e0; color: #8a5a10; }
+.proof_rejected { background: #fdeaea; color: #9b2020; }
+.proof_missing  { background: #efece5; color: #7a746a; }
+.proofLink { font-size: 12.5px; font-weight: 600; color: #7d1d2d; }
+.proofOk, .proofNo {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.proofOk { background: #1e6b34; color: #fff; }
+.proofNo { background: #fff; color: #9b2020; border-color: #e3c4c4; }
+.proofNote { font-size: 12px; color: #8a857b; font-style: italic; flex-basis: 100%; }
+
+/* The review panel's read of a letter, beside the Verify button. Deliberately
+   styled as advice, not a verdict: the panel never sets `status`. */
+.proofAi {
+  flex-basis: 100%;
+  font-size: 12px;
+  line-height: 1.45;
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+.proofAi b { font-weight: 700; margin-right: 5px; }
+.proofAiOk { background: #f1f7f2; color: #2c5c3a; }
+.proofAiWarn { background: #fdf3e0; color: #7a4f0d; }

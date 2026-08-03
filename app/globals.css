@@ -614,6 +614,21 @@ footer { background: #1b1a17; color: #cfccc4; }
 .file-drop .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-drop.has-file { border-style: solid; border-color: color-mix(in srgb, var(--accent) 40%, #fff); background: color-mix(in srgb, var(--accent) 6%, #fff); color: var(--accent); }
 
+/* One acceptance letter per school claimed. Same visual language as .file-drop,
+   but a two-column row so the school being proven stays readable next to the
+   filename - a seller listing eight admits needs to scan this list quickly. */
+.proof-row {
+  display: flex; align-items: center; gap: 12px; margin-top: 10px; cursor: pointer;
+  border: 1px dashed #ccc6ba; border-radius: 10px; padding: 11px 14px; background: #fff;
+  font-size: 13.5px; line-height: 1.2;
+  transition: border-color .2s, background .2s, color .2s;
+}
+.proof-row:hover { border-color: var(--accent); }
+.proof-row .proof-school { font-weight: 600; color: var(--ink); flex: none; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proof-row .proof-file { margin-left: auto; color: var(--muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proof-row.has-file { border-style: solid; border-color: color-mix(in srgb, var(--accent) 40%, #fff); background: color-mix(in srgb, var(--accent) 6%, #fff); }
+.proof-row.has-file .proof-file { color: var(--accent); font-weight: 600; }
+
 /* hover tooltip on the upload box */
 .file-drop[data-tip]::after {
   content: attr(data-tip);

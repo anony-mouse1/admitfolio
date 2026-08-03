@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { CRON_SECRET } from '@/lib/config';
-import { fetchEssayPdfsBase64, runReviewPanel, type ReviewableListing } from '@/lib/review';
+import {
+  fetchEssayPdfsBase64,
+  fetchAdmitProofPdfsBase64,
+  runReviewPanel,
+  type ReviewableListing,
+} from '@/lib/review';
 import { applyListingDecision } from '@/lib/listingDecision';
 
 export const runtime = 'nodejs';
@@ -71,7 +76,7 @@ async function mapPool<T, R>(
   return results;
 }
 
-type PendingListing = ReviewableListing & { id: string };
+type PendingListing = ReviewableListing & { id: string; sellerId: string };
 
 // Screen one listing end to end and persist its verdict. Resolves rather than
 // rejects on failure so one bad listing cannot abort its neighbours now that
@@ -86,7 +91,15 @@ async function screenListing(
 ): Promise<'accepted' | 'flagged' | 'errored' | 'deferred'> {
   try {
     const pdfs = await fetchEssayPdfsBase64(listing);
-    const result = await runReviewPanel(listing, pdfs);
+    // The seller's acceptance letters. Fetched per listing rather than per
+    // seller because the panel's admissions lens needs them attached to this
+    // listing's review, and a seller's set can change between runs.
+    const proofRows = await prisma.admitProof.findMany({
+      where: { sellerId: listing.sellerId },
+      select: { id: true, schoolLabel: true, pdfPath: true },
+    });
+    const proofs = await fetchAdmitProofPdfsBase64(proofRows);
+    const result = await runReviewPanel(listing, pdfs, proofs);
 
     // The API was unreachable, so there is no judgement to record. Write nothing
     // - not even aiReviewedAt - so the listing stays in the queue and the next
@@ -108,6 +121,18 @@ async function screenListing(
         aiLenses: result.lenses.length ? JSON.stringify(result.lenses) : null,
       },
     });
+
+    // Record what the panel made of each acceptance letter, beside the letter
+    // itself. Advisory only - `status` is untouched, so a letter still becomes
+    // `verified` solely through a human in the admin console.
+    for (const c of result.admitChecks) {
+      await prisma.admitProof
+        .update({
+          where: { id: c.proofId },
+          data: { aiCheckedAt: new Date(), aiGenuine: c.looksGenuine, aiNote: c.note },
+        })
+        .catch(() => {});
+    }
 
     if (result.decision !== 'approved') return 'flagged';
     // Hold for a human unless auto-approve is switched on. Skipping this call
@@ -170,6 +195,7 @@ export async function GET(req: Request) {
     take: BATCH_SIZE,
     select: {
       id: true,
+      sellerId: true, // the panel reads this seller's acceptance letters
       school: true,
       major: true,
       appliedMajors: true,

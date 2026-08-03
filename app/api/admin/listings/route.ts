@@ -4,6 +4,7 @@ import { currentAdmin } from '@/lib/adminAuth';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 import { schoolTier } from '@/lib/pricing';
+import { schoolKey } from '@/lib/admitProof';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,13 +27,23 @@ export async function GET() {
           bio: true,
           photoPath: true,
           backgroundTags: true,
+          // Acceptance letters are per SELLER, so a listing shows the subset
+          // matching its own admitTags (matched on the normalised key).
+          admitProofs: true,
         },
       },
     },
   });
 
-  // One batch call for short-lived signed URLs to every uploaded PDF.
-  const paths = rows.flatMap((l) => l.essays.flatMap((e) => (e.pdfPath ? [e.pdfPath] : [])));
+  // One batch call for short-lived signed URLs to every uploaded PDF, essays and
+  // acceptance letters alike. De-duplicated because one seller's letter is
+  // reachable from every listing of theirs.
+  const paths = [
+    ...new Set([
+      ...rows.flatMap((l) => l.essays.flatMap((e) => (e.pdfPath ? [e.pdfPath] : []))),
+      ...rows.flatMap((l) => l.seller.admitProofs.flatMap((p) => (p.pdfPath ? [p.pdfPath] : []))),
+    ]),
+  ];
   const urlByPath = new Map<string, string>();
   if (paths.length > 0) {
     const { data } = await supabaseAdmin.storage
@@ -44,7 +55,34 @@ export async function GET() {
   }
 
   // Shape a clean payload for the console (parse admitTags JSON, expose seller email).
-  const listings = rows.map((l) => ({
+  const listings = rows.map((l) => {
+    // The proofs relevant to THIS listing: one per distinct school it claims.
+    // A claim with no row at all (every listing submitted before this feature
+    // shipped) surfaces as `missing`, which is different from `pending` - the
+    // seller was never asked, so there is nothing waiting on review.
+    const byKey = new Map(l.seller.admitProofs.map((p) => [p.schoolKey, p]));
+    const claimed = safeParse(l.admitTags);
+    const seen = new Set<string>();
+    const admitProofs = claimed.flatMap((label) => {
+      const key = schoolKey(label);
+      if (!key || seen.has(key)) return [];
+      seen.add(key);
+      const p = byKey.get(key);
+      return [{
+        id: p?.id ?? null,
+        school: label,
+        status: p ? p.status : 'missing',
+        adminNote: p?.adminNote ?? null,
+        pdfUrl: (p?.pdfPath && urlByPath.get(p.pdfPath)) || null,
+        // What the review panel made of the letter. Advisory - it never sets
+        // `status` - but it is the whole point of having the panel read them,
+        // so it belongs beside the Verify button rather than in a log.
+        aiGenuine: p?.aiGenuine ?? null,
+        aiNote: p?.aiNote ?? null,
+        aiCheckedAt: p?.aiCheckedAt ?? null,
+      }];
+    });
+    return {
     id: l.id,
     school: l.school,
     gradYear: l.gradYear,
@@ -81,6 +119,7 @@ export async function GET() {
     // Submissions from admin/test accounts are dummy data, not real students -
     // the console badges them so they're never mistaken for the real thing.
     isTest: isAdminEmail(l.seller.email) || TEST_EMAILS.has(l.seller.email.toLowerCase()),
+    admitProofs,
     essays: l.essays.map((e) => ({
       id: e.id,
       prompt: e.prompt,
@@ -90,7 +129,8 @@ export async function GET() {
       pdfPath: e.pdfPath,
       pdfUrl: (e.pdfPath && urlByPath.get(e.pdfPath)) || null,
     })),
-  }));
+    };
+  });
 
   return NextResponse.json({ listings });
 }
