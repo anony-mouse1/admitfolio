@@ -55,6 +55,7 @@ type Listing = {
   aiSuggestion: 'approve' | 'reject' | null;
   aiLenses: Lens[]; // per-lens breakdown of the panel's review
   humanReviewedAt: string | null; // set only when YOU decided from this console
+  savedAt: string | null; // your own shelf marker - invisible to the seller
   sellerEmail: string;
   // Seller profile as they filled it in. `anonymity` decides what buyers see;
   // these are shown to you either way so you can sanity-check the pairing.
@@ -67,11 +68,12 @@ type Listing = {
 type ListingFull = Listing & { essays: Essay[] };
 
 type Stage = 'loading' | 'email' | 'console';
-// Two tabs only. The top level answers "whose turn is it" - yours, or already
-// settled - and the sections inside answer "what was decided". The console used
-// to have seven tabs that sliced the same listings several ways at once (two of
-// them showed the identical 19), which made it read as more state than there is.
-type Filter = 'needsReview' | 'reviewed';
+// Three tabs. The first two answer "whose turn is it" - yours, or already
+// settled - and the sections inside answer "what was decided". The third is your
+// own shelf. The console used to have seven tabs that sliced the same listings
+// several ways at once (two of them showed the identical 19), which made it read
+// as more state than there is.
+type Filter = 'needsReview' | 'reviewed' | 'saved';
 
 // --- What the AI said -------------------------------------------------------
 // The panel found nothing wrong. With auto-approve off (AUTO_APPROVE in
@@ -81,14 +83,18 @@ const aiApproved = (l: Listing) => l.aiDecision === 'approved';
 const aiFlagged = (l: Listing) => l.aiDecision === 'flagged';
 
 // --- Whose turn it is -------------------------------------------------------
+// Shelved by you. It takes a listing OUT of the other tabs - that's the point of
+// saving it, otherwise it sits in the queue you're trying to clear - so every
+// other predicate here excludes it and the three tabs stay disjoint.
+const saved = (l: Listing) => !!l.savedAt;
 // Screened by the panel and still pending: it has had its say, you haven't.
-const needsReview = (l: Listing) => !!l.aiReviewedAt && l.status === 'pending';
+const needsReview = (l: Listing) => !saved(l) && !!l.aiReviewedAt && l.status === 'pending';
 // Settled by a human, whichever way it went.
-const reviewed = (l: Listing) => l.status === 'approved' || l.status === 'rejected';
+const reviewed = (l: Listing) => !saved(l) && (l.status === 'approved' || l.status === 'rejected');
 // Submitted, but the cron hasn't screened it yet. Deliberately NOT a tab: there
 // is nothing for you to do with these, you're waiting on the nightly run. It
 // renders as a plain count beside the tabs so the number stays visible.
-const awaitingAi = (l: Listing) => l.status === 'pending' && !l.aiReviewedAt;
+const awaitingAi = (l: Listing) => !saved(l) && l.status === 'pending' && !l.aiReviewedAt;
 
 // How the seller chose to be credited publicly, in words. The stored value is a
 // bare enum ('anonymous' | 'firstName' | 'full') which reads as noise on a card.
@@ -102,6 +108,7 @@ const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
 const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
   { key: 'needsReview', label: 'Needs your review', match: needsReview },
   { key: 'reviewed', label: 'Reviewed', match: reviewed },
+  { key: 'saved', label: 'Saved for later', match: saved },
 ];
 
 // The sections inside each tab. Two apiece, and they partition their tab
@@ -115,6 +122,13 @@ const SECTIONS: Record<Filter, { key: string; label: string; match: (l: Listing)
   reviewed: [
     { key: 'accepted', label: 'Accepted', match: (l) => l.status === 'approved' },
     { key: 'rejected', label: 'Rejected', match: (l) => l.status === 'rejected' },
+  ],
+  // The shelf holds both kinds: something you couldn't call yet, and something
+  // you decided but want to come back to. Splitting them says which is which
+  // without having to read each card's status badge.
+  saved: [
+    { key: 'savedOpen', label: 'Still undecided', match: (l) => l.status === 'pending' },
+    { key: 'savedDone', label: 'Already decided', match: (l) => l.status !== 'pending' },
   ],
 };
 
@@ -183,6 +197,7 @@ const MOCK: ListingFull[] = [
       },
     ],
     humanReviewedAt: null,
+    savedAt: null,
     sellerEmail: 'j.rivera@example.edu',
     isTest: false,
     sellerName: 'Jordan Rivera',
@@ -239,6 +254,7 @@ const MOCK: ListingFull[] = [
       { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [] },
     ],
     humanReviewedAt: null,
+    savedAt: '2026-07-25T10:00:00.000Z',
     sellerEmail: 'amara.k@example.edu',
     isTest: false,
     sellerName: 'Amara K.',
@@ -285,6 +301,7 @@ const MOCK: ListingFull[] = [
       { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [] },
     ],
     humanReviewedAt: '2026-07-22T11:02:00.000Z',
+    savedAt: null,
     sellerEmail: 'dpatel@example.edu',
     isTest: false,
     sellerName: 'Dev Patel',
@@ -328,6 +345,7 @@ const MOCK: ListingFull[] = [
     aiSuggestion: null,
     aiLenses: [],
     humanReviewedAt: null,
+    savedAt: '2026-07-28T09:30:00.000Z',
     sellerEmail: 'sofia.l@example.edu',
     isTest: false,
     sellerName: 'Sofia L.',
@@ -395,6 +413,7 @@ const MOCK: ListingFull[] = [
       },
     ],
     humanReviewedAt: '2026-07-19T17:45:00.000Z',
+    savedAt: null,
     sellerEmail: 'mchen@example.edu',
     isTest: false,
     sellerName: null,
@@ -508,6 +527,27 @@ export default function AdminPage() {
       return;
     }
     await loadListings();
+  }
+
+  // Put a listing on the shelf, or take it off. Not a decision: nothing is
+  // published, unpublished, or emailed. It only moves the card into the "Saved
+  // for later" tab so the queue you're working through gets shorter.
+  async function toggleSaved(id: string, next: boolean) {
+    // Move the card immediately - it's about to leave this tab, and waiting on
+    // a round-trip to see that happen makes the button feel broken.
+    setListings((ls) =>
+      ls.map((l) => (l.id === id ? { ...l, savedAt: next ? new Date().toISOString() : null } : l)),
+    );
+    if (previewOn()) return;
+    const resp = await fetch('/api/admin/save-for-later', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ id, saved: next }),
+    });
+    // Put it back where it was rather than leaving the screen disagreeing with
+    // the database.
+    if (!resp.ok) await loadListings();
   }
 
   async function decide(id: string, decision: 'approved' | 'rejected') {
@@ -636,7 +676,9 @@ export default function AdminPage() {
                   ? 'No submissions yet.'
                   : filter === 'needsReview'
                     ? 'Nothing is waiting on you. 🎉'
-                    : 'Nothing reviewed yet.'}
+                    : filter === 'saved'
+                      ? 'Nothing saved. Use “Save for later” on a card to park it here.'
+                      : 'Nothing reviewed yet.'}
               </div>
             ) : (
               panels.map((panel) => (
@@ -935,6 +977,24 @@ export default function AdminPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Sits outside the decide block on purpose, so it is still
+                      reachable on a listing the seller took down - the one card
+                      that has no Approve/Reject row to hang off. */}
+                  <div className={styles.shelfRow}>
+                    <button
+                      type="button"
+                      className={`${styles.shelfBtn} ${saved(l) ? styles.shelfBtnOn : ''}`}
+                      onClick={() => toggleSaved(l.id, !saved(l))}
+                    >
+                      {saved(l) ? '★ Saved for later' : '☆ Save for later'}
+                    </button>
+                    {saved(l) && l.savedAt && (
+                      <span className={styles.shelfWhen}>
+                        Shelved {new Date(l.savedAt).toLocaleDateString()}. Click to put it back.
+                      </span>
+                    )}
+                  </div>
                 </div>
                   ))}
                 </section>

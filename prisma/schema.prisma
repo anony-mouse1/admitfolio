@@ -95,6 +95,10 @@ model Listing {
   // This is what separates "the panel cleared it" from "I looked at it myself",
   // and drives the unaudited counts on the review tabs.
   humanReviewedAt DateTime?
+  // Admin shelf. Set from the console when a listing needs more thought than the
+  // current pass allows. It carries no meaning to the seller and never changes
+  // `status` - a shelved listing is exactly as published (or not) as before.
+  savedAt      DateTime?
   essays       Essay[]
   purchases    Purchase[]
 
