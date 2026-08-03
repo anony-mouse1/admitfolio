@@ -1619,11 +1619,18 @@ export default function Page() {
               <div className="field-hint">Add every school these essays helped you get into.</div>
             </div>
 
-            {admitProofRows.length > 0 && (
-              <div className="field">
-                <label>Proof of admission</label>
-                <div>
-                  {admitProofRows.map((a) => {
+            {/* Always rendered, even with no schools added yet. This is a required
+                step, and hiding it until the seller happens to fill in the field
+                above meant the requirement was invisible until Submit refused. */}
+            <div className="field">
+              <label>Proof of admission <span className="floor-hint">(required)</span></label>
+              <div>
+                {admitProofRows.length === 0 ? (
+                  <div className="proof-empty">
+                    Add a school above and we&apos;ll ask for its acceptance letter here.
+                  </div>
+                ) : (
+                  admitProofRows.map((a) => {
                     const f = admitFiles[a.key];
                     return (
                       <label key={a.key} className={`proof-row${f ? ' has-file' : ''}`}>
@@ -1641,16 +1648,16 @@ export default function Page() {
                         <span className="proof-file">{f ? f.name : 'Upload letter (PDF)'}</span>
                       </label>
                     );
-                  })}
-                </div>
-                <div className="field-hint">
-                  Upload the acceptance letter or admitted-student portal screenshot for each school, saved as a
-                  PDF. Buyers choose an essay by where it got in, so we check every school before a listing goes
-                  live. Letters are seen only by our review team, never by buyers, and you can black out anything
-                  that isn&apos;t your name, the school, and the decision.
-                </div>
+                  })
+                )}
               </div>
-            )}
+              <div className="field-hint">
+                Upload the acceptance letter or admitted-student portal screenshot for each school, saved as a
+                PDF. Buyers choose an essay by where it got in, so we check every school before a listing goes
+                live. Letters are seen only by our review team, never by buyers, and you can black out anything
+                that isn&apos;t your name, the school, and the decision.
+              </div>
+            </div>
 
             <div className="field">
               <label htmlFor="appliedMajors">Major(s) you applied to with these essays <span className="floor-hint">(optional)</span></label>
