@@ -629,6 +629,14 @@ footer { background: #1b1a17; color: #cfccc4; }
 .proof-row.has-file { border-style: solid; border-color: color-mix(in srgb, var(--accent) 40%, #fff); background: color-mix(in srgb, var(--accent) 6%, #fff); }
 .proof-row.has-file .proof-file { color: var(--accent); font-weight: 600; }
 
+/* Shown before any school has been added. The block itself is always present,
+   so the requirement is visible from the moment the seller reaches this step. */
+.proof-empty {
+  margin-top: 10px; border: 1px dashed #ddd7cb; border-radius: 10px;
+  padding: 13px 14px; background: #fcfbf9;
+  font-size: 13px; color: var(--faint); font-style: italic;
+}
+
 /* hover tooltip on the upload box */
 .file-drop[data-tip]::after {
   content: attr(data-tip);
