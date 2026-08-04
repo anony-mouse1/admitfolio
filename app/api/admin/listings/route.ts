@@ -105,6 +105,8 @@ export async function GET() {
     // Parsed here rather than in the client so the console gets a real array.
     aiLenses: safeParseLenses(l.aiLenses),
     humanReviewedAt: l.humanReviewedAt,
+    // Your own shelf marker. Not shown to sellers anywhere.
+    savedAt: l.savedAt,
     sellerEmail: l.seller.email,
     // Seller profile. `anonymity` above governs what BUYERS see; these fields
     // are what the seller filled in, shown to you regardless so you can check
