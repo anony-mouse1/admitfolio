@@ -19,6 +19,11 @@ type Lens = {
   pass: boolean;
   confidence: string;
   concerns: string[];
+  // True for a check that only takes notes. It never voted, so a failing
+  // advisory row did NOT flag this listing and is not a reason to reject one:
+  // it is something to ask the seller to fix (see lib/review.ts). Rendered as a
+  // note rather than a FAIL so the two are never read as the same thing.
+  advisory: boolean;
 };
 type Listing = {
   id: string;
@@ -81,6 +86,18 @@ type Filter = 'needsReview' | 'reviewed' | 'saved';
 // the panel would have cleared it and is waiting on you.
 const aiApproved = (l: Listing) => l.aiDecision === 'approved';
 const aiFlagged = (l: Listing) => l.aiDecision === 'flagged';
+
+// What the expand toggle says it holds. Lenses and notes are counted apart
+// because they mean different things: a lens can flag the listing, a note
+// cannot. Calling six rows "6 lenses" would claim two more things voted than
+// actually did.
+function lensSummary(lenses: Lens[]): string {
+  const notes = lenses.filter((x) => x.advisory).length;
+  const voting = lenses.length - notes;
+  const parts = [`${voting} lens${voting === 1 ? '' : 'es'}`];
+  if (notes > 0) parts.push(`${notes} note${notes === 1 ? '' : 's'}`);
+  return parts.join(', ');
+}
 
 // --- Whose turn it is -------------------------------------------------------
 // Shelved by you. It takes a listing OUT of the other tabs - that's the point of
@@ -177,16 +194,17 @@ const MOCK: ListingFull[] = [
     aiDecision: 'flagged',
     aiConfidence: 'medium',
     aiReasons:
-      '[Policy & safety] The final paragraph includes what appears to be a personal Instagram handle.\n[Quality & fit] Essay 2 runs ~180 words over the claimed word count.',
+      '[Policy & safety] The final paragraph includes what appears to be a personal Instagram handle.\n[Anonymity] The header of essay 1 reads "Jordan Rivera, Applicant ID 40118822", but this seller chose to stay anonymous.\n[Quality & fit] Essay 2 runs ~180 words over the claimed word count.\n[Note: Prompt pasted into the PDF] Essay 1 (Write a note to your future roommate.): the question is repeated as a heading above the essay.',
     aiSuggestion: 'reject',
     aiLenses: [
-      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [] },
+      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [], advisory: false },
       {
         key: 'policy',
         label: 'Policy & safety',
         pass: false,
         confidence: 'medium',
         concerns: ['The final paragraph includes what appears to be a personal Instagram handle.'],
+        advisory: false,
       },
       {
         key: 'quality',
@@ -194,6 +212,35 @@ const MOCK: ListingFull[] = [
         pass: true,
         confidence: 'medium',
         concerns: ['Essay 2 runs ~180 words over the claimed word count.'],
+        advisory: false,
+      },
+      {
+        key: 'anonymity',
+        label: 'Anonymity',
+        pass: false,
+        confidence: 'high',
+        concerns: [
+          'The header of essay 1 reads "Jordan Rivera, Applicant ID 40118822", but this seller chose to stay anonymous.',
+        ],
+        advisory: false,
+      },
+      {
+        key: 'promptInBody',
+        label: 'Prompt pasted into the PDF',
+        pass: false,
+        confidence: 'high',
+        concerns: [
+          'Essay 1 (Write a note to your future roommate.): the question is repeated as a heading above the essay.',
+        ],
+        advisory: true,
+      },
+      {
+        key: 'oneEssayPerPdf',
+        label: 'One essay per PDF',
+        pass: true,
+        confidence: 'high',
+        concerns: [],
+        advisory: true,
       },
     ],
     humanReviewedAt: null,
@@ -246,12 +293,35 @@ const MOCK: ListingFull[] = [
     aiReviewedAt: '2026-07-23T09:15:00.000Z',
     aiDecision: 'approved',
     aiConfidence: 'high',
-    aiReasons: null,
+    // Approved by the panel, with a packaging note. This is the case the
+    // advisory split exists for: nothing here is a reason to reject, and the
+    // seller still needs to be asked to split the file.
+    aiReasons:
+      '[Note: One essay per PDF] Essay 1 (Reflect on a community you belong to.): the file holds two essays, the second under a "Why Yale" heading on page 2.',
     aiSuggestion: 'approve',
     aiLenses: [
-      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [] },
-      { key: 'policy', label: 'Policy & safety', pass: true, confidence: 'high', concerns: [] },
-      { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [] },
+      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [], advisory: false },
+      { key: 'policy', label: 'Policy & safety', pass: true, confidence: 'high', concerns: [], advisory: false },
+      { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [], advisory: false },
+      { key: 'anonymity', label: 'Anonymity', pass: true, confidence: 'high', concerns: [], advisory: false },
+      {
+        key: 'promptInBody',
+        label: 'Prompt pasted into the PDF',
+        pass: true,
+        confidence: 'high',
+        concerns: [],
+        advisory: true,
+      },
+      {
+        key: 'oneEssayPerPdf',
+        label: 'One essay per PDF',
+        pass: false,
+        confidence: 'medium',
+        concerns: [
+          'Essay 1 (Reflect on a community you belong to.): the file holds two essays, the second under a "Why Yale" heading on page 2.',
+        ],
+        advisory: true,
+      },
     ],
     humanReviewedAt: null,
     savedAt: '2026-07-25T10:00:00.000Z',
@@ -296,9 +366,26 @@ const MOCK: ListingFull[] = [
     aiReasons: null,
     aiSuggestion: 'approve',
     aiLenses: [
-      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [] },
-      { key: 'policy', label: 'Policy & safety', pass: true, confidence: 'high', concerns: [] },
-      { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [] },
+      { key: 'authenticity', label: 'Authenticity', pass: true, confidence: 'high', concerns: [], advisory: false },
+      { key: 'policy', label: 'Policy & safety', pass: true, confidence: 'high', concerns: [], advisory: false },
+      { key: 'quality', label: 'Quality & fit', pass: true, confidence: 'high', concerns: [], advisory: false },
+      { key: 'anonymity', label: 'Anonymity', pass: true, confidence: 'high', concerns: [], advisory: false },
+      {
+        key: 'promptInBody',
+        label: 'Prompt pasted into the PDF',
+        pass: true,
+        confidence: 'high',
+        concerns: [],
+        advisory: true,
+      },
+      {
+        key: 'oneEssayPerPdf',
+        label: 'One essay per PDF',
+        pass: true,
+        confidence: 'high',
+        concerns: [],
+        advisory: true,
+      },
     ],
     humanReviewedAt: '2026-07-22T11:02:00.000Z',
     savedAt: null,
@@ -393,6 +480,7 @@ const MOCK: ListingFull[] = [
         pass: false,
         confidence: 'high',
         concerns: ['Document is not a first-person narrative essay.'],
+        advisory: false,
       },
       {
         key: 'policy',
@@ -403,6 +491,7 @@ const MOCK: ListingFull[] = [
           'The attached PDF is a résumé, not a college-admission essay.',
           'Contains a home address and phone number.',
         ],
+        advisory: false,
       },
       {
         key: 'quality',
@@ -410,6 +499,33 @@ const MOCK: ListingFull[] = [
         pass: false,
         confidence: 'high',
         concerns: ['Not on-topic for the stated prompt.'],
+        advisory: false,
+      },
+      {
+        key: 'anonymity',
+        label: 'Anonymity',
+        pass: false,
+        confidence: 'high',
+        concerns: [
+          'The document opens with a full name, an email address, and a phone number for the seller.',
+        ],
+        advisory: false,
+      },
+      {
+        key: 'promptInBody',
+        label: 'Prompt pasted into the PDF',
+        pass: true,
+        confidence: 'low',
+        concerns: [],
+        advisory: true,
+      },
+      {
+        key: 'oneEssayPerPdf',
+        label: 'One essay per PDF',
+        pass: true,
+        confidence: 'low',
+        concerns: [],
+        advisory: true,
       },
     ],
     humanReviewedAt: '2026-07-19T17:45:00.000Z',
@@ -778,21 +894,43 @@ export default function AdminPage() {
                             }
                           >
                             {openReview[l.id] ? '▾' : '▸'} Claude&apos;s full review (
-                            {l.aiLenses.length} lenses)
+                            {lensSummary(l.aiLenses)})
                           </button>
                           {openReview[l.id] && (
                             <div className={styles.lensList}>
                               {l.aiLenses.map((lens) => (
-                                <div key={lens.key} className={styles.lensRow}>
+                                <div
+                                  key={lens.key}
+                                  className={`${styles.lensRow} ${lens.advisory ? styles.lensRowNote : ''}`}
+                                >
                                   <div className={styles.lensHead}>
+                                    {/* An advisory row never votes, so it never
+                                        says FAIL. "NOTE" is the whole point: it
+                                        found something worth fixing, and it did
+                                        not hold the listing back. */}
                                     <span
-                                      className={lens.pass ? styles.lensPass : styles.lensFail}
+                                      className={
+                                        lens.advisory
+                                          ? lens.pass
+                                            ? styles.lensClear
+                                            : styles.lensNote
+                                          : lens.pass
+                                            ? styles.lensPass
+                                            : styles.lensFail
+                                      }
                                     >
-                                      {lens.pass ? 'PASS' : 'FAIL'}
+                                      {lens.advisory
+                                        ? lens.pass
+                                          ? 'CLEAR'
+                                          : 'NOTE'
+                                        : lens.pass
+                                          ? 'PASS'
+                                          : 'FAIL'}
                                     </span>
                                     <b>{lens.label}</b>
                                     <span className={styles.lensConf}>
                                       {lens.confidence} confidence
+                                      {lens.advisory ? ' · note only, did not flag' : ''}
                                     </span>
                                   </div>
                                   {lens.concerns.length > 0 ? (
@@ -802,7 +940,9 @@ export default function AdminPage() {
                                       ))}
                                     </ul>
                                   ) : (
-                                    <div className={styles.lensClean}>No concerns raised.</div>
+                                    <div className={styles.lensClean}>
+                                      {lens.advisory ? 'Nothing to fix.' : 'No concerns raised.'}
+                                    </div>
                                   )}
                                 </div>
                               ))}

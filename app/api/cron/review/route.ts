@@ -9,6 +9,7 @@ import {
   type ReviewableListing,
 } from '@/lib/review';
 import { applyListingDecision } from '@/lib/listingDecision';
+import { schoolTier } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,13 @@ export const maxDuration = 300;
 // budget at CONCURRENCY 5) once the panel's judgement has been spot-checked.
 const BATCH_SIZE = 10;
 
+// How much of the backlog to look at before choosing a batch. The query can
+// only order by createdAt (T20 is computed, not stored), so the batch is picked
+// from this many rows rather than from the whole table: enough that a T20
+// submission sitting behind a queue of others still gets pulled forward, small
+// enough that a large backlog isn't loaded into memory every five minutes.
+const CANDIDATE_MULTIPLE = 10;
+
 // Whether a clean panel verdict may push a listing live on its own.
 //
 // OFF: nothing the panel screens goes public or emails its seller. A listing
@@ -51,8 +59,9 @@ const AUTO_APPROVE = false;
 // wall-clock was entirely spent waiting on the API, not on us. Kept separate
 // from BATCH_SIZE so the batch can grow without the fan-out growing with it:
 // each listing fans out to one Claude call per lens, so in-flight requests are
-// CONCURRENCY x LENSES (3), not CONCURRENCY. Every listing still commits its
-// own verdict as it lands, so the mid-run timeout behaviour above is unchanged.
+// CONCURRENCY x 6, not CONCURRENCY: four essay lenses, the admissions lens, and
+// the advisory structure pass. Every listing still commits its own verdict as it
+// lands, so the mid-run timeout behaviour above is unchanged.
 const CONCURRENCY = 5;
 
 // Run `fn` over `items` with at most `limit` in flight. Workers pull from a
@@ -185,14 +194,19 @@ export async function GET(req: Request) {
   // Pending submissions that haven't been screened yet and have all PDFs
   // uploaded. `some: {}` guards against a listing with zero essays trivially
   // satisfying `every`.
-  const listings = await prisma.listing.findMany({
+  //
+  // Fetched wider than BATCH_SIZE so the T20 sort below has something to choose
+  // from. Ordering has to happen here rather than in the query: T20 is
+  // schoolTier(school) === 1, a keyword match on a free-text field (lib/pricing),
+  // so Postgres cannot sort by it.
+  const candidates = await prisma.listing.findMany({
     where: {
       status: 'pending',
       aiReviewedAt: null,
       essays: { every: { pdfPath: { not: null } }, some: {} },
     },
     orderBy: { createdAt: 'asc' },
-    take: BATCH_SIZE,
+    take: BATCH_SIZE * CANDIDATE_MULTIPLE,
     select: {
       id: true,
       sellerId: true, // the panel reads this seller's acceptance letters
@@ -200,12 +214,47 @@ export async function GET(req: Request) {
       major: true,
       appliedMajors: true,
       admitTags: true,
+      anonymity: true, // the anonymity lens judges leaks against this choice
+      // The panel tells the anonymity lens who the seller is, so it can spot
+      // them identifying themselves inside their own essay.
+      seller: { select: { name: true, email: true } },
       essays: {
         orderBy: { sortOrder: 'asc' },
         select: { id: true, prompt: true, question: true, wordCount: true, pdfPath: true },
       },
     },
   });
+
+  // T20 sellers first, oldest first within each group.
+  //
+  // Same definition the review console uses (schoolTier from lib/pricing, via
+  // isT20 in app/api/admin/listings/route.ts): tier 1 on `school`, the
+  // university the seller currently ATTENDS. One list, one meaning, both ends.
+  //
+  // The console already sorts its own queue this way, but a listing cannot reach
+  // that queue until the panel has screened it, so a T20 submission behind a
+  // long FIFO backlog was invisible for as long as the backlog took to clear.
+  // This moves the prioritisation to where the waiting actually happens.
+  //
+  // Sort is stable, so equal-tier listings keep the createdAt-ascending order
+  // above. Nothing starves: every screened listing gets aiReviewedAt and leaves
+  // this query for good, so a non-T20 submission only ever waits behind T20 ones
+  // that arrive before its turn, at 10 per run every 5 minutes.
+  const listings: PendingListing[] = candidates
+    .sort((a, b) => Number(schoolTier(b.school) === 1) - Number(schoolTier(a.school) === 1))
+    .slice(0, BATCH_SIZE)
+    .map((l) => ({
+      id: l.id,
+      sellerId: l.sellerId,
+      school: l.school,
+      major: l.major,
+      appliedMajors: l.appliedMajors,
+      admitTags: l.admitTags,
+      anonymity: l.anonymity,
+      sellerName: l.seller.name,
+      sellerEmail: l.seller.email,
+      essays: l.essays,
+    }));
 
   const outcomes = await mapPool(listings, CONCURRENCY, screenListing);
 
