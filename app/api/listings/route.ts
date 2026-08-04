@@ -2,22 +2,17 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { schoolKey } from '@/lib/admitProof';
+import { publicDisplayName } from '@/lib/anonymity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Public catalog of approved listings. Seller identity is gated by each
-// listing's anonymity choice HERE, server-side - the full name never reaches
-// the client unless the seller opted into showing it. Test/demo submissions
-// (admin or TEST_EMAILS sellers) are excluded entirely.
-
-function displayName(anonymity: string, name: string | null): string {
-  const trimmed = (name || '').trim();
-  if (!trimmed) return 'Verified admit';
-  if (anonymity === 'full') return trimmed;
-  if (anonymity === 'firstName') return trimmed.split(/\s+/)[0];
-  return 'Verified admit';
-}
+// listing's anonymity choice HERE, server-side - the name never reaches the
+// client unless the seller opted into showing it publicly. Sellers who chose
+// "anonymous until bought" are unnamed here; their first name appears only on
+// the purchase reading page. Test/demo submissions (admin or TEST_EMAILS
+// sellers) are excluded entirely.
 
 function parseTags(json: string): string[] {
   try {
@@ -73,7 +68,7 @@ export async function GET() {
       createdAt: l.createdAt,
       essays: l.essays.map((e) => ({ prompt: e.prompt, question: e.question, wordCount: e.wordCount })),
       seller: {
-        displayName: displayName(l.anonymity, l.seller.name),
+        displayName: publicDisplayName(l.anonymity, l.seller.name),
         backgroundTags: parseTags(l.seller.backgroundTags),
       },
       };

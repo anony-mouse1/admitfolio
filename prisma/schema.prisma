@@ -73,7 +73,11 @@ model Listing {
   major        String? // the seller's current major at their university
   appliedMajors String? // major(s) they applied to with these essays, free text
   admitTags    String     @default("[]") // JSON array of schools they got into
-  anonymity    String     @default("anonymous") // anonymous | firstName | full
+  // anonymous | revealOnPurchase | full. See lib/anonymity.ts: the middle value
+  // is a TIMING choice (nothing public, first name once bought), not a "show
+  // less of the name" choice. Rows written before 2026-08 spell it 'firstName'
+  // and are read as the same thing.
+  anonymity    String     @default("anonymous")
   pricingMode  String     @default("package") // package | separate
   packagePrice Int? // whole dollars, when pricingMode = package
   teaser       String? // optional one-line hook shown on the public browse card

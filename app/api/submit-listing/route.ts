@@ -10,6 +10,7 @@ import { makeSession } from '@/lib/session';
 import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 import { admitsTier, packageFloor, perEssayFloor, TIER } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
+import { normalizeAnonymity } from '@/lib/anonymity';
 
 export const runtime = 'nodejs';
 
@@ -62,9 +63,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Add at least one essay.' }, { status: 400 });
   }
 
-  const anonymity = ['anonymous', 'firstName', 'full'].includes(String(body?.anonymity))
-    ? String(body.anonymity)
-    : 'anonymous';
+  // Normalised rather than taken verbatim: an unrecognised value stores as
+  // `anonymous`, and the legacy 'firstName' collapses onto 'revealOnPurchase'
+  // so an old client can never re-create a listing that names its seller before
+  // a sale. See lib/anonymity.ts.
+  const anonymity = normalizeAnonymity(body?.anonymity);
   const pricingMode = body?.pricingMode === 'separate' ? 'separate' : 'package';
   const sellerNote = String(body?.sellerNote || '').trim().slice(0, 500) || null;
   const teaser = String(body?.teaser || '').trim().slice(0, 90) || null;

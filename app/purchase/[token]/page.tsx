@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { verifyAccessToken } from '@/lib/accessToken';
 import { prisma } from '@/lib/prisma';
 import EssayReader from '@/components/EssayReader';
+import { ANONYMOUS_LABEL, buyerDisplayName } from '@/lib/anonymity';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -30,7 +31,16 @@ export default async function PurchasePage({ params }: { params: { token: string
   const purchase = verified
     ? await prisma.purchase.findUnique({
         where: { id: verified.purchaseId },
-        include: { listing: { include: { essays: { orderBy: { sortOrder: 'asc' } } } } },
+        include: {
+          listing: {
+            include: {
+              essays: { orderBy: { sortOrder: 'asc' } },
+              // This page is the one surface reached only with a paid-for token,
+              // so it is where "anonymous until bought" turns into a name.
+              seller: { select: { name: true } },
+            },
+          },
+        },
       })
     : null;
 
@@ -47,6 +57,10 @@ export default async function PurchasePage({ params }: { params: { token: string
   }
 
   const essays = purchase.listing.essays;
+  // Named only if this seller's choice allows it after a sale. A seller who
+  // picked "always anonymous" stays anonymous here too.
+  const writtenBy = buyerDisplayName(purchase.listing.anonymity, purchase.listing.seller.name);
+  const named = writtenBy !== ANONYMOUS_LABEL;
 
   return (
     <Shell>
@@ -56,6 +70,12 @@ export default async function PurchasePage({ params }: { params: { token: string
         Thanks for supporting a real student. These essays are for <b>inspiration and learning only</b>,
         never for copying or submitting as your own; see our <a href="/terms">Terms</a>.
       </p>
+      {named && (
+        <p>
+          Written by <b>{writtenBy}</b>. They chose to share their name with buyers, so please keep it
+          between you and them.
+        </p>
+      )}
       <p>
         Each essay is watermarked with your email (<b>{purchase.buyerEmail}</b>) and opens here for
         reading. Reads are logged.

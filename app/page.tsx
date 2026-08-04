@@ -6,6 +6,7 @@ import LogoBadge from '@/components/LogoBadge';
 import { TIER, packageFloor, perEssayFloor, admitsTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { PROFILE_TAGS } from '@/lib/site';
+import type { Anonymity } from '@/lib/anonymity';
 
 /* ============================================================================
    Types & static data
@@ -119,10 +120,12 @@ const reqMap: Record<string, ReqInfo> = {
 
 const appLabels: Record<string, string> = { commonapp: 'Common App', coalition: 'Coalition App', uc: 'UC Application', mit: 'MIT Application', other: 'Other single school' };
 
-// Map the prototype's 3-way anonymity choice onto the API contract.
-const anonApiValue: Record<AnonMode, 'anonymous' | 'firstName' | 'full'> = {
+// Map the prototype's 3-way anonymity choice onto the API contract. `reveal`
+// is "Anonymous until bought", so it must NOT map onto a value that names the
+// seller on the public listing - see lib/anonymity.ts.
+const anonApiValue: Record<AnonMode, Anonymity> = {
   anonymous: 'anonymous',
-  reveal: 'firstName',
+  reveal: 'revealOnPurchase',
   public: 'full',
 };
 
