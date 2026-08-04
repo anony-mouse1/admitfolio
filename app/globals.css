@@ -164,7 +164,15 @@ a { color: inherit; }
 .ecard-school { font-size: 15px; font-weight: 600; color: var(--ink); }
 .ecard-meta { font-size: 12.5px; color: var(--faint); margin-top: 1px; }
 .ecard-rating { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
-.ecard-prompt { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; margin-top: 18px; }
+/* Line-clamped as a backstop: essayLabel() in app/page.tsx already caps each
+   label, but two capped labels joined by ' · ' can still wrap past two lines,
+   and an unbroken run of capitals would otherwise push the footer off-card. */
+.ecard-prompt {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent);
+  text-transform: uppercase; margin-top: 18px; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
 .ecard-hook { font-family: var(--serif); font-size: 19px; line-height: 1.3; font-weight: 600; color: var(--ink); margin-top: 7px; }
 /* Seller background context on browse cards ("First-generation", ...) */
 .ecard-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -182,6 +190,22 @@ a { color: inherit; }
   font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg);
   border: 1px solid #e8e4dc; padding: 5px 13px; border-radius: 999px; white-space: nowrap;
 }
+/* Admit schools as an overlapping logo stack. This replaced a comma-joined
+   sentence ("Admitted to Cornell University, Johns Hopkins University, Tufts
+   University, ...") that ran to four lines on sellers with long admit lists
+   and was the heaviest block on the card. Each circle carries the full school
+   name as a title, and the overflow "+N" lists the remainder. */
+.ecard-admits { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.ecard-admits-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--faint); white-space: nowrap;
+}
+.admit-stack { display: flex; align-items: center; }
+/* Overlap by 7px, with a white ring so adjacent logos stay legible. */
+.admit-logo { display: flex; margin-left: -7px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
+.admit-logo:first-child { margin-left: 0; }
+.admit-more { margin-left: 8px; font-size: 11.5px; font-weight: 700; color: var(--faint); white-space: nowrap; }
+
 .ecard-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f0ede6; }
 .ecard-price { display: flex; align-items: baseline; gap: 7px; }
 .ecard-price .p { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--ink); }
@@ -1228,6 +1252,37 @@ body { -webkit-tap-highlight-color: transparent; }
   font-size: 15px; color: var(--faint); font-style: italic;
   background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
 }
+.pub-empty-reset { color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+/* Browse search. Sits in .featured-head, which is a flex row that wraps, so on
+   narrow screens this drops under the heading and goes full width. */
+.pub-search {
+  position: relative; display: flex; align-items: center; flex: 0 1 320px; min-width: 220px;
+}
+.pub-search-icon {
+  position: absolute; left: 14px; width: 17px; height: 17px; color: var(--faint); pointer-events: none;
+}
+.pub-search input {
+  width: 100%; font-family: var(--sans); font-size: 14.5px; color: var(--ink);
+  padding: 11px 36px 11px 39px; border: 1px solid #e4e0d7; border-radius: 999px;
+  background: #fff; outline: none; transition: border-color .2s, box-shadow .2s;
+  -webkit-appearance: none; appearance: none;
+}
+.pub-search input::placeholder { color: var(--faint); }
+.pub-search input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* Safari draws its own clear affordance on type=search; we ship our own. */
+.pub-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.pub-search-clear {
+  position: absolute; right: 12px; display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border: 0; border-radius: 50%; cursor: pointer;
+  background: #ece9e2; color: var(--muted); font-size: 15px; line-height: 1; padding: 0;
+  transition: background .2s;
+}
+.pub-search-clear:hover { background: #ddd8cf; }
+@media (max-width: 560px) { .pub-search { flex: 1 1 100%; margin-top: 18px; } }
 
 /* ── Purchased-essay reader ───────────────────────────────
    Pages render to <canvas> (see components/EssayReader.tsx), so there is no

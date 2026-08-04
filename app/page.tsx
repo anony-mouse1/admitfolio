@@ -5,6 +5,7 @@ import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { TIER, packageFloor, perEssayFloor, admitsTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
+import { schoolInfo, schoolShortName } from '@/lib/schools';
 import { PROFILE_TAGS } from '@/lib/site';
 
 /* ============================================================================
@@ -175,6 +176,33 @@ export default function Page() {
       })
       .catch(() => setPubState('error'));
   }, []);
+
+  /* ---- Browse search ----
+     Filters the already-fetched catalog in the browser; the API returns at most
+     60 listings, so there is nothing to gain from a round trip. Matching is
+     substring, which also papers over the school-name spellings in the data
+     ("UC Berkeley" / "University of California, Berkeley" / "uc berkeley" are
+     four distinct stored strings, and all three match a search for "berkeley").
+     Every whitespace-separated term must match somewhere, so "cornell econ"
+     narrows rather than widens. */
+  const [pubQuery, setPubQuery] = useState('');
+  const visibleListings = useMemo(() => {
+    const terms = pubQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.length) return pubListings;
+    return pubListings.filter((l) => {
+      const haystack = [
+        l.school,
+        l.teaser || '',
+        l.appliedMajors || '',
+        l.admitTags.join(' '),
+        l.seller.backgroundTags.join(' '),
+        l.essays.map((e) => `${e.prompt} ${e.question || ''}`).join(' '),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return terms.every((t) => haystack.includes(t));
+    });
+  }, [pubListings, pubQuery]);
 
   /* ---- Which overlays are open (drives body scroll lock) ---- */
   const [sellOpen, setSellOpen] = useState(false);
@@ -1163,15 +1191,40 @@ export default function Page() {
                 <h2>Browse essays</h2>
                 <p>Real essays from verified admits. Unlock a listing to read the full application set.</p>
               </div>
+              {pubState === 'ready' && pubListings.length > 0 && (
+                <div className="pub-search">
+                  <svg className="pub-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={pubQuery}
+                    onChange={(e) => setPubQuery(e.target.value)}
+                    placeholder="Search school, major, prompt&hellip;"
+                    aria-label="Search essays"
+                    spellCheck={false}
+                  />
+                  {pubQuery && (
+                    <button type="button" className="pub-search-clear" onClick={() => setPubQuery('')} aria-label="Clear search">&times;</button>
+                  )}
+                </div>
+              )}
             </div>
             {pubState === 'loading' && <div className="pub-empty">Loading essays&hellip;</div>}
             {pubState === 'error' && <div className="pub-empty">Could not load essays right now. Refresh to try again.</div>}
             {pubState === 'ready' && pubListings.length === 0 && (
               <div className="pub-empty">The first essays are being reviewed. Check back very soon!</div>
             )}
-            {pubListings.length > 0 && (
+            {pubListings.length > 0 && visibleListings.length === 0 && (
+              <div className="pub-empty">
+                No essays match &ldquo;{pubQuery}&rdquo;.{' '}
+                <span className="pub-empty-reset" onClick={() => setPubQuery('')}>Clear the search</span> to see all {pubListings.length}.
+              </div>
+            )}
+            {visibleListings.length > 0 && (
               <div className="grid">
-                {pubListings.map((l) => (
+                {visibleListings.map((l) => (
                   <PublicListingCard
                     key={l.id}
                     listing={l}
@@ -1505,7 +1558,7 @@ export default function Page() {
             <div className="modal-eyebrow">Step 2 of 5 · Confirm your email</div>
             <h3>Enter your code</h3>
             <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>.</p>
-            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder — school inboxes often filter new senders.</p>
+            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder. School inboxes often filter new senders.</p>
             <div className="code-inputs">
               {code.map((c, i) => (
                 <input
@@ -2133,17 +2186,80 @@ function schoolColor(name: string): string {
   return BADGE_COLORS[h % BADGE_COLORS.length];
 }
 
+// `prompt` is a controlled label ("Why-school · Supplement"); `question` is free
+// text the seller pastes when the prompt doesn't cover their case. The card's
+// prompt line is styled as uppercase micro-caps - a label strip, not prose - so
+// a pasted 250-character question turned it into a wall of shouting capitals
+// that pushed the price and Unlock button off the bottom of the card.
+//
+// So: show the controlled label, and only fall back to the seller's text when
+// the label itself says nothing ("Other supplement" / "Short answer"). Cap it
+// either way, on a word boundary. .ecard-prompt also line-clamps to 2 as a
+// backstop, since two capped labels joined by ' · ' can still run long.
+const GENERIC_PROMPT = /^(other|short answer)/i;
+// 42 is deliberate: the longest label in the controlled vocabulary is
+// "Activity / Extracurricular · Supplement" (39), so every real label survives
+// whole and only free-text questions ever truncate.
+const LABEL_MAX = 42;
+
+function essayLabel(e: { prompt: string; question: string | null }): string {
+  const question = (e.question || '').trim();
+  const base = GENERIC_PROMPT.test(e.prompt) && question ? question : e.prompt;
+  if (base.length <= LABEL_MAX) return base;
+  const cut = base.slice(0, LABEL_MAX);
+  const space = cut.lastIndexOf(' ');
+  // Only break on a word boundary if one lands reasonably late, so a single
+  // very long word doesn't collapse the label to a couple of characters.
+  const trimmed = space > LABEL_MAX * 0.6 ? cut.slice(0, space) : cut;
+  // Drop a trailing separator so we never render "Extracurricular ·…".
+  return trimmed.replace(/[\s·,;:/&-]+$/, '') + '…';
+}
+
+// How many admit logos fit on one row before collapsing to "+N". Sellers list
+// up to 17 schools, which as a comma-joined sentence was the single heaviest
+// block on the card.
+const MAX_ADMIT_LOGOS = 5;
+
+/** One school in the admit stack: real logo when we can resolve the name,
+ *  monogram when we can't - never a wrong logo. */
+function AdmitLogo({ name }: { name: string }) {
+  const info = schoolInfo(name);
+  const label = info ? info.short : schoolShortName(name);
+  return (
+    <span className="admit-logo" title={name}>
+      <LogoBadge
+        domain={info?.domain}
+        letter={(label[0] || '?').toUpperCase()}
+        color={schoolColor(name)}
+        school={name}
+        size={26}
+        fontSize={11}
+      />
+    </span>
+  );
+}
+
 function PublicListingCard({ listing, onUnlock }: { listing: PublicListing; onUnlock: () => void }) {
-  const prompts = listing.essays.map((e) => e.question || e.prompt);
+  const prompts = listing.essays.map(essayLabel);
   const promptLine = prompts.slice(0, 2).join(' · ') + (prompts.length > 2 ? ` · +${prompts.length - 2} more` : '');
   const count = listing.essays.length;
+  const info = schoolInfo(listing.school);
+  const admits = listing.admitTags;
+  const hidden = Math.max(0, admits.length - MAX_ADMIT_LOGOS);
+  // Sellers type free text here, sometimes four majors deep. The first is the
+  // one that identifies the application; the rest go to the tooltip.
+  const majors = (listing.appliedMajors || '').split(',').map((m) => m.trim()).filter(Boolean);
   return (
     <div className="ecard">
       <div className="ecard-head">
-        <LogoBadge letter={(listing.school[0] || 'A').toUpperCase()} color={schoolColor(listing.school)} school={listing.school} size={44} fontSize={18} />
+        <LogoBadge domain={info?.domain} letter={(listing.school[0] || 'A').toUpperCase()} color={schoolColor(listing.school)} school={listing.school} size={44} fontSize={18} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="ecard-school">{listing.school}</div>
-          <div className="ecard-meta">{listing.seller.displayName} · {count} essay{count === 1 ? '' : 's'}</div>
+          <div className="ecard-meta" title={majors.length > 1 ? majors.join(', ') : undefined}>
+            {listing.seller.displayName}
+            {majors.length > 0 && <> · {majors[0]}{majors.length > 1 ? ` +${majors.length - 1}` : ''}</>}
+            {' · '}{count} essay{count === 1 ? '' : 's'}
+          </div>
         </div>
       </div>
       <div className="ecard-prompt">{promptLine}</div>
@@ -2155,14 +2271,17 @@ function PublicListingCard({ listing, onUnlock }: { listing: PublicListing; onUn
           ))}
         </div>
       )}
-      {listing.admitTags.length > 0 && (
-        <div className="ecard-meta" style={{ marginTop: 10 }}>
-          Admitted to <b>{listing.admitTags.join(', ')}</b>
-        </div>
-      )}
-      {listing.appliedMajors && (
-        <div className="ecard-meta" style={{ marginTop: 4 }}>
-          Applied in <b>{listing.appliedMajors}</b>
+      {admits.length > 0 && (
+        <div className="ecard-admits">
+          <span className="ecard-admits-label">Admitted to</span>
+          <span className="admit-stack">
+            {admits.slice(0, MAX_ADMIT_LOGOS).map((a, i) => (
+              <AdmitLogo key={`${a}-${i}`} name={a} />
+            ))}
+            {hidden > 0 && (
+              <span className="admit-more" title={admits.slice(MAX_ADMIT_LOGOS).join(', ')}>+{hidden}</span>
+            )}
+          </span>
         </div>
       )}
       <div className="ecard-foot">

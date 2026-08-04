@@ -65,8 +65,8 @@ export default function PrivacyPage() {
         also store the IP address used at checkout.
       </p>
       <p>
-        We use this only to enforce the licence — to investigate redistribution or other misuse of a
-        student&apos;s work — and to resolve payment disputes. We do not use it for advertising or
+        We use this only to enforce the licence (to investigate redistribution or other misuse of a
+        student&apos;s work) and to resolve payment disputes. We do not use it for advertising or
         profiling, and we do not sell it. Access records are kept for 24 months and then deleted;
         watermarks remain in any copy that has already been issued. If you believe a record is
         inaccurate, or you want to ask us to delete yours, contact us using the details below.

@@ -99,7 +99,7 @@ const awaitingAi = (l: Listing) => !saved(l) && l.status === 'pending' && !l.aiR
 // How the seller chose to be credited publicly, in words. The stored value is a
 // bare enum ('anonymous' | 'firstName' | 'full') which reads as noise on a card.
 const ANONYMITY_LABEL: Record<string, string> = {
-  anonymous: 'Anonymous — name hidden from buyers',
+  anonymous: 'Anonymous (name hidden from buyers)',
   firstName: 'First name only',
   full: 'Full name shown to buyers',
 };
@@ -287,7 +287,7 @@ const MOCK: ListingFull[] = [
     pricingMode: 'package',
     packagePrice: 35,
     status: 'approved',
-    adminNote: 'Looks great — nice work.',
+    adminNote: 'Looks great, nice work.',
     sellerNote: null,
     createdAt: '2026-07-21T18:40:00.000Z',
     aiReviewedAt: '2026-07-21T18:44:00.000Z',
@@ -820,7 +820,7 @@ export default function AdminPage() {
                         // so, whether it approved or flagged it, so this line is
                         // the same for both.
                         <div className={styles.unaudited}>
-                          Not published — approve to put it live
+                          Not published. Approve to put it live
                         </div>
                       ) : null}
                     </div>
@@ -946,7 +946,7 @@ export default function AdminPage() {
                         rows={2}
                         placeholder={
                           l.aiSuggestion === 'reject'
-                            ? 'e.g. The uploaded PDF is missing the second essay — please re-upload and resubmit.'
+                            ? 'e.g. The uploaded PDF is missing the second essay. Please re-upload and resubmit.'
                             : 'Anything you want included in their email…'
                         }
                         value={notes[l.id] ?? ''}
@@ -956,7 +956,7 @@ export default function AdminPage() {
                       />
                       <div className={styles.noteHint}>
                         Included in the email to <b>{l.sellerEmail}</b>. We only email when the
-                        decision changes the listing&apos;s status — confirming the current status
+                        decision changes the listing&apos;s status. Confirming the current status
                         just clears it off your queue.
                       </div>
                       <div className={styles.actions}>
