@@ -1,0 +1,15 @@
+-- Rename the "anonymous until bought" anonymity value so it stops reading as
+-- "show the first name".
+--
+-- The wizard's middle option has always been a TIMING promise ("Anonymous on the
+-- listing; buyers see your real name once they've bought"), but it was stored as
+-- 'firstName' and every read path treated that as "publish the first name". The
+-- ~35 listings on this value were therefore naming their sellers on the public
+-- catalogue from the day they went live. Backfilling them to 'revealOnPurchase'
+-- is what honours the promise for the sellers who already made the choice.
+--
+-- No DDL: `anonymity` is a free-text column with a default of 'anonymous', and
+-- this is purely a data fix. Safe to re-run, and safe under a rollback: code
+-- that predates this migration does not recognise 'revealOnPurchase' and falls
+-- through to hiding the name, which is the direction we want to fail in.
+UPDATE "Listing" SET "anonymity" = 'revealOnPurchase' WHERE "anonymity" = 'firstName';

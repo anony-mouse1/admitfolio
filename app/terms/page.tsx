@@ -93,8 +93,10 @@ export default function TermsPage() {
         sales.
       </p>
       <p>
-        <b>Identity display.</b> You choose how you appear to Buyers: anonymous, first name only, or full
-        name. Regardless of your choice, our review team can see your full details, as described in our{' '}
+        <b>Identity display.</b> You choose how you appear to Buyers: always anonymous, anonymous until
+        someone buys (your first name is then shown to that Buyer only, never on the public listing), or
+        your full name on the listing. Regardless of your choice, our review team can see your full
+        details, as described in our{' '}
         <a href="/privacy">Privacy Policy</a>.
       </p>
       <p>

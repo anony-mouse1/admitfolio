@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         <b>If you sell essays:</b> we collect your school email address (used to verify current or recent
         enrollment via a one-time code), a password, the schools you were admitted to, the essays you upload
         as PDF files, your listing details (essay prompts, pricing, and an optional note to our review team),
-        and your display preference (anonymous, first name only, or full name).
+        and your display preference (always anonymous, anonymous until bought, or full name).
       </p>
       <p>
         <b>If you buy essays (when purchasing launches):</b> your email address and your order history.
@@ -90,8 +90,9 @@ export default function PrivacyPage() {
           name, your school email, and your note to the review team.
         </li>
         <li>
-          You control how you appear to buyers: fully anonymous, first name only, or full name. We do not
-          reveal more than the option you choose.
+          You control how you appear to buyers: fully anonymous, anonymous until someone buys (your first
+          name is then shown to that buyer only, never on the public listing), or your full name on the
+          listing. We do not reveal more than the option you choose.
         </li>
         <li>
           Buyers who purchase your essay will be able to read its full contents, including any personal

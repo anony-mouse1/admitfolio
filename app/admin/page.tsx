@@ -97,10 +97,13 @@ const reviewed = (l: Listing) => !saved(l) && (l.status === 'approved' || l.stat
 const awaitingAi = (l: Listing) => !saved(l) && l.status === 'pending' && !l.aiReviewedAt;
 
 // How the seller chose to be credited publicly, in words. The stored value is a
-// bare enum ('anonymous' | 'firstName' | 'full') which reads as noise on a card.
+// bare enum which reads as noise on a card. 'firstName' is the legacy spelling
+// of 'revealOnPurchase' and means the same thing; it is listed so any row the
+// data migration has not reached still reads correctly here.
 const ANONYMITY_LABEL: Record<string, string> = {
-  anonymous: 'Anonymous — name hidden from buyers',
-  firstName: 'First name only',
+  anonymous: 'Anonymous. Name hidden from buyers, before and after a sale',
+  revealOnPurchase: 'Anonymous until bought. First name shown only to buyers',
+  firstName: 'Anonymous until bought. First name shown only to buyers',
   full: 'Full name shown to buyers',
 };
 const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
@@ -236,7 +239,7 @@ const MOCK: ListingFull[] = [
       { id: 'proof-yale', school: 'Yale', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
       { id: 'proof-brown', school: 'Brown', status: 'verified', adminNote: null, pdfUrl: MOCK_PDF , aiGenuine: null, aiNote: null, aiCheckedAt: null },
     ],
-    anonymity: 'firstName',
+    anonymity: 'revealOnPurchase',
     pricingMode: 'separate',
     packagePrice: null,
     status: 'approved',
