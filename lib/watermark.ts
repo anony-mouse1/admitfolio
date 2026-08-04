@@ -33,7 +33,7 @@ export type WatermarkIdentity = {
 function footerText(id: WatermarkIdentity): string {
   const email = id.buyerEmail.length > 48 ? id.buyerEmail.slice(0, 45) + '…' : id.buyerEmail;
   const when = id.viewedAt.toISOString().slice(0, 10);
-  return `Licensed to ${email} · purchase ${id.purchaseId} · ${when} · Admitfolio — inspiration only, not for submission`;
+  return `Licensed to ${email} · purchase ${id.purchaseId} · ${when} · Admitfolio · inspiration only, not for submission`;
 }
 
 export async function watermarkPdf(input: Buffer, id: WatermarkIdentity): Promise<Buffer> {
@@ -88,7 +88,7 @@ export async function watermarkPdf(input: Buffer, id: WatermarkIdentity): Promis
 
   // Document metadata carries the same identity, so even a stripped-and-
   // re-saved copy usually keeps a trace. Cheap to add, occasionally decisive.
-  pdf.setTitle('Admitfolio — licensed copy');
+  pdf.setTitle('Admitfolio licensed copy');
   pdf.setSubject(`Issued to ${id.buyerEmail} (purchase ${id.purchaseId})`);
   pdf.setKeywords([`purchase:${id.purchaseId}`, `buyer:${id.buyerEmail}`]);
   pdf.setProducer('Admitfolio');
