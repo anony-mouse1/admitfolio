@@ -152,6 +152,10 @@ type LensRow = {
   pass: boolean;
   confidence: string;
   concerns: string[];
+  // A note for the reviewer rather than a vote (lib/review.ts). Rows written
+  // before advisory checks existed have no flag, and every one of them voted,
+  // so a missing flag reads as false.
+  advisory: boolean;
 };
 
 // aiLenses is JSON written by the review panel. Older rows predate the column,
@@ -168,6 +172,7 @@ function safeParseLenses(s: string | null): LensRow[] {
       pass: r?.pass === true,
       confidence: String(r?.confidence ?? 'low'),
       concerns: Array.isArray(r?.concerns) ? r.concerns.map(String).filter(Boolean) : [],
+      advisory: r?.advisory === true,
     }));
   } catch {
     return [];

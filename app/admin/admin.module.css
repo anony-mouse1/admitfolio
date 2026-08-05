@@ -343,7 +343,9 @@
   flex-wrap: wrap;
 }
 .lensPass,
-.lensFail {
+.lensFail,
+.lensNote,
+.lensClear {
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -357,6 +359,20 @@
 .lensFail {
   color: #a5281f;
   background: #fbe0dd;
+}
+/* Advisory rows. Amber and grey, never the red of a FAIL: these checks took a
+   note, they did not hold anything back. */
+.lensNote {
+  color: #7a4f0d;
+  background: #fdf3e0;
+}
+.lensClear {
+  color: var(--faint);
+  background: rgba(0, 0, 0, 0.05);
+}
+.lensRowNote {
+  background: rgba(255, 255, 255, 0.4);
+  border-style: dashed;
 }
 .lensConf {
   color: var(--faint);
