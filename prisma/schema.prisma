@@ -81,6 +81,12 @@ model Listing {
   pricingMode  String     @default("package") // package | separate
   packagePrice Int? // whole dollars, when pricingMode = package
   teaser       String? // optional one-line hook shown on the public browse card
+  // The opening sentence of the seller's own essay, read out of their uploaded
+  // PDF. Only used when the seller left `teaser` empty, which is 68 of 144
+  // approved listings, so those cards had nothing to say. Nullable forever:
+  // short-answer listings have no narrative opening, and some PDFs are scans
+  // with no text layer. Backfilled by scripts/extract-opening-lines.mjs.
+  openingLine  String?
   status       String     @default("pending") // pending | approved | rejected | removed (seller take-down)
   adminNote    String?
   sellerNote   String? // optional note from the seller, shown to the admin during review

@@ -1,0 +1,19 @@
+-- Somewhere to keep the first sentence of a seller's essay.
+--
+-- The browse card shows `teaser`, the optional one-liner sellers type in the
+-- wizard. 68 of 144 approved listings left it empty, so those cards render with
+-- nothing where the hook goes, and the grid reads as half-finished. The essays
+-- themselves open with a real sentence, and the terms already grant the right to
+-- "excerpt ... and market" a listed essay (app/terms/page.tsx), so the opening
+-- line is the honest thing to show instead of leaving the space blank.
+--
+-- Additive and nullable, so this is safe under a rollback: code that predates it
+-- simply never selects the column, and the card falls back to `teaser` exactly
+-- as it does today. Nullable permanently rather than as a migration convenience
+-- - a short-answer listing has no narrative opening, and roughly one PDF in
+-- forty is a scan with no text layer at all.
+--
+-- Populated by scripts/extract-opening-lines.mjs, which must be run by hand.
+-- Vercel runs `prisma migrate deploy` before the build, so this column appears
+-- on merge to main while every value stays NULL until that script is run.
+ALTER TABLE "Listing" ADD COLUMN "openingLine" TEXT;
