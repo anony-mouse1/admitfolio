@@ -34,3 +34,5 @@ next-env.d.ts
 prisma/dev.db
 prisma/migrations/dev.db
 *.tsbuildinfo
+public/browse-mockup.html
+public/.mock-listings.json
