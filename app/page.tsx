@@ -5,6 +5,7 @@ import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { TIER, packageFloor, perEssayFloor, admitsTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
+import { schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 
@@ -38,16 +39,25 @@ type Msg = { text: string; kind: '' | 'ok' | 'err' };
 // Unset/off keeps the pre-launch waitlist experience byte-for-byte.
 const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
 
+type SortKey = 'competitive' | 'newest' | 'price-asc' | 'price-desc';
+
 type PublicListing = {
   id: string;
   school: string;
   admitTags: string[];
+  // The subset of admitTags backed by an acceptance letter a human checked.
+  // /api/listings has always computed this; the client never declared it, so
+  // buyers have never seen the distinction between a claimed and a proven admit.
+  verifiedAdmitTags?: string[];
   price: number | null;
   teaser: string | null;
+  // The first sentence of the seller's essay, read from their PDF. Fallback for
+  // the 68 listings where the seller wrote no teaser.
+  openingLine?: string | null;
   appliedMajors: string | null;
   createdAt: string;
   essays: { prompt: string; question: string | null; wordCount: number | null }[];
-  seller: { displayName: string; backgroundTags: string[] };
+  seller: { displayName: string; backgroundTags: string[]; anonymity?: Anonymity };
 };
 
 type AnonMode = 'anonymous' | 'reveal' | 'public';
@@ -167,6 +177,92 @@ export default function Page() {
   /* ---- Public catalog (only fetched in launch mode) ---- */
   const [pubListings, setPubListings] = useState<PublicListing[]>([]);
   const [pubState, setPubState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [sortBy, setSortBy] = useState<SortKey>('competitive');
+
+  /* ---- Paging ----
+     24 at a time: a whole number of rows at all three breakpoints (3 columns,
+     2 and 1), so a page never ends on a ragged half-row. The API sends the whole
+     catalogue in one 19 KB response, so this is purely about how much is put in
+     front of a buyer at once, not about network cost. */
+  const PAGE_SIZE = 24;
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<number | null>(null);
+
+  // Reordering the grid invalidates how far down it you had read.
+  useEffect(() => setShown(PAGE_SIZE), [sortBy]);
+
+  const loadMore = useCallback(() => {
+    anchorRef.current = moreRef.current?.getBoundingClientRect().top ?? null;
+    setShown((s) => s + PAGE_SIZE);
+  }, []);
+
+  // Keep the first newly revealed card where the button just was, so the page
+  // does not jump and you carry on reading from the same place.
+  useEffect(() => {
+    if (anchorRef.current == null) return;
+    const cards = document.querySelectorAll('.ecard');
+    const first = cards[shown - PAGE_SIZE] as HTMLElement | undefined;
+    if (first) window.scrollBy(0, first.getBoundingClientRect().top - anchorRef.current);
+    anchorRef.current = null;
+  }, [shown]);
+
+  /* ---- Listing detail sheet ----
+     Kept in the URL as ?listing=<id> so a listing can be linked and the back
+     button closes the sheet. Same trick the ?login deep-link already uses, and
+     it means this works without a route while the catalogue lives in client
+     state. If it ever needs server rendering, ListingDetail is pure and can move
+     to /listing/[id] unchanged. */
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailListing = useMemo(
+    () => pubListings.find((l) => l.id === detailId) || null,
+    [pubListings, detailId],
+  );
+
+  const openDetail = useCallback((id: string) => {
+    setDetailId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set('listing', id);
+    window.history.pushState({ listing: id }, '', url);
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setDetailId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('listing');
+    window.history.pushState({}, '', url);
+  }, []);
+
+  // Open from the URL once the catalogue has arrived, so a shared link lands on
+  // the right listing rather than an empty sheet.
+  useEffect(() => {
+    if (!LAUNCHED || !pubListings.length) return;
+    const id = new URLSearchParams(window.location.search).get('listing');
+    if (id && pubListings.some((l) => l.id === id)) setDetailId(id);
+  }, [pubListings]);
+
+  useEffect(() => {
+    function onPop() {
+      setDetailId(new URLSearchParams(window.location.search).get('listing'));
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // The API returns newest-reviewed first, so 'newest' is the array as it
+  // arrived. Everything else sorts a copy, never the state array in place.
+  //
+  // "Most competitive" uses the same tier the pricing floors use
+  // (lib/pricing.ts), so the order a buyer sees and the price a seller may
+  // charge come from one definition of how selective a school is. Ties fall
+  // back to newest, so a Tier 1 listing approved today still leads its group.
+  const sortedListings = useMemo(() => {
+    if (sortBy === 'newest') return pubListings;
+    const copy = [...pubListings];
+    if (sortBy === 'price-asc') return copy.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+    if (sortBy === 'price-desc') return copy.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+    return copy.sort((a, b) => (admitsTier(a.admitTags) ?? 9) - (admitsTier(b.admitTags) ?? 9));
+  }, [pubListings, sortBy]);
   useEffect(() => {
     if (!LAUNCHED) return;
     fetch('/api/listings')
@@ -713,7 +809,13 @@ export default function Page() {
   }
 
   // Sticky FAB + scroll-triggered popup.
+  //
+  // Both belong to the pre-launch page. Once the catalogue is live there is
+  // nothing to wait for, so a "Be first to read the essays" popup over a page
+  // full of buyable essays is just wrong. The featured section already branches
+  // on LAUNCHED; this timer did not, so it fired regardless.
   useEffect(() => {
+    if (LAUNCHED) return;
     function onScroll() {
       if (hasJoined()) {
         setFabShow(false);
@@ -981,13 +1083,13 @@ export default function Page() {
   // waitlist auto-popup timer can check it (the hamburger menu counts as a
   // popup for that purpose, but shouldn't lock scroll).
   useEffect(() => {
-    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen;
+    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null;
     overlayOpenRef.current = anyOpen || menuOpen;
     document.body.style.overflow = anyOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen]);
+  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId]);
 
   // Layout variant body classes + ?login deep-link (mirrors the original IIFEs).
   useEffect(() => {
@@ -1008,14 +1110,17 @@ export default function Page() {
       if (e.key !== 'Escape') return;
       if (menuOpen) setMenuOpen(false);
       else if (dashOpen) closeDashboard();
+      // Buy sits above detail: opening it closes the sheet first, so the two
+      // are never stacked, but check it first anyway in case that ever changes.
       else if (buyOpen) closeBuy();
+      else if (detailId) closeDetail();
       else if (sellOpen) closeSell();
       else if (loginOpen) closeLogin();
       else if (wlOpen) setWlOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [menuOpen, dashOpen, buyOpen, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin]);
+  }, [menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -1173,22 +1278,49 @@ export default function Page() {
               <div className="pub-empty">The first essays are being reviewed. Check back very soon!</div>
             )}
             {pubListings.length > 0 && (
+              <div className="pub-count">
+                <span>
+                  Showing {Math.min(shown, pubListings.length)} of {pubListings.length} listing
+                  {pubListings.length === 1 ? '' : 's'}
+                </span>
+                <label className="pub-sort">
+                  Sort
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}>
+                    <option value="competitive">Most competitive</option>
+                    <option value="newest">Newest</option>
+                    <option value="price-asc">Price: low to high</option>
+                    <option value="price-desc">Price: high to low</option>
+                  </select>
+                </label>
+              </div>
+            )}
+            {pubListings.length > 0 && (
               <div className="grid">
-                {pubListings.map((l) => (
+                {sortedListings.slice(0, shown).map((l) => (
                   <PublicListingCard
                     key={l.id}
                     listing={l}
                     onUnlock={() =>
                       openBuy({
                         listingId: l.id,
-                        school: l.school,
+                        // The same headline the card shows and the same one the
+                        // Stripe product name is built from, so all three agree.
+                        school: schoolShortName(headlineSchool(l)),
                         price: l.price || 0,
                         teaser: l.teaser,
                         essayCount: l.essays.length,
                       })
                     }
+                    onOpen={() => openDetail(l.id)}
                   />
                 ))}
+              </div>
+            )}
+            {shown < sortedListings.length && (
+              <div className="pub-more" ref={moreRef}>
+                <button className="pub-more-btn" type="button" onClick={loadMore}>
+                  Load more ({sortedListings.length - shown} left)
+                </button>
               </div>
             )}
           </>
@@ -1777,6 +1909,27 @@ export default function Page() {
         </div>
       </div>
 
+      {/* ===== Listing detail sheet ===== */}
+      {detailListing && (
+        <ListingDetail
+          listing={detailListing}
+          onClose={closeDetail}
+          onUnlock={() => {
+            // Close first so the two overlays never stack: the scroll lock and
+            // the Escape chain both stay trivially correct that way.
+            const l = detailListing;
+            closeDetail();
+            openBuy({
+              listingId: l.id,
+              school: schoolShortName(headlineSchool(l)),
+              price: l.price || 0,
+              teaser: l.teaser,
+              essayCount: l.essays.length,
+            });
+          }}
+        />
+      )}
+
       {/* ===== Buyer checkout modal ===== */}
       <div className={`modal-overlay${buyOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) closeBuy(); }}>
         <div className="modal">
@@ -2129,51 +2282,398 @@ function AltValue({ v }: { v: string }) {
 }
 
 /* Real, purchasable listing card (launch mode). */
-const BADGE_COLORS = ['#7d1d2d', '#00356B', '#1D4F91', '#365314', '#7c2d12', '#4a1d6b'];
-function schoolColor(name: string): string {
-  let h = 0;
-  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return BADGE_COLORS[h % BADGE_COLORS.length];
+
+// The card leads with the school a buyer is shopping FOR, not the one the
+// seller currently attends.
+//
+// `Listing.school` is the seller's current university, so a student who sold
+// their UC essays, their Common App essays and their MIT essays produced three
+// cards all titled with the same university. Measured on the live catalogue:
+// 88 of 144 cards belong to a seller with more than one listing, and every one
+// of those sellers had an identical headline on all of their cards.
+//
+// When the seller attends one of the schools that admitted them, that admit is
+// the strongest one to lead with; otherwise take the first admit they claim.
+function headlineSchool(l: PublicListing): string {
+  return l.admitTags.find((t) => sameSchool(t, l.school)) || l.admitTags[0] || l.school;
 }
 
-function PublicListingCard({ listing, onUnlock }: { listing: PublicListing; onUnlock: () => void }) {
-  const prompts = listing.essays.map((e) => e.question || e.prompt);
-  const promptLine = prompts.slice(0, 2).join(' · ') + (prompts.length > 2 ? ` · +${prompts.length - 2} more` : '');
+// The sub-line is always the contents: how many essays, and which ones.
+//
+// This is what actually differs between one seller's listings, and it used to
+// read "Verified admit · 4 essays" on every card, which is why the grid looked
+// like duplicates.
+function contentsLine(l: PublicListing): string {
+  // De-duplicated: four UC Personal Insight Questions would otherwise print the
+  // same label four times. Labels already contain ' · ', so the separator
+  // between them has to be a comma or the whole line reads as one chain.
+  const labels: string[] = [];
+  for (const e of l.essays) {
+    const label = essayLabel(e);
+    if (label && !labels.includes(label)) labels.push(label);
+  }
+  const head = labels.slice(0, 2).join(', ') + (labels.length > 2 ? `, +${labels.length - 2} more` : '');
+  const n = l.essays.length;
+  return `${n} essay${n === 1 ? '' : 's'}${head ? ` · ${head}` : ''}`;
+}
+
+function majorsOf(l: PublicListing): string[] {
+  return (l.appliedMajors || '').split(',').map((m) => m.trim()).filter(Boolean);
+}
+
+// The first five schools, then a count. Five is a fixed number rather than a
+// width budget so every card lists the same amount, and .admit-names reserves
+// the height whether or not it is used.
+const MAX_ADMIT_NAMES = 5;
+function admitNameLine(list: string[]): string {
+  const names = list.map((n) => schoolShortName(n));
+  const shown = names.slice(0, MAX_ADMIT_NAMES);
+  const rest = names.length - shown.length;
+  return shown.join(', ') + (rest > 0 ? `, +${rest} more` : '');
+}
+
+// What a browse card calls an essay.
+//
+// `question` is the seller's free-text box, filled in when they pick "Other",
+// and it holds the college's prompt verbatim - some run past 300 characters.
+// Printed raw into `.ecard-prompt` (uppercase, letter-spaced) it stopped being
+// a label and became the loudest thing on the card, six lines of shouting
+// above the essay it was meant to caption.
+const OTHER_PROMPT = /^other/i;
+const PROMPT_MAX = 52;
+
+// Cut at a word boundary so a label never ends mid-word. If the last space is
+// too early to be worth keeping, cut hard instead of leaving a stub.
+function truncateWords(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  const kept = space > max * 0.6 ? cut.slice(0, space) : cut;
+  return kept.replace(/[\s,;:.–—-]+$/, '') + '…';
+}
+
+// A preset prompt is already a label ("Why-school · Supplement"), so it wins.
+// The seller's own wording is only the better name when there is no preset,
+// which is exactly the "Other" case it was added for.
+function essayLabel(e: { prompt: string; question: string | null }): string {
+  const custom = (e.question || '').trim();
+  const preset = (e.prompt || '').trim();
+  const raw = !preset || OTHER_PROMPT.test(preset) ? custom || preset : preset;
+  return truncateWords(raw, PROMPT_MAX);
+}
+
+// Two shortened labels joined can still run past 100 characters, which is what
+// made cards in the same row different heights. So the line gets its own budget:
+// the first label always shows, a second only if it fits, and whatever is left
+// becomes a count. "+3 more" reads better than a wall of prompt text anyway.
+const LINE_MAX = 64;
+
+// Essays are separated by a bullet, not a middle dot, because the preset labels
+// contain middle dots themselves ("Why-school · Supplement"). Joined with the
+// same character, two essays read as four things.
+const BETWEEN = ' • ';
+
+// A listing with four UC essays has four identical labels, and printing them in
+// a row ("UC · Personal Insight Question · UC · Personal Insight Question") looks
+// like a bug. Collapse repeats into a count and keep the original order.
+function tallyLabels(labels: string[]): { label: string; n: number }[] {
+  const out: { label: string; n: number }[] = [];
+  for (const label of labels) {
+    const hit = out.find((x) => x.label === label);
+    if (hit) hit.n += 1;
+    else out.push({ label, n: 1 });
+  }
+  return out;
+}
+
+function promptLineOf(labels: string[]): string {
+  const shown: string[] = [];
+  let len = 0;
+  let covered = 0;
+  for (const { label, n } of tallyLabels(labels)) {
+    const text = n > 1 ? `${label} ×${n}` : label;
+    const cost = shown.length ? text.length + BETWEEN.length : text.length;
+    if (shown.length && (len + cost > LINE_MAX || shown.length === 2)) break;
+    shown.push(text);
+    len += cost;
+    covered += n;
+  }
+  // The count is of essays left over, not of labels, so it still adds up when a
+  // repeat above was collapsed into "×4".
+  const rest = labels.length - covered;
+  return shown.join(BETWEEN) + (rest > 0 ? `${BETWEEN}+${rest} more` : '');
+}
+
+function PublicListingCard({
+  listing,
+  onUnlock,
+  onOpen,
+}: {
+  listing: PublicListing;
+  onUnlock: () => void;
+  onOpen: () => void;
+}) {
   const count = listing.essays.length;
+  const head = headlineSchool(listing);
+  const info = schoolInfo(head);
+  const label = info ? info.short : schoolShortName(head);
+  const majors = majorsOf(listing);
   return (
-    <div className="ecard">
+    // The whole card opens the detail sheet. It has had `cursor: pointer` since
+    // launch while doing nothing, which is why clicking a card felt broken.
+    <div
+      className="ecard"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <div className="ecard-head">
-        <LogoBadge letter={(listing.school[0] || 'A').toUpperCase()} color={schoolColor(listing.school)} school={listing.school} size={44} fontSize={18} />
+        <LogoBadge
+          domain={info ? info.domain : undefined}
+          letter={(label[0] || 'A').toUpperCase()}
+          color={schoolColor(head)}
+          school={head}
+          size={44}
+          fontSize={18}
+        />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="ecard-school">{listing.school}</div>
-          <div className="ecard-meta">{listing.seller.displayName} · {count} essay{count === 1 ? '' : 's'}</div>
+          <div className="ecard-school">{label}</div>
+          <div className="ecard-meta">{contentsLine(listing)}</div>
         </div>
       </div>
-      <div className="ecard-prompt">{promptLine}</div>
-      {listing.teaser && <div className="ecard-hook">{listing.teaser}</div>}
+      {majors.length > 0 && (
+        <div className="ecard-prompt" title={majors.join(', ')}>
+          {majors[0]}{majors.length > 1 ? ` +${majors.length - 1}` : ''}
+        </div>
+      )}
+      {/* The seller's own line wins. Their essay's opening sentence stands in
+          when they left it blank, which is where the card used to show nothing. */}
+      {(listing.teaser || listing.openingLine) && (
+        <div className="ecard-hook">{listing.teaser || listing.openingLine}</div>
+      )}
       {listing.seller.backgroundTags.length > 0 && (
         <div className="ecard-tags">
-          {listing.seller.backgroundTags.map((t) => (
+          {listing.seller.backgroundTags.slice(0, 2).map((t) => (
             <span key={t} className="etag">{t}</span>
           ))}
+          {listing.seller.backgroundTags.length > 2 && (
+            <span className="etag" title={listing.seller.backgroundTags.slice(2).join(', ')}>
+              +{listing.seller.backgroundTags.length - 2}
+            </span>
+          )}
         </div>
       )}
-      {listing.admitTags.length > 0 && (
-        <div className="ecard-meta" style={{ marginTop: 10 }}>
-          Admitted to <b>{listing.admitTags.join(', ')}</b>
+      {/* Two labelled lines with reserved heights, so every card is the same
+          shape and the price rules line up straight across a row. */}
+      <div className="ecard-lines">
+        <div className="ecard-admits">
+          <span className="ecard-admits-label">Attends</span>
+          <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
         </div>
-      )}
-      {listing.appliedMajors && (
-        <div className="ecard-meta" style={{ marginTop: 4 }}>
-          Applied in <b>{listing.appliedMajors}</b>
-        </div>
-      )}
+        {listing.admitTags.length > 0 && (
+          <div className="ecard-admits">
+            <span className="ecard-admits-label">Accepted in:</span>
+            <span className="admit-names multi" title={listing.admitTags.join(', ')}>
+              {admitNameLine(listing.admitTags)}
+            </span>
+          </div>
+        )}
+      </div>
       <div className="ecard-foot">
         <div className="ecard-price">
           <span className="p">{listing.price != null ? `$${listing.price}` : ''}</span>
           <span className="w">{count > 1 ? 'whole set' : 'full essay'}</span>
         </div>
-        <div className="ecard-unlock" onClick={onUnlock}>Unlock</div>
+        {/* Decided buyers keep the one-click path; stopPropagation so it does
+            not also open the sheet behind the buy modal. */}
+        <div
+          className="ecard-unlock"
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnlock();
+          }}
+        >
+          Unlock
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* One school as a chip: logo plus short name. Used for both admit lists and the
+   "now attends" line on the detail sheet. */
+function SchoolChip({ name, verified }: { name: string; verified?: boolean }) {
+  const info = schoolInfo(name);
+  const label = info ? info.short : schoolShortName(name);
+  return (
+    <span className="d-school" title={name}>
+      <LogoBadge
+        domain={info ? info.domain : undefined}
+        letter={(label[0] || '?').toUpperCase()}
+        color={schoolColor(name)}
+        school={name}
+        size={24}
+        fontSize={11}
+      />
+      {label}
+      {verified && <span className="d-verified" title="Acceptance letter checked by a human">✓</span>}
+    </span>
+  );
+}
+
+/* What the seller is promised, in the seller's own terms. Never a name.
+   'anonymous' means never named, even to the buyer, so saying "anonymous until
+   purchase" for that case would be a promise the product does not keep. */
+function anonymityNote(mode: Anonymity | undefined): string {
+  if (mode === 'full') return 'Shares their name publicly.';
+  if (mode === 'revealOnPurchase') return 'Anonymous until purchase.';
+  return 'Stays anonymous, before and after purchase.';
+}
+
+/* The listing detail sheet.
+   Pure presentation over a PublicListing, so it can move into a /listing/[id]
+   route later without changing. Rendered as JSX rather than an HTML string:
+   Essay.question is seller free text that runs to 1,200 characters in the live
+   data, and one missed escape in a template would be stored XSS. */
+function ListingDetail({
+  listing,
+  onClose,
+  onUnlock,
+}: {
+  listing: PublicListing;
+  onClose: () => void;
+  onUnlock: () => void;
+}) {
+  const head = headlineSchool(listing);
+  const info = schoolInfo(head);
+  const label = info ? info.short : schoolShortName(head);
+  const majors = majorsOf(listing);
+  const verified = new Set(listing.verifiedAdmitTags || []);
+  const listed = new Date(listing.createdAt).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const count = listing.essays.length;
+
+  return (
+    <div
+      className="ov"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${label} listing`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="sheet">
+        <button className="sheet-x" type="button" aria-label="Close" onClick={onClose}>
+          &times;
+        </button>
+
+        <div className="d-head">
+          <LogoBadge
+            domain={info ? info.domain : undefined}
+            letter={(label[0] || 'A').toUpperCase()}
+            color={schoolColor(head)}
+            school={head}
+            size={54}
+            fontSize={22}
+          />
+          <div style={{ minWidth: 0 }}>
+            <div className="d-title">{label}</div>
+            <div className="d-sub">{contentsLine(listing)}</div>
+          </div>
+        </div>
+
+        {(listing.teaser || listing.openingLine) && (
+          <div className="d-hook">{listing.teaser || listing.openingLine}</div>
+        )}
+        {/* On the sheet there is room for both, so when the seller wrote a
+            teaser their essay's opening still gets shown underneath it. */}
+        {listing.teaser && listing.openingLine && (
+          <div className="d-teaser">Essay opens: {listing.openingLine}</div>
+        )}
+
+        <div className="d-sec">
+          <h4>What you get</h4>
+          <ul className="d-essays">
+            {listing.essays.map((e, i) => (
+              <li key={i}>
+                <div className="p">{e.prompt}</div>
+                {e.question && <div className="q">{e.question}</div>}
+                {e.wordCount ? <div className="q">{e.wordCount} words</div> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {listing.admitTags.length > 0 && (
+          <div className="d-sec">
+            <h4>Admitted to</h4>
+            <div className="d-schools">
+              {listing.admitTags.map((t) => (
+                <SchoolChip key={t} name={t} verified={verified.has(t)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="d-sec">
+          <h4>Now attends</h4>
+          <div className="d-schools">
+            <SchoolChip name={listing.school} />
+          </div>
+        </div>
+
+        {majors.length > 0 && (
+          <div className="d-sec">
+            <h4>Applied as</h4>
+            <div className="d-schools">
+              {majors.map((m) => (
+                <span key={m} className="etag">{m}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="d-sec">
+          <h4>Seller</h4>
+          <div className="d-profile">
+            <div className="d-profile-row">
+              <LogoBadge letter="V" color="#4a1d6b" school={listing.seller.displayName} size={40} fontSize={16} />
+              <div>
+                <div className="d-profile-name">{listing.seller.displayName}</div>
+                <div className="d-profile-note">
+                  {anonymityNote(listing.seller.anonymity)} Listed {listed}.
+                </div>
+              </div>
+            </div>
+            {listing.seller.backgroundTags.length > 0 && (
+              <div className="ecard-tags">
+                {listing.seller.backgroundTags.map((t) => (
+                  <span key={t} className="etag">{t}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="d-foot">
+          <div className="d-price">
+            {listing.price != null ? `$${listing.price}` : 'Free'}
+            <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
+          </div>
+          <button className="btn-primary" type="button" onClick={onUnlock}>
+            Unlock and read
+          </button>
+        </div>
       </div>
     </div>
   );

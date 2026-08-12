@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { schoolKey } from '@/lib/admitProof';
-import { publicDisplayName } from '@/lib/anonymity';
+import { publicDisplayName, normalizeAnonymity } from '@/lib/anonymity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,13 @@ export async function GET() {
     // would render as unbuyable cards.
     where: { status: 'approved', packagePrice: { not: null } },
     orderBy: { reviewedAt: 'desc' },
-    take: 60,
+    // Was 60, which silently hid every listing beyond the 60 most recently
+    // reviewed. That was invisible until approvals crossed 60 on 2026-08-03;
+    // by 2026-08-11 it was hiding 84 of 144 approved listings from buyers, and
+    // each new approval evicted the oldest visible one. The whole catalogue is
+    // 18.2 KB gzipped, so it is cheaper to send it all and page on the client
+    // than to build cursor pagination for this size.
+    take: 200,
     include: {
       seller: {
         select: {
@@ -62,6 +68,9 @@ export async function GET() {
       verifiedAdmitTags: admitTags.filter((t) => verifiedKeys.has(schoolKey(t))),
       price: l.packagePrice,
       teaser: l.teaser,
+      // Shown only when the seller wrote no teaser of their own. Their line
+      // wins when they took the trouble to write one.
+      openingLine: l.openingLine,
       // Current major stays private: combined with the school it could help
       // deanonymize an anonymous seller, and no public UI shows it yet.
       appliedMajors: l.appliedMajors,
@@ -70,6 +79,13 @@ export async function GET() {
       seller: {
         displayName: publicDisplayName(l.anonymity, l.seller.name),
         backgroundTags: parseTags(l.seller.backgroundTags),
+        // The anonymity POLICY, not the name. Safe to publish because it says
+        // what will happen, never who the seller is, and the listing detail
+        // needs it to describe the seller honestly: "anonymous" means never
+        // named even after buying, which is a different promise from
+        // "revealOnPurchase". Hardcoding one sentence for both would have the
+        // site promise a reveal that lib/anonymity.ts guarantees never happens.
+        anonymity: normalizeAnonymity(l.anonymity),
       },
       };
     });

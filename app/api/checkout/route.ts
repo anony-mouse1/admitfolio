@@ -2,8 +2,18 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { stripe, SITE_URL } from '@/lib/stripe';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
+import { sameSchool, schoolShortName } from '@/lib/schools';
 
 export const runtime = 'nodejs';
+
+function parseTags(json: string): string[] {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
 
 // Best-effort per-IP throttle (in-memory, per serverless instance - same
 // approach as the admin login lockout). Checkout is cheap but shouldn't be
@@ -48,7 +58,13 @@ export async function POST(req: Request) {
   }
 
   const count = listing.essays.length;
-  const name = `${listing.school} · ${count} essay${count === 1 ? '' : 's'} (Admitfolio)`;
+  // Must match the browse card's headline. The card leads with the school that
+  // admitted the seller, not `listing.school` (which is the university they
+  // currently attend), so building this from `listing.school` would show the
+  // buyer a different school name on the Stripe page than the one they clicked.
+  const admitTags = parseTags(listing.admitTags);
+  const headline = admitTags.find((t) => sameSchool(t, listing.school)) || admitTags[0] || listing.school;
+  const name = `${schoolShortName(headline)} · ${count} essay${count === 1 ? '' : 's'} (Admitfolio)`;
 
   try {
     const session = await stripe.checkout.sessions.create({

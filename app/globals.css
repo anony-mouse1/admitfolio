@@ -152,7 +152,90 @@ a { color: inherit; }
 }
 .chip.active { border-color: var(--accent); background: var(--accent); color: #fff; }
 
-.grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; margin-top: 28px; }
+/* ---- Load more ---- */
+.pub-more { display: flex; justify-content: center; margin-top: 34px; }
+.pub-more-btn {
+  font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--accent);
+  background: #fff; border: 1px solid color-mix(in srgb, var(--accent) 30%, #fff);
+  border-radius: 999px; padding: 13px 30px; cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.pub-more-btn:hover {
+  background: color-mix(in srgb, var(--accent) 6%, #fff);
+  border-color: var(--accent); transform: translateY(-1px);
+}
+
+/* ---- Listing detail sheet ---- */
+.ov {
+  position: fixed; inset: 0; z-index: 120; background: rgba(20,18,15,0.5);
+  backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center;
+  padding: 28px; animation: overlayIn .2s ease;
+}
+.sheet {
+  background: #fff; border-radius: 24px; width: 100%; max-width: 720px; max-height: 100%;
+  overflow-y: auto; padding: 30px 34px 34px; position: relative; animation: sheetIn .25s ease;
+}
+.sheet-x {
+  position: absolute; top: 18px; right: 18px; width: 32px; height: 32px; border-radius: 50%;
+  border: 0; cursor: pointer; background: #ece9e2; color: var(--muted); font-size: 18px; line-height: 1;
+}
+.sheet-x:hover { background: #ddd8cf; }
+.d-head { display: flex; align-items: center; gap: 14px; padding-right: 40px; }
+.d-title { font-family: var(--serif); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.d-sub { font-size: 13.5px; color: var(--faint); margin-top: 4px; }
+.d-hook { font-family: var(--serif); font-size: 21px; line-height: 1.35; font-weight: 600; margin-top: 20px; }
+/* Secondary line under the hook, for the essay's opening when the seller also
+   wrote a teaser of their own. */
+.d-teaser { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin-top: 10px; }
+.d-sec { margin-top: 24px; }
+.d-sec h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 0 0 10px; }
+.d-essays { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.d-essays li { border: 1px solid var(--card-line); border-radius: 14px; padding: 12px 14px; }
+.d-essays .p { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+/* Sellers paste whole prompts in here; the longest in the live data is 1,201
+   characters. Clamp so one listing cannot make the sheet unreadable. */
+.d-essays .q {
+  font-size: 13.5px; line-height: 1.5; color: var(--muted); margin-top: 6px;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.d-schools { display: flex; flex-wrap: wrap; gap: 8px; }
+.d-school {
+  display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--card-line);
+  border-radius: 999px; padding: 5px 12px 5px 5px; font-size: 13px; font-weight: 600;
+}
+.d-verified { color: var(--accent); font-size: 12px; margin-left: 2px; }
+.d-profile { border: 1px solid var(--card-line); border-radius: 16px; padding: 16px; background: #fdfcf9; }
+.d-profile-row { display: flex; align-items: center; gap: 12px; }
+.d-profile-name { font-size: 15px; font-weight: 600; }
+.d-profile-note { font-size: 12.5px; color: var(--faint); margin-top: 2px; }
+.d-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-top: 26px; padding-top: 20px; border-top: 1px solid #f0ede6; flex-wrap: wrap;
+}
+.d-price { font-family: var(--serif); font-size: 30px; font-weight: 700; }
+.d-price span { font-family: var(--sans); font-size: 13px; font-weight: 400; color: var(--faint); margin-left: 8px; }
+@media (max-width: 640px) {
+  .ov { padding: 0; align-items: flex-end; }
+  .sheet { border-radius: 24px 24px 0 0; max-height: 92vh; padding: 26px 20px 28px; }
+}
+
+/* Count on the left, sort on the right, above the grid. */
+.pub-count {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap; margin-top: 22px; font-size: 13.5px; color: var(--faint);
+}
+.pub-sort { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.pub-sort select {
+  font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink);
+  background: #fff; border: 1px solid var(--card-line); border-radius: 999px;
+  padding: 8px 14px; cursor: pointer;
+}
+.pub-sort select:hover { border-color: var(--accent); }
+
+/* minmax(0,1fr) rather than 1fr: a 1fr track is min-width:auto, so it grows to
+   its content's minimum. A non-wrapping line inside a card (the admit names)
+   would otherwise widen the column and push the last card off the page. */
+.grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 22px; margin-top: 28px; }
 .ecard {
   background: #fff; border: 1px solid var(--card-line); border-radius: 18px; padding: 22px;
   box-shadow: 0 1px 2px rgba(20,18,15,0.04);
@@ -162,9 +245,22 @@ a { color: inherit; }
 .ecard:hover { transform: translateY(-6px); box-shadow: 0 22px 48px rgba(20,18,15,0.13); border-color: #e4e0d7; }
 .ecard-head { display: flex; align-items: center; gap: 12px; }
 .ecard-school { font-size: 15px; font-weight: 600; color: var(--ink); }
-.ecard-meta { font-size: 12.5px; color: var(--faint); margin-top: 1px; }
+/* The sub-line carries the contents ("4 essays · UC · Personal Insight
+   Question"), which can run long. Two lines, then clip. */
+.ecard-meta {
+  font-size: 12.5px; color: var(--faint); margin-top: 2px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .ecard-rating { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
-.ecard-prompt { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; margin-top: 18px; }
+/* Two lines is the backstop. essayLabel() in app/page.tsx already shortens each
+   prompt, but two long ones joined can still overflow, and a label that grows
+   without limit is what made cards in a row different heights. */
+.ecard-prompt {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent);
+  text-transform: uppercase; margin-top: 18px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
 .ecard-hook { font-family: var(--serif); font-size: 19px; line-height: 1.3; font-weight: 600; color: var(--ink); margin-top: 7px; }
 /* Seller background context on browse cards ("First-generation", ...) */
 .ecard-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -182,7 +278,28 @@ a { color: inherit; }
   font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg);
   border: 1px solid #e8e4dc; padding: 5px 13px; border-radius: 999px; white-space: nowrap;
 }
-.ecard-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f0ede6; }
+/* "Attends" and "Accepted in:", each a fixed height so every card has the same
+   shape regardless of how many schools a seller lists. */
+.ecard-lines { margin-top: 18px; }
+.ecard-admits { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; flex-wrap: nowrap; }
+.ecard-admits-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; line-height: 1.45;
+  text-transform: uppercase; color: var(--faint); white-space: nowrap; width: 92px; flex: none;
+}
+/* One line for the school they attend, three for the list they got into. The
+   height is reserved either way, so the price rules line up across the grid. */
+.admit-names {
+  font-size: 12.5px; font-weight: 600; color: var(--muted); min-width: 0;
+  line-height: 1.45; min-height: calc(12.5px * 1.45);
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+}
+.admit-names.multi { min-height: calc(12.5px * 1.45 * 3); -webkit-line-clamp: 3; }
+
+/* margin-top:auto here, not on .ecard-lines: grid stretches every card in a row
+   to the tallest, and whichever element takes the auto margin is where the
+   slack collects. On the footer it reads as padding above the price rule; on
+   the admit lines it left a hole in the middle of shorter cards. */
+.ecard-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 16px; border-top: 1px solid #f0ede6; }
 .ecard-price { display: flex; align-items: baseline; gap: 7px; }
 .ecard-price .p { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--ink); }
 .ecard-price .w { font-size: 12.5px; color: var(--faint); }
