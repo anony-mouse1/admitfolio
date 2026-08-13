@@ -61,10 +61,10 @@ The commits, oldest first:
    sentence. Shown on the card only when the seller wrote no `teaser`, which is
    68 of 144 approved listings.
 
-## Review findings, none fixed
+## Review findings
 
-A review ran over the whole branch on 2026-08-12. Nothing below is fixed. They
-are roughly in severity order.
+A review ran over the whole branch on 2026-08-12, roughly in severity order.
+**Only finding 6 is fixed.** Everything else below is still open.
 
 1. **The tier rewrite moves far more prices than the Penn State case it claims
    to fix** (`lib/pricing.ts:31`). `lib/schools.ts` only keys the long forms, so
@@ -94,13 +94,17 @@ are roughly in severity order.
    new "Showing N of N" counter will claim it is showing everything, so at 201
    approved listings buyers silently lose the oldest again. Drop `take`, or
    return a total so the truncation is visible.
-6. **The extractor has no guard against a seller's own name inside the prose**
-   (`scripts/extract-opening-lines.mjs:203`). `junkReason` catches bylines and
-   MLA running heads only. "My name is Jane Kaur, and the first thing I..."
-   passes every filter and would be published on a public card, which breaks
-   anonymity for any seller who chose it. The query at line 289 does not select
-   `Seller.name` or `anonymity`, so the obvious automated check is not possible
-   as written. Until that is fixed, the dry run must be read by a human.
+6. ~~**The extractor has no guard against a seller's own name inside the
+   prose.**~~ **FIXED**, see `scripts/name-leak.mjs`. A candidate line holding
+   the seller's name is now rejected and the next block is taken instead. It
+   fires for every seller, not just the anonymous ones, because anonymity is per
+   listing and can be changed later while `openingLine` is written once and
+   never re-extracted. It is deliberately over-eager: a capitalised given name
+   is rejected even where it is an ordinary word ("Grace slammed the door" goes,
+   "she showed grace under pressure" stays). It only knows the name on the
+   account, so a nickname or a sibling named in the prose still gets through and
+   the dry run still needs a human. Covered by
+   `node scripts/name-leak.test.mjs`.
 7. **`chars` is measured before the page-2 fallback**
    (`scripts/extract-opening-lines.mjs:346`). A PDF whose first page is a
    text-free cover has its page-2 text built and then thrown away, and is
@@ -159,10 +163,21 @@ publish anything a buyer should not see.
 
 ## Verification
 
-No test suite. UI work was checked by driving headless Chrome over the DevTools
-protocol against `next dev`, asserting on the DOM. Those scripts were lost with
-an ephemeral scratchpad; the approach is described in `AGENTS.md`. If you write
-them again, put them in the repo.
+There is one test, and it is not wired to anything:
+
+```
+node scripts/name-leak.test.mjs
+```
+
+20 cases over the seller-name guard. It needs no database and no keys, which is
+the point: `extract-opening-lines.mjs` connects to the live database at import
+time, so anything left inside that file can only be exercised against
+production. Split more logic out the same way when you need to test it.
+
+Everything else is manual. UI work was checked by driving headless Chrome over
+the DevTools protocol against `next dev`, asserting on the DOM. Those scripts
+were lost with an ephemeral scratchpad; the approach is described in
+`AGENTS.md`. If you write them again, put them in the repo.
 
 Worth encoding as the regression test for the card work: no two visible cards
 should share both their `.ecard-school` and `.ecard-meta` text.

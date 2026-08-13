@@ -39,6 +39,9 @@ if (!Promise.withResolvers) {
 import { PrismaClient } from '@prisma/client';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createRequire } from 'node:module';
+// Rejects a candidate line containing the seller's own name. Lives in its own
+// file so it can be tested without a database: node scripts/name-leak.test.mjs
+import { nameLeak } from './name-leak.mjs';
 
 const require = createRequire(import.meta.url);
 pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
@@ -286,8 +289,11 @@ function score(s) {
 
 const prisma = new PrismaClient();
 
+// `seller.name` is here only so nameLeak can reject a line containing it. It is
+// never written anywhere and never printed.
 const select = {
   id: true, school: true, admitTags: true,
+  seller: { select: { name: true } },
   essays: { select: { pdfPath: true, question: true }, orderBy: { sortOrder: 'asc' } },
 };
 const noTeaser = { status: 'approved', OR: [{ teaser: null }, { teaser: '' }] };
@@ -310,7 +316,11 @@ try {
 
 console.log(`${listings.length} approved listings have no teaser and no opening line yet\n`);
 
-const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0 };
+const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0, nameRejected: 0 };
+// Listings where a block was skipped because it held the seller's name. Counted
+// so the dry run says how often the guard fired; the line itself is never
+// printed, because printing it would put the name back on a screen.
+const nameHits = new Set();
 const results = [];
 
 for (const l of listings) {
@@ -350,6 +360,14 @@ for (const l of listings) {
       if (!block || junkReason(block, question)) continue;
       const sentence = repairQuotes(firstSentences(block));
       if (unusable(sentence)) continue;
+      // Do not break: fall through to the next block and take that opening
+      // instead. Most essays that name the writer do it in the first paragraph
+      // only, so the second one is usually clean.
+      if (nameLeak(sentence, l.seller?.name)) {
+        stats.nameRejected++;
+        nameHits.add(l.id);
+        continue;
+      }
       candidates.push({ raw: sentence, score: score(sentence) });
       break;
     }
@@ -365,6 +383,10 @@ for (const l of listings) {
 console.log('\n');
 results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. ${r.line}`));
 console.log('\n', stats);
+if (nameHits.size) {
+  console.log(`\n${stats.nameRejected} block(s) across ${nameHits.size} listing(s) were skipped for`);
+  console.log('holding the seller\'s own name. Those listings took a later block, or none.');
+}
 
 if (CONFIRM && !columnLive) {
   console.error('\nRefusing to write: Listing.openingLine does not exist in the database yet.');
@@ -373,8 +395,10 @@ if (CONFIRM && !columnLive) {
 }
 
 if (!CONFIRM) {
-  console.log('\nDRY RUN. Nothing written. Re-read every line above for a seller\'s name or a');
-  console.log('prompt that slipped through, then re-run with --confirm.');
+  console.log('\nDRY RUN. Nothing written. Re-read every line above, then re-run with --confirm.');
+  console.log('nameLeak now rejects the seller\'s own name, but it only knows the name on the');
+  console.log('account: a nickname, a sibling or a friend named in the prose still gets through,');
+  console.log('and so does a prompt the shingle test missed.');
   await prisma.$disconnect();
   process.exit(0);
 }
