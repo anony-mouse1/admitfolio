@@ -6,21 +6,26 @@ Rewrite it, do not append to it.
 
 ## Where the code is
 
-Branch `add-seller-deletion-script`, five commits ahead of `main`. Nothing is
-pushed, so GitHub and the live site are both unaffected by all of it. The branch
-name is now wrong for what it holds; rename it before opening a PR.
+Branch `browse-redesign-and-opening-lines`, seven commits ahead of `main`.
+Nothing is pushed, so GitHub and the live site are both unaffected by all of it.
 
-`npx tsc --noEmit` is clean on the branch tip. There is no test suite.
+Renamed from `add-seller-deletion-script` on 2026-08-14, which was the name of
+its first commit only and said nothing about the rest. The branch had no
+upstream, so the rename was purely local and nothing needs repointing.
+
+`npx tsc --noEmit` is clean on the branch tip, and
+`node scripts/name-leak.test.mjs` passes. That is the only test in the repo.
 
 The commits, oldest first:
 
 ```
 26b1bd2  Add a script for "delete my account" requests
-         .gitignore: keep the mock-up files out of git
-         Resolve school names through lib/schools.ts instead of substrings
-         Add Listing.openingLine and a backfill script
-         Browse redesign: admit-school headline, detail sheet, sort, load more
-         Docs: point CLAUDE.md at AGENTS.md, rewrite the handover
+edf16dd  Keep the browse mock-up files out of git
+9ce6092  Resolve school names through lib/schools.ts, not substrings
+ee96482  Add Listing.openingLine and a script to backfill it
+be3e57c  Browse redesign: admit-school headline, detail sheet, sort, load more
+dd4d50b  Point CLAUDE.md at AGENTS.md, and write down the handover process
+fe10fb8  Never let a seller's own name become an opening line
 ```
 
 ## Not yet done to the live site
