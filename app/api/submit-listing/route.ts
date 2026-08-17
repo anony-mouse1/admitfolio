@@ -8,13 +8,15 @@ import { currentSeller } from '@/lib/sellerAuth';
 import { hashPassword } from '@/lib/password';
 import { makeSession } from '@/lib/session';
 import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
-import { admitsTier, packageFloor, perEssayFloor, TIER } from '@/lib/pricing';
+import { packageFloor, perEssayFloor, schoolTier, TIER } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { normalizeAnonymity } from '@/lib/anonymity';
+import { sameSchool } from '@/lib/schools';
+import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
 
-type EssayIn = { prompt?: string; question?: string; price?: number; wordCount?: number };
+type EssayIn = { prompt?: string; question?: string; price?: number; wordCount?: number; contentHash?: string };
 
 export async function POST(req: Request) {
   let body: {
@@ -22,6 +24,8 @@ export async function POST(req: Request) {
     emailToken?: string;
     password?: string;
     school?: string;
+    targetSchool?: string;
+    applicationSystem?: string;
     gradYear?: string;
     major?: string;
     admitTags?: string[];
@@ -62,6 +66,13 @@ export async function POST(req: Request) {
   if (essays.length === 0) {
     return NextResponse.json({ error: 'Add at least one essay.' }, { status: 400 });
   }
+  const contentHashes = essays.map((essay) => String(essay?.contentHash || '').toLowerCase());
+  if (contentHashes.some((hash) => !/^[a-f0-9]{64}$/.test(hash))) {
+    return NextResponse.json({ error: 'Could not verify the essay files. Please choose them again.' }, { status: 400 });
+  }
+  if (new Set(contentHashes).size !== contentHashes.length) {
+    return NextResponse.json({ error: 'The same essay file was added more than once to this package.' }, { status: 400 });
+  }
 
   // Normalised rather than taken verbatim: an unrecognised value stores as
   // `anonymous`, and the legacy 'firstName' collapses onto 'revealOnPurchase'
@@ -83,7 +94,15 @@ export async function POST(req: Request) {
   if (admitTags.length === 0) {
     return NextResponse.json({ error: 'Add at least one school you got into.' }, { status: 400 });
   }
-  const tier = admitsTier(admitTags) ?? 3;
+  const targetSchool = String(body?.targetSchool || '').replace(/[\r\n]/g, ' ').trim().slice(0, 80);
+  if (!targetSchool || !admitTags.some((label) => sameSchool(label, targetSchool))) {
+    return NextResponse.json({ error: 'Choose which admitted college this listing is for.' }, { status: 400 });
+  }
+  const applicationSystem = String(body?.applicationSystem || '').replace(/[\r\n]/g, ' ').trim().slice(0, 80) || null;
+  if (!applicationSystem) {
+    return NextResponse.json({ error: 'Choose the application system for these essays.' }, { status: 400 });
+  }
+  const tier = schoolTier(targetSchool);
 
   // Prices must be real finite numbers - NaN slips past `<` comparisons.
   const asPrice = (v: unknown): number | null => {
@@ -117,10 +136,58 @@ export async function POST(req: Request) {
     create: { email, passwordHash: body?.password ? hashPassword(String(body.password)) : null },
   });
 
+  const reusedEssay = await prisma.essay.findFirst({
+    where: {
+      contentHash: { in: contentHashes },
+      listing: {
+        sellerId: seller.id,
+        status: { in: ['pending', 'approved'] },
+        essays: { every: { pdfPath: { not: null } }, some: {} },
+      },
+    },
+    select: { id: true },
+  });
+  if (reusedEssay) {
+    return NextResponse.json(
+      { error: 'One of these exact essay files is already in another active listing. Keep each essay in one package so buyers are never charged twice.' },
+      { status: 409 },
+    );
+  }
+
+  // One complete package per seller and target college. A one-admit legacy
+  // listing is unambiguous. A multi-admit legacy listing is not relabelled, but
+  // it still blocks a potentially duplicate package until an admin confirms it.
+  const activeListings = await prisma.listing.findMany({
+    where: {
+      sellerId: seller.id,
+      status: { in: ['pending', 'approved'] },
+      essays: { every: { pdfPath: { not: null } }, some: {} },
+    },
+    select: { targetSchool: true, admitTags: true },
+  });
+  const alreadyListed = activeListings.some((existing) => {
+    const existingAdmits = parseAdmitTags(existing.admitTags);
+    const existingTarget = catalogSchool({
+      school: '',
+      targetSchool: existing.targetSchool,
+      admitTags: existingAdmits,
+    });
+    if (existingTarget) return sameSchool(existingTarget, targetSchool);
+    return existingAdmits.some((admit) => sameSchool(admit, targetSchool));
+  });
+  if (alreadyListed) {
+    return NextResponse.json(
+      { error: `You already have an active listing for ${targetSchool}. Add the missing essays to that package instead.` },
+      { status: 409 },
+    );
+  }
+
   const listing = await prisma.listing.create({
     data: {
       sellerId: seller.id,
       school,
+      targetSchool,
+      applicationSystem,
       gradYear: body?.gradYear ? String(body.gradYear).trim().slice(0, 20) : null,
       major: body?.major ? String(body.major).trim().slice(0, 80) : null,
       appliedMajors,
@@ -156,7 +223,7 @@ export async function POST(req: Request) {
   // hear about each one. Awaited (fire-and-forget dies with the serverless
   // invocation) but never fatal - the submission already succeeded.
   const notify = await sendAdminSubmissionNotification({
-    school,
+    school: targetSchool,
     sellerEmail: email,
     essayCount: listing.essays.length,
     admitTags,
@@ -170,7 +237,7 @@ export async function POST(req: Request) {
   // Replies route to the support inbox. Awaited but never fatal - the
   // submission already succeeded.
   const confirm = await sendSubmissionConfirmation(email, {
-    school,
+    school: targetSchool,
     essayCount: listing.essays.length,
   });
   if (!confirm.ok) {

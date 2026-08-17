@@ -2,18 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { stripe, SITE_URL } from '@/lib/stripe';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
-import { sameSchool, schoolShortName } from '@/lib/schools';
+import { CHECKOUT_VERSION, PURCHASE_UNIT, quoteListing } from '@/lib/commerce';
+import { clientIpFromHeaders } from '@/lib/requestIp';
 
 export const runtime = 'nodejs';
-
-function parseTags(json: string): string[] {
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
-}
 
 // Best-effort per-IP throttle (in-memory, per serverless instance - same
 // approach as the admin login lockout). Checkout is cheap but shouldn't be
@@ -34,8 +26,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Payments are not configured yet.' }, { status: 503 });
   }
 
-  const ip = (req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
-  if (throttled(ip)) {
+  const buyerIp = clientIpFromHeaders(req.headers);
+  if (throttled(buyerIp || 'unknown')) {
     return NextResponse.json({ error: 'Too many attempts. Please wait a minute.' }, { status: 429 });
   }
 
@@ -49,33 +41,33 @@ export async function POST(req: Request) {
   const listing = body?.listingId
     ? await prisma.listing.findUnique({
         where: { id: String(body.listingId) },
-        include: { seller: { select: { email: true } }, essays: { select: { id: true } } },
+        include: {
+          seller: { select: { email: true } },
+          essays: { select: { id: true, pdfPath: true } },
+        },
       })
     : null;
   const isTest = listing && (isAdminEmail(listing.seller.email) || TEST_EMAILS.has(listing.seller.email.toLowerCase()));
-  if (!listing || listing.status !== 'approved' || isTest || !listing.packagePrice || listing.packagePrice < 1) {
-    return NextResponse.json({ error: 'This listing is not available for purchase.' }, { status: 404 });
+  const result = quoteListing(listing, Boolean(isTest));
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.message },
+      { status: result.reason === 'school_unconfirmed' ? 409 : 404 },
+    );
   }
-
-  const count = listing.essays.length;
-  // Must match the browse card's headline. The card leads with the school that
-  // admitted the seller, not `listing.school` (which is the university they
-  // currently attend), so building this from `listing.school` would show the
-  // buyer a different school name on the Stripe page than the one they clicked.
-  const admitTags = parseTags(listing.admitTags);
-  const headline = admitTags.find((t) => sameSchool(t, listing.school)) || admitTags[0] || listing.school;
-  const name = `${schoolShortName(headline)} · ${count} essay${count === 1 ? '' : 's'} (Admitfolio)`;
+  const { quote } = result;
 
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      client_reference_id: quote.listingId,
       line_items: [
         {
           quantity: 1,
           price_data: {
             currency: 'usd',
-            unit_amount: listing.packagePrice * 100,
-            product_data: { name },
+            unit_amount: quote.amountCents,
+            product_data: { name: quote.stripeProductName },
           },
         },
       ],
@@ -83,7 +75,21 @@ export async function POST(req: Request) {
       // the buyer's browser. The webhook that writes the Purchase row is called
       // by Stripe, so its own x-forwarded-for is Stripe's address - reading it
       // there would record our payment processor and look like buyer data.
-      metadata: { listingId: listing.id, buyerIp: ip.slice(0, 100) },
+      metadata: {
+        checkoutVersion: CHECKOUT_VERSION,
+        purchaseUnit: PURCHASE_UNIT,
+        listingId: quote.listingId,
+        amountCents: String(quote.amountCents),
+        itemLabel: quote.itemLabel,
+        buyerIp: buyerIp || '',
+      },
+      payment_intent_data: {
+        metadata: {
+          checkoutVersion: CHECKOUT_VERSION,
+          purchaseUnit: PURCHASE_UNIT,
+          listingId: quote.listingId,
+        },
+      },
       success_url: `${SITE_URL}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/?checkout=canceled`,
     });

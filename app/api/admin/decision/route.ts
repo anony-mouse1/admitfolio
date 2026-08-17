@@ -26,7 +26,15 @@ export async function POST(req: Request) {
   const result = await applyListingDecision(id, decision as 'approved' | 'rejected', note, {
     human: true,
   });
-  if (!result.ok) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
+  if (!result.ok) {
+    if (result.error === 'target_school_required') {
+      return NextResponse.json(
+        { error: 'Confirm which college these essays are for before approving.' },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
+  }
 
   return NextResponse.json({ ok: true, status: result.status });
 }

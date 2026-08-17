@@ -16,19 +16,26 @@ datasource db {
 
 // A verified seller — identity is a .edu email, proven via the OTP flow.
 model Seller {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  passwordHash   String? // scrypt "salt:hash", set at signup
-  failedLogins   Int       @default(0) // consecutive bad passwords; reset on success
-  lockedUntil    DateTime? // brute-force lockout expiry
-  name           String? // full name; display follows the listing's anonymity choice
-  paypalEmail    String? // where biweekly payouts go once buying launches
-  bio            String? // short "about me" shown on the seller profile
-  photoPath      String? // Supabase Storage path for the profile photo
-  backgroundTags String    @default("[]") // JSON array of profile tags (e.g. First-generation)
-  createdAt      DateTime  @default(now())
-  listings       Listing[]
-  admitProofs    AdmitProof[]
+  id                         String       @id @default(cuid())
+  email                      String       @unique
+  passwordHash               String? // scrypt "salt:hash", set at signup
+  failedLogins               Int          @default(0) // consecutive bad passwords; reset on success
+  lockedUntil                DateTime? // brute-force lockout expiry
+  name                       String? // full name; display follows the listing's anonymity choice
+  paypalEmail                String? // where biweekly payouts go once buying launches
+  // Stripe Connect is deliberately created only after this seller's first
+  // settled live sale. Until onboarding finishes, the 60% entitlement stays
+  // attached to its Purchase row instead of being sent anywhere.
+  stripeAccountId            String?      @unique
+  stripeOnboardingStartedAt  DateTime?
+  stripeOnboardingCompleteAt DateTime?
+  stripePayoutsEnabled       Boolean      @default(false)
+  bio                        String? // short "about me" shown on the seller profile
+  photoPath                  String? // Supabase Storage path for the profile photo
+  backgroundTags             String       @default("[]") // JSON array of profile tags (e.g. First-generation)
+  createdAt                  DateTime     @default(now())
+  listings                   Listing[]
+  admitProofs                AdmitProof[]
 }
 
 // An acceptance letter backing one school a seller claims in `Listing.admitTags`.
@@ -65,71 +72,89 @@ model AdmitProof {
 
 // One submission = one seller's package of essays for a school.
 model Listing {
-  id           String     @id @default(cuid())
-  seller       Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  sellerId     String
-  school       String
-  gradYear     String?
-  major        String? // the seller's current major at their university
-  appliedMajors String? // major(s) they applied to with these essays, free text
-  admitTags    String     @default("[]") // JSON array of schools they got into
+  id                String     @id @default(cuid())
+  seller            Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId          String
+  school            String
+  // The college this package was written for and should be filed under in the
+  // catalogue. `school` above is the seller's current university, which is why
+  // it is identical across that seller's listings and cannot be the card title.
+  // Nullable only for listings created before this field existed.
+  targetSchool      String?
+  // Common App, UC Application, MIT Application, etc. Kept separately from the
+  // target college because one application system can serve many colleges.
+  applicationSystem String?
+  gradYear          String?
+  major             String? // the seller's current major at their university
+  appliedMajors     String? // major(s) they applied to with these essays, free text
+  admitTags         String     @default("[]") // JSON array of schools they got into
   // anonymous | revealOnPurchase | full. See lib/anonymity.ts: the middle value
   // is a TIMING choice (nothing public, first name once bought), not a "show
   // less of the name" choice. Rows written before 2026-08 spell it 'firstName'
   // and are read as the same thing.
-  anonymity    String     @default("anonymous")
-  pricingMode  String     @default("package") // package | separate
-  packagePrice Int? // whole dollars, when pricingMode = package
-  teaser       String? // optional one-line hook shown on the public browse card
+  anonymity         String     @default("anonymous")
+  pricingMode       String     @default("package") // package | separate
+  packagePrice      Int? // whole dollars, when pricingMode = package
+  teaser            String? // optional one-line hook shown on the public browse card
   // The opening sentence of the seller's own essay, read out of their uploaded
   // PDF. Only used when the seller left `teaser` empty, which is 68 of 144
   // approved listings, so those cards had nothing to say. Nullable forever:
   // short-answer listings have no narrative opening, and some PDFs are scans
   // with no text layer. Backfilled by scripts/extract-opening-lines.mjs.
-  openingLine  String?
-  status       String     @default("pending") // pending | approved | rejected | removed (seller take-down)
-  adminNote    String?
-  sellerNote   String? // optional note from the seller, shown to the admin during review
-  createdAt    DateTime   @default(now())
-  reviewedAt   DateTime?
+  openingLine       String?
+  status            String     @default("pending") // pending | approved | rejected | removed (seller take-down)
+  adminNote         String?
+  sellerNote        String? // optional note from the seller, shown to the admin during review
+  createdAt         DateTime   @default(now())
+  reviewedAt        DateTime?
   // Automated review (Claude reviewer panel). aiReviewedAt doubles as the
   // "already screened" guard for the cron query. Auto-approve flips `status`;
   // a flagged listing stays `pending` with these fields populated for the admin.
-  aiReviewedAt DateTime? // set once the panel has run
-  aiDecision   String? // approved | flagged
-  aiConfidence String? // high | medium | low (lowest across the panel's lenses)
-  aiReasons    String? // panel's concerns, shown to the admin on flagged listings
-  aiSuggestion String? // approve | reject — pre-fills the flagged listing's action
-  aiLenses     String? // JSON array of per-lens verdicts, so the admin can read the full review
+  aiReviewedAt      DateTime? // set once the panel has run
+  // Atomic lease for an in-flight panel run. The final PDF upload and the cron
+  // can race, so neither may call Claude unless it owns this lease. A stale
+  // lease is retryable if a function is terminated before it can clear it.
+  aiReviewStartedAt DateTime?
+  aiDecision        String? // approved | flagged
+  aiConfidence      String? // high | medium | low (lowest across the panel's lenses)
+  aiReasons         String? // panel's concerns, shown to the admin on flagged listings
+  aiSuggestion      String? // approve | reject — pre-fills the flagged listing's action
+  aiLenses          String? // JSON array of per-lens verdicts, so the admin can read the full review
   // Set only when a human admin decides from the console - never by the cron.
   // This is what separates "the panel cleared it" from "I looked at it myself",
   // and drives the unaudited counts on the review tabs.
-  humanReviewedAt DateTime?
+  humanReviewedAt   DateTime?
   // Admin shelf. Set from the console when a listing needs more thought than the
   // current pass allows. It carries no meaning to the seller and never changes
   // `status` - a shelved listing is exactly as published (or not) as before.
-  savedAt      DateTime?
-  essays       Essay[]
-  purchases    Purchase[]
+  savedAt           DateTime?
+  essays            Essay[]
+  purchases         Purchase[]
 
   @@index([status])
   @@index([sellerId])
+  @@index([targetSchool])
+  @@index([aiReviewStartedAt])
 }
 
 // An individual essay within a listing.
 model Essay {
-  id        String   @id @default(cuid())
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  listingId String
-  prompt    String // e.g. "Common App", "Why Yale"
-  question  String? // custom prompt text when prompt = "Other"
-  price     Int? // whole dollars, when the listing sells essays separately
-  wordCount Int?
-  pdfPath   String? // Supabase Storage object path, e.g. listings/<listingId>/<essayId>.pdf
-  sortOrder Int      @default(0) // position in the seller's submitted list
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId   String
+  prompt      String // e.g. "Common App", "Why Yale"
+  question    String? // custom prompt text when prompt = "Other"
+  price       Int? // whole dollars, when the listing sells essays separately
+  wordCount   Int?
+  pdfPath     String? // Supabase Storage object path, e.g. listings/<listingId>/<essayId>.pdf
+  // SHA-256 of the uploaded PDF. Used to stop one seller from putting the exact
+  // same file into multiple active listings and charging a buyer twice for it.
+  contentHash String?
+  sortOrder   Int      @default(0) // position in the seller's submitted list
+  createdAt   DateTime @default(now())
 
   @@index([listingId])
+  @@index([contentHash])
 }
 
 // Email captured from the "notify me at launch" forms.
@@ -139,26 +164,55 @@ model WaitlistEntry {
   createdAt DateTime @default(now())
 }
 
-// A buyer checkout (payment integration is stubbed for now). listingId is
-// optional so demo/sample-catalog purchases are still recorded; itemLabel keeps
-// a human-readable description regardless.
+// A paid buyer checkout. The purchase unit is a Listing, never an individual
+// Essay. `essayId` remains only for historical rows from the prototype.
 model Purchase {
-  id              String   @id @default(cuid())
-  buyerEmail      String
-  listing         Listing? @relation(fields: [listingId], references: [id])
-  listingId       String?
-  essayId         String? // null when the whole package was bought
-  itemLabel       String? // e.g. "Stanford — Common App"
-  amount          Int // whole dollars charged
-  stripeSessionId String?  @unique // idempotency key for Stripe webhook retries
+  id                              String      @id @default(cuid())
+  buyerEmail                      String
+  listing                         Listing?    @relation(fields: [listingId], references: [id])
+  listingId                       String?
+  essayId                         String? // legacy only; all new purchases buy the listing
+  itemLabel                       String? // checkout snapshot, e.g. "Stanford · 4 essays"
+  amount                          Int // legacy whole-dollar amount, retained for older readers
+  grossAmountCents                Int? // exact Stripe amount for all new purchases
+  sellerEarningsCents             Int? // exact seller entitlement fixed at purchase time
+  platformFeeCents                Int? // exact platform share; sums with sellerEarningsCents
+  sellerShareBps                  Int? // split snapshot; 6000 means 60%
+  currency                        String? // lowercase ISO currency, currently usd
+  stripeSessionId                 String?     @unique // idempotency key for Stripe webhook retries
+  stripePaymentIntentId           String?     @unique // reconciliation/refund reference
+  stripeChargeId                  String?     @unique // source charge for the seller's separate Connect transfer
+  stripeTransferId                String?     @unique // one Connect transfer per purchase
+  sellerTransferStartedAt         DateTime? // retry lease; Stripe idempotency is the final duplicate guard
+  sellerTransferredAt             DateTime?
+  sellerTransferAttempts          Int         @default(0)
+  sellerTransferLastError         String?
+  sellerTransferReversedCents     Int         @default(0)
+  sellerTransferLastReversalId    String?
+  sellerTransferReversedAt        DateTime?
+  sellerTransferReversalStartedAt DateTime?
+  sellerTransferReversalLastError String?
+  sellerNotifiedAt                DateTime? // prevents routine webhook retries from re-emailing the seller
   // Buyer's IP at checkout. Captured in /api/checkout (which the buyer's
   // browser calls) and carried through Stripe session metadata - reading
   // x-forwarded-for in the webhook would record Stripe's servers instead.
-  buyerIp         String?
-  createdAt       DateTime @default(now())
-  views           EssayView[]
+  buyerIp                         String?
+  // Non-reversible code printed into this buyer's copy. It maps a leaked copy
+  // back to this server-side purchase without exposing the buyer's email or IP
+  // in the document itself.
+  deliveryFingerprint             String?     @unique
+  // Email delivery has a short lease so concurrent Stripe retries send only
+  // once, while a crashed attempt becomes retryable after ten minutes.
+  deliveryStartedAt               DateTime?
+  deliveryEmailSentAt             DateTime?
+  deliveryAttempts                Int         @default(0)
+  deliveryLastError               String?
+  createdAt                       DateTime    @default(now())
+  views                           EssayView[]
 
   @@index([listingId])
+  @@index([sellerNotifiedAt])
+  @@index([sellerTransferredAt])
 }
 
 // One row per essay read. Buyers have no account, so a view is attributed via

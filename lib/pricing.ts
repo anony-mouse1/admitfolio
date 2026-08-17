@@ -43,16 +43,25 @@ export const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: numbe
 };
 
 // Revenue split: sellers keep this share of every sale, the platform keeps the
-// rest. Single source of truth - the Stripe webhook's `net`, the seller
-// dashboard's earnings and payout figures, and its "you keep N%" label all
-// derive from it. Keep it that way: a split change that reached the webhook but
-// not the dashboard would pay a seller one number and show them another.
+// rest. New purchases snapshot this value in cents. The dashboard reads those
+// snapshots so historical purchases keep the terms in effect when they sold.
 // The published split in app/terms/page.tsx does NOT derive from this and must
 // be edited by hand to match - it is a commitment to sellers, not a computation.
-export const SELLER_SHARE = 0.7;
+export const SELLER_SHARE_BPS = 6_000;
+export const SELLER_SHARE = SELLER_SHARE_BPS / 10_000;
+// The marketplace has not had a live paid purchase yet, so there is no older
+// revenue promise to preserve. Rows created by prototypes also use 60/40.
+export const UNSNAPSHOTTED_SELLER_SHARE_BPS = SELLER_SHARE_BPS;
 
 export const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
 export const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
+
+// A seller who submitted under the floor in force at the time can keep that
+// exact price. Any change must meet today's floor. This prevents a school alias
+// correction from trapping an existing listing in the price editor.
+export function priceAllowedAtFloor(price: number, floor: number, currentPrice: number | null): boolean {
+  return price >= floor || (currentPrice != null && currentPrice < floor && price === currentPrice);
+}
 
 // Best (lowest-numbered) tier among a seller's admit schools; null without admits.
 export function admitsTier(admits: string[]): 1 | 2 | 3 | null {

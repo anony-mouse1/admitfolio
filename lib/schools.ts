@@ -16,6 +16,8 @@ export type School = {
   short: string;
   /** Normalised substrings that identify this school. Longest match wins. */
   keys: string[];
+  /** Ambiguous short names that only match when they are the entire input. */
+  exactKeys?: string[];
 };
 
 const SCHOOLS: School[] = [
@@ -45,7 +47,7 @@ const SCHOOLS: School[] = [
   { domain: 'emory.edu', short: 'Emory', keys: ['emory'] },
   { domain: 'cmu.edu', short: 'Carnegie Mellon', keys: ['carnegie mellon', 'cmu'] },
   { domain: 'nyu.edu', short: 'NYU', keys: ['nyu', 'new york university'] },
-  { domain: 'usc.edu', short: 'USC', keys: ['usc', 'university of southern california'] },
+  { domain: 'usc.edu', short: 'USC', keys: ['usc', 'university of southern california'], exactKeys: ['southern california'] },
   { domain: 'tufts.edu', short: 'Tufts', keys: ['tufts'] },
   { domain: 'bc.edu', short: 'Boston College', keys: ['boston college'] },
   { domain: 'bu.edu', short: 'Boston University', keys: ['boston university'] },
@@ -54,11 +56,11 @@ const SCHOOLS: School[] = [
   { domain: 'villanova.edu', short: 'Villanova', keys: ['villanova'] },
   { domain: 'tulane.edu', short: 'Tulane', keys: ['tulane'] },
   { domain: 'case.edu', short: 'Case Western', keys: ['case western'] },
-  { domain: 'rochester.edu', short: 'Rochester', keys: ['university of rochester'] },
+  { domain: 'rochester.edu', short: 'Rochester', keys: ['university of rochester'], exactKeys: ['rochester'] },
   { domain: 'lehigh.edu', short: 'Lehigh', keys: ['lehigh'] },
   { domain: 'rpi.edu', short: 'RPI', keys: ['rensselaer', 'rpi'] },
-  { domain: 'miami.edu', short: 'Miami', keys: ['university of miami'] },
-  { domain: 'pitt.edu', short: 'Pitt', keys: ['university of pittsburgh', 'pitt'] },
+  { domain: 'miami.edu', short: 'Miami', keys: ['university of miami'], exactKeys: ['miami'] },
+  { domain: 'pitt.edu', short: 'Pitt', keys: ['university of pittsburgh', 'pitt'], exactKeys: ['pittsburgh'] },
 
   // ── Liberal arts ─────────────────────────────────────────
   { domain: 'williams.edu', short: 'Williams', keys: ['williams college', 'williams'] },
@@ -82,10 +84,15 @@ const SCHOOLS: School[] = [
   { domain: 'ucmerced.edu', short: 'UC Merced', keys: ['uc merced', 'california merced'] },
 
   // ── Large publics ────────────────────────────────────────
-  { domain: 'umich.edu', short: 'Michigan', keys: ['university of michigan', 'umich', 'ann arbor'] },
+  { domain: 'umich.edu', short: 'Michigan (Ann Arbor)', keys: ['university of michigan', 'umich', 'ann arbor'], exactKeys: ['michigan'] },
+  { domain: 'umdearborn.edu', short: 'Michigan-Dearborn', keys: ['university of michigan dearborn', 'um dearborn', 'michigan dearborn'] },
+  { domain: 'umflint.edu', short: 'Michigan-Flint', keys: ['university of michigan flint', 'um flint', 'michigan flint'] },
   { domain: 'msu.edu', short: 'Michigan State', keys: ['michigan state'] },
-  { domain: 'unc.edu', short: 'UNC', keys: ['unc', 'university of north carolina', 'chapel hill'] },
-  { domain: 'virginia.edu', short: 'UVA', keys: ['uva', 'university of virginia'] },
+  { domain: 'unc.edu', short: 'UNC Chapel Hill', keys: ['unc', 'university of north carolina', 'chapel hill'], exactKeys: ['north carolina'] },
+  { domain: 'charlotte.edu', short: 'UNC Charlotte', keys: ['university of north carolina at charlotte', 'unc charlotte', 'north carolina at charlotte', 'north carolina charlotte'] },
+  { domain: 'uncg.edu', short: 'UNC Greensboro', keys: ['university of north carolina at greensboro', 'unc greensboro', 'north carolina at greensboro', 'north carolina greensboro'] },
+  { domain: 'uncw.edu', short: 'UNC Wilmington', keys: ['university of north carolina at wilmington', 'unc wilmington', 'north carolina at wilmington', 'north carolina wilmington'] },
+  { domain: 'virginia.edu', short: 'UVA', keys: ['uva', 'university of virginia'], exactKeys: ['virginia'] },
   // Campus qualifiers matter: a bare 'university of texas' key swallowed every
   // campus in the system and rendered them all as UT Austin, with UT Austin's
   // logo. Each campus is listed separately instead. Same for Illinois below.
@@ -93,8 +100,11 @@ const SCHOOLS: School[] = [
   { domain: 'utdallas.edu', short: 'UT Dallas', keys: ['utd', 'ut dallas', 'texas at dallas', 'university of texas at dallas'] },
   { domain: 'uta.edu', short: 'UT Arlington', keys: ['ut arlington', 'texas at arlington'] },
   { domain: 'utsa.edu', short: 'UT San Antonio', keys: ['utsa', 'ut san antonio', 'texas at san antonio'] },
+  { domain: 'utep.edu', short: 'UT El Paso', keys: ['utep', 'ut el paso', 'texas at el paso'] },
+  { domain: 'utrgv.edu', short: 'UT Rio Grande Valley', keys: ['utrgv', 'ut rio grande valley', 'texas rio grande valley'] },
+  { domain: 'uttyler.edu', short: 'UT Tyler', keys: ['ut tyler', 'texas at tyler'] },
   { domain: 'tamu.edu', short: 'Texas A&M', keys: ['texas a and m', 'tamu'] },
-  { domain: 'wisc.edu', short: 'Wisconsin', keys: ['university of wisconsin', 'wisconsin madison', 'uw madison'] },
+  { domain: 'wisc.edu', short: 'Wisconsin', keys: ['university of wisconsin', 'wisconsin madison', 'uw madison'], exactKeys: ['wisconsin'] },
   { domain: 'illinois.edu', short: 'UIUC', keys: ['illinois urbana', 'uiuc'] },
   { domain: 'uic.edu', short: 'UI Chicago', keys: ['uic', 'illinois chicago', 'illinois at chicago'] },
   { domain: 'washington.edu', short: 'UW', keys: ['university of washington', 'uw seattle', 'washington seattle'] },
@@ -104,7 +114,7 @@ const SCHOOLS: School[] = [
   { domain: 'indiana.edu', short: 'Indiana', keys: ['indiana university', 'kelley school'] },
   { domain: 'osu.edu', short: 'Ohio State', keys: ['ohio state'] },
   { domain: 'psu.edu', short: 'Penn State', keys: ['penn state', 'pennsylvania state', 'schreyer'] },
-  { domain: 'umd.edu', short: 'Maryland', keys: ['university of maryland', 'umd', 'college park'] },
+  { domain: 'umd.edu', short: 'Maryland', keys: ['university of maryland', 'umd', 'college park'], exactKeys: ['maryland'] },
   { domain: 'ufl.edu', short: 'Florida', keys: ['university of florida', 'ufl'] },
   { domain: 'rutgers.edu', short: 'Rutgers', keys: ['rutgers'] },
   { domain: 'asu.edu', short: 'ASU', keys: ['arizona state', 'asu'] },
@@ -162,6 +172,15 @@ const SCHOOLS: School[] = [
   { domain: 'illinois.edu', short: 'UIUC', keys: ['university of illinous urbana champaign'] },
 ];
 
+// Canonical labels for seller-facing school pickers. Sellers can still enter a
+// school that is not here, but common ambiguous systems (UNC, Michigan, UT)
+// appear as distinct campuses instead of one unqualified free-text value.
+export const SCHOOL_OPTIONS = [...new Set(
+  SCHOOLS
+    .filter((school) => !['questbridge.org', 'gatesscholarship.org'].includes(school.domain))
+    .map((school) => school.short),
+)].sort((a, b) => a.localeCompare(b));
+
 /**
  * Lowercase, strip punctuation, and pad with spaces so that `includes(' key ')`
  * matches on whole words only. Without the padding, "penn" would match inside
@@ -187,6 +206,9 @@ export function schoolInfo(name: string | null | undefined): { domain: string; s
   let best: School | null = null;
   let bestLen = 0;
   for (const school of SCHOOLS) {
+    if (school.exactKeys?.some((key) => haystack === ' ' + key + ' ')) {
+      return { domain: school.domain, short: school.short };
+    }
     for (const key of school.keys) {
       if (key.length > bestLen && haystack.includes(' ' + key + ' ')) {
         best = school;

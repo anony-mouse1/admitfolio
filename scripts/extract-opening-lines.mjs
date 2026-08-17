@@ -47,6 +47,7 @@ const require = createRequire(import.meta.url);
 pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
 
 const CONFIRM = process.argv.includes('--confirm');
+const QUIET = process.env.QUIET === '1';
 const CLIP_MAX = Number(process.env.CLIP_MAX || 150);
 const BUCKET = 'essays';
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -285,6 +286,16 @@ function score(s) {
   return n;
 }
 
+function essaySpecificity(prompt, essayCount) {
+  if (essayCount <= 1) return 0;
+  // A Common App statement is often reused verbatim inside several different
+  // college packages. Prefer the package's school-specific supplement so the
+  // public hook distinguishes what the buyer is actually shopping for.
+  if (/common app.*personal statement/i.test(prompt || '')) return -6;
+  if (/(why-school|supplement|short answer|intellectual vitality|community|activity)/i.test(prompt || '')) return 3;
+  return 0;
+}
+
 /* ---------------------------------- main --------------------------------- */
 
 const prisma = new PrismaClient();
@@ -292,9 +303,9 @@ const prisma = new PrismaClient();
 // `seller.name` is here only so nameLeak can reject a line containing it. It is
 // never written anywhere and never printed.
 const select = {
-  id: true, school: true, admitTags: true,
+  id: true, sellerId: true, school: true, admitTags: true,
   seller: { select: { name: true } },
-  essays: { select: { pdfPath: true, question: true }, orderBy: { sortOrder: 'asc' } },
+  essays: { select: { pdfPath: true, prompt: true, question: true }, orderBy: { sortOrder: 'asc' } },
 };
 const noTeaser = { status: 'approved', OR: [{ teaser: null }, { teaser: '' }] };
 
@@ -305,23 +316,36 @@ const noTeaser = { status: 'approved', OR: [{ teaser: null }, { teaser: '' }] };
 let listings;
 let columnLive = true;
 try {
-  listings = await prisma.listing.findMany({ where: { ...noTeaser, openingLine: null }, select });
+  listings = await prisma.listing.findMany({ where: { ...noTeaser, openingLine: null }, select, orderBy: { createdAt: 'asc' } });
 } catch (e) {
   if (e?.code !== 'P2022') throw e;
   columnLive = false;
-  listings = await prisma.listing.findMany({ where: noTeaser, select });
+  listings = await prisma.listing.findMany({ where: noTeaser, select, orderBy: { createdAt: 'asc' } });
   console.log('NOTE: Listing.openingLine is not in the database yet, so this is a preview.');
   console.log('      Merge the migration to main (Vercel runs prisma migrate deploy), then re-run.\n');
 }
 
 console.log(`${listings.length} approved listings have no teaser and no opening line yet\n`);
 
-const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0, nameRejected: 0 };
+const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0, nameRejected: 0, duplicateSkipped: 0 };
 // Listings where a block was skipped because it held the seller's name. Counted
 // so the dry run says how often the guard fired; the line itself is never
 // printed, because printing it would put the name back on a screen.
 const nameHits = new Set();
 const results = [];
+const usedOpenings = new Map();
+const openingKey = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+if (columnLive) {
+  const existing = await prisma.listing.findMany({
+    where: { openingLine: { not: null } },
+    select: { sellerId: true, openingLine: true },
+  });
+  for (const row of existing) {
+    if (!usedOpenings.has(row.sellerId)) usedOpenings.set(row.sellerId, new Set());
+    usedOpenings.get(row.sellerId).add(openingKey(row.openingLine));
+  }
+}
 
 for (const l of listings) {
   let names = [];
@@ -330,8 +354,6 @@ for (const l of listings) {
     names = [l.school, ...(Array.isArray(tags) ? tags : [])].filter((s) => s && s.length > 3)
       .sort((a, b) => b.length - a.length);
   } catch { names = [l.school]; }
-  const question = (l.essays.find((e) => e.question) || {}).question || '';
-
   const candidates = [];
   for (const essay of l.essays) {
     if (!essay.pdfPath) continue;
@@ -357,7 +379,7 @@ for (const l of listings) {
 
     for (const raw of blocks.slice(0, 8)) {
       const block = stripSchoolHeader(stripLabel(stripByline(raw)), names);
-      if (!block || junkReason(block, question)) continue;
+      if (!block || junkReason(block, essay.question || '')) continue;
       const sentence = repairQuotes(firstSentences(block));
       if (unusable(sentence)) continue;
       // Do not break: fall through to the next block and take that opening
@@ -368,20 +390,28 @@ for (const l of listings) {
         nameHits.add(l.id);
         continue;
       }
-      candidates.push({ raw: sentence, score: score(sentence) });
+      candidates.push({
+        raw: sentence,
+        score: score(sentence) + essaySpecificity(essay.prompt, l.essays.length),
+      });
       break;
     }
   }
 
   candidates.sort((a, b) => b.score - a.score);
   if (!candidates.length) { stats.noCandidate++; continue; }
-  results.push({ id: l.id, school: l.school, line: clip(candidates[0].raw, CLIP_MAX) });
+  if (!usedOpenings.has(l.sellerId)) usedOpenings.set(l.sellerId, new Set());
+  const used = usedOpenings.get(l.sellerId);
+  const chosen = candidates.find((candidate) => !used.has(openingKey(candidate.raw)));
+  if (!chosen) { stats.duplicateSkipped++; continue; }
+  used.add(openingKey(chosen.raw));
+  results.push({ id: l.id, school: l.school, line: clip(chosen.raw, CLIP_MAX) });
   stats.filled++;
-  process.stdout.write(`\r${results.length} extracted   `);
+  if (!QUIET) process.stdout.write(`\r${results.length} extracted   `);
 }
 
 console.log('\n');
-results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. ${r.line}`));
+if (!QUIET) results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. ${r.line}`));
 console.log('\n', stats);
 if (nameHits.size) {
   console.log(`\n${stats.nameRejected} block(s) across ${nameHits.size} listing(s) were skipped for`);

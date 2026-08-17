@@ -36,7 +36,9 @@ export default function PrivacyPage() {
         <b>If you sell essays:</b> we collect your school email address (used to verify current or recent
         enrollment via a one-time code), a password, the schools you were admitted to, the essays you upload
         as PDF files, your listing details (essay prompts, pricing, and an optional note to our review team),
-        and your display preference (always anonymous, anonymous until bought, or full name).
+        and your display preference (always anonymous, anonymous until bought, or full name). After your
+        first sale, Stripe collects the identity and bank information required to send your payouts. That
+        sensitive information is submitted directly to Stripe and is not stored by Admitfolio.
       </p>
       <p>
         <b>If you buy essays (when purchasing launches):</b> your email address and your order history.
@@ -59,10 +61,11 @@ export default function PrivacyPage() {
 
       <h3>Purchased essays</h3>
       <p>
-        Essays you buy are licensed to you personally. Every copy we display is watermarked with your
-        email address and purchase reference, and each time an essay is opened we record the date and
-        time, your IP address, and your browser&apos;s user-agent string, linked to your purchase. We
-        also store the IP address used at checkout.
+        Essays you buy are licensed to you personally. Every copy we display is watermarked with a
+        unique, non-reversible license code. The code maps to your purchase in our private records,
+        but does not print your email address or IP address in the essay. Each time an essay is opened,
+        we record the date and time, your IP address, and your browser&apos;s user-agent string, linked to
+        your purchase. We also store the IP address used at checkout.
       </p>
       <p>
         We use this only to enforce the licence — to investigate redistribution or other misuse of a
@@ -126,7 +129,7 @@ export default function PrivacyPage() {
         </li>
         <li><b>Vercel</b> hosts the website and provides the cookieless analytics described above</li>
         <li><b>Resend</b> delivers our transactional emails, such as verification codes</li>
-        <li><b>Stripe</b> will process payments when purchasing launches</li>
+        <li><b>Stripe</b> processes buyer payments and verifies and pays eligible Sellers</li>
       </ul>
       <p>
         These providers process data on our behalf under their own security and privacy commitments. Beyond

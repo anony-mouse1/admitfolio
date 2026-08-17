@@ -14,8 +14,8 @@ import { useEffect, useRef, useState } from 'react';
 // tab, and no web page can prevent a screenshot, a screen recording, or OCR.
 // That is not a gap in this implementation - it is a property of displaying
 // something on a screen someone else controls. The per-buyer watermark is what
-// covers those cases: the copy they extract is stamped with their own email, so
-// a leak identifies the leaker. See lib/watermark.ts.
+// covers those cases: the copy they extract carries a private purchase
+// fingerprint that maps back to its delivery record. See lib/watermark.ts.
 
 type Props = {
   essayId: string;
@@ -72,6 +72,7 @@ export default function EssayReader({ essayId, token, label }: Props) {
           const viewport = page.getViewport({ scale: (targetWidth / base.width) * dpr });
 
           const canvas = document.createElement('canvas');
+          canvas.draggable = false;
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           canvas.style.width = '100%';
@@ -98,7 +99,13 @@ export default function EssayReader({ essayId, token, label }: Props) {
   }, [open, state, essayId, token]);
 
   return (
-    <div className="essay-reader">
+    <div
+      className="essay-reader"
+      onCopy={(event) => event.preventDefault()}
+      onCut={(event) => event.preventDefault()}
+      onDragStart={(event) => event.preventDefault()}
+      onContextMenu={(event) => event.preventDefault()}
+    >
       <div className="essay-reader-head">
         <span>{label}</span>
         {!open && (
@@ -127,7 +134,7 @@ export default function EssayReader({ essayId, token, label }: Props) {
           <div
             ref={holder}
             className="essay-reader-pages"
-            onContextMenu={(e) => e.preventDefault()}
+            aria-label="Purchased essay pages. Copying is disabled."
           />
         </>
       )}

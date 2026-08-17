@@ -5,6 +5,7 @@ import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 import { schoolTier } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
+import { catalogSchool } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,16 @@ export async function GET() {
     }
   }
 
+  const hashCounts = new Map<string, number>();
+  for (const listing of rows) {
+    if (!['pending', 'approved'].includes(listing.status)) continue;
+    for (const essay of listing.essays) {
+      if (!essay.contentHash) continue;
+      const key = `${listing.sellerId}:${essay.contentHash}`;
+      hashCounts.set(key, (hashCounts.get(key) || 0) + 1);
+    }
+  }
+
   // Shape a clean payload for the console (parse admitTags JSON, expose seller email).
   const listings = rows.map((l) => {
     // The proofs relevant to THIS listing: one per distinct school it claims.
@@ -85,6 +96,8 @@ export async function GET() {
     return {
     id: l.id,
     school: l.school,
+    targetSchool: l.targetSchool,
+    applicationSystem: l.applicationSystem,
     gradYear: l.gradYear,
     major: l.major,
     appliedMajors: l.appliedMajors,
@@ -114,10 +127,13 @@ export async function GET() {
     sellerName: l.seller.name,
     sellerBio: l.seller.bio,
     sellerTags: safeParse(l.seller.backgroundTags),
-    // `school` is the university the seller attends (the wizard's "Current
-    // university"), so tier 1 here means they are AT a top school - which is
-    // the prioritisation the console sorts and panels on.
-    isT20: schoolTier(l.school) === 1,
+    // Review priority follows what buyers are shopping for, not the university
+    // the seller currently attends. An unresolved legacy listing has no target
+    // tier until an admin confirms it.
+    isT20: (() => {
+      const target = catalogSchool({ school: l.school, targetSchool: l.targetSchool, admitTags: claimed });
+      return target ? schoolTier(target) === 1 : false;
+    })(),
     // Submissions from admin/test accounts are dummy data, not real students -
     // the console badges them so they're never mistaken for the real thing.
     isTest: isAdminEmail(l.seller.email) || TEST_EMAILS.has(l.seller.email.toLowerCase()),
@@ -130,6 +146,7 @@ export async function GET() {
       wordCount: e.wordCount,
       pdfPath: e.pdfPath,
       pdfUrl: (e.pdfPath && urlByPath.get(e.pdfPath)) || null,
+      duplicateFile: !!e.contentHash && (hashCounts.get(`${l.sellerId}:${e.contentHash}`) || 0) > 1,
     })),
     };
   });

@@ -3,8 +3,8 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 
 // Per-buyer forensic watermarking.
 //
-// Every buyer gets their OWN copy of a PDF, stamped with the email Stripe
-// verified at checkout plus the purchase id. Two marks go on:
+// Every buyer gets their OWN copy of a PDF, stamped with a keyed,
+// non-reversible purchase fingerprint. Two marks go on:
 //
 //   1. A footer on every page - small, readable, hard to crop out of a
 //      screenshot without also losing the bottom of the essay.
@@ -12,9 +12,9 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 //      or re-flattened, and makes a casual re-share obviously marked.
 //
 // The point is NOT to stop copying. It is attribution: any copy that escapes
-// carries the identity of the person it was issued to, so a leak has a name on
-// it. That is the deterrent that actually works, because it cannot be defeated
-// by screenshotting.
+// carries a code that maps to the buyer and access-IP history in the private
+// database. Email addresses and raw IPs never appear in the document. This is
+// the deterrent that still survives screenshotting.
 //
 // pdf-lib cannot encrypt or set owner passwords, and deliberately so - PDF
 // permission flags ("no copy", "no print") are advisory. Any cooperating viewer
@@ -23,17 +23,14 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 // blocks selection; see components/EssayReader.tsx.
 
 export type WatermarkIdentity = {
-  buyerEmail: string;
-  purchaseId: string;
+  fingerprint: string;
   viewedAt: Date;
 };
 
-// Keep the footer to one line; long emails get truncated rather than wrapped so
-// the stamp never covers essay text.
-function footerText(id: WatermarkIdentity): string {
-  const email = id.buyerEmail.length > 48 ? id.buyerEmail.slice(0, 45) + '…' : id.buyerEmail;
+// Keep the footer to one line so the stamp never covers essay text.
+export function watermarkFooterText(id: WatermarkIdentity): string {
   const when = id.viewedAt.toISOString().slice(0, 10);
-  return `Licensed to ${email} · purchase ${id.purchaseId} · ${when} · Admitfolio — inspiration only, not for submission`;
+  return `Licensed copy ${id.fingerprint} · ${when} · Admitfolio. Inspiration only, not for submission.`;
 }
 
 export async function watermarkPdf(input: Buffer, id: WatermarkIdentity): Promise<Buffer> {
@@ -44,14 +41,14 @@ export async function watermarkPdf(input: Buffer, id: WatermarkIdentity): Promis
     throwOnInvalidObject: false,
   });
   const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const footer = footerText(id);
+  const footer = watermarkFooterText(id);
 
   for (const page of pdf.getPages()) {
     const { width, height } = page.getSize();
 
     // Diagonal wash. Low opacity so the essay stays comfortably readable -
     // this is a forensic mark, not a redaction.
-    const diagonal = id.buyerEmail;
+    const diagonal = `ADMITFOLIO ${id.fingerprint}`;
     const diagonalSize = Math.max(14, Math.min(30, (width * 1.1) / Math.max(diagonal.length, 12)));
     page.drawText(diagonal, {
       x: width * 0.12,
@@ -88,9 +85,9 @@ export async function watermarkPdf(input: Buffer, id: WatermarkIdentity): Promis
 
   // Document metadata carries the same identity, so even a stripped-and-
   // re-saved copy usually keeps a trace. Cheap to add, occasionally decisive.
-  pdf.setTitle('Admitfolio — licensed copy');
-  pdf.setSubject(`Issued to ${id.buyerEmail} (purchase ${id.purchaseId})`);
-  pdf.setKeywords([`purchase:${id.purchaseId}`, `buyer:${id.buyerEmail}`]);
+  pdf.setTitle('Admitfolio licensed copy');
+  pdf.setSubject(`Licensed copy ${id.fingerprint}`);
+  pdf.setKeywords([`fingerprint:${id.fingerprint}`]);
   pdf.setProducer('Admitfolio');
   pdf.setCreator('Admitfolio');
 

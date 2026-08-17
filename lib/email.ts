@@ -39,36 +39,37 @@ export async function sendLoginCode(email: string, code: string): Promise<SendRe
   return send(email, `Your Admitfolio verification code: ${code}`, html, text);
 }
 
-// Notifies a seller that one of their essays sold. The first sale carries an
-// action item: add a PayPal email so biweekly payouts have somewhere to go.
+// Notifies a seller that one of their essays sold. Payout onboarding is
+// intentionally deferred until this first real sale, so sellers do no setup
+// work before they have earned anything.
 export async function sendSaleNotification(
   email: string,
   opts: { itemLabel: string; amount: number; net: number; firstSale: boolean },
 ): Promise<SendResult> {
   const { itemLabel, amount, net, firstSale } = opts;
   if (!RESEND_API_KEY) {
-    console.log(`[email:dev] sale notification for ${email}: ${itemLabel} $${amount} (net $${net})${firstSale ? ' FIRST SALE - PayPal action item' : ''}`);
+    console.log(`[email:dev] sale notification for ${email}: ${itemLabel} $${amount} (net $${net})${firstSale ? ' FIRST SALE - Stripe payout setup action' : ''}`);
     return { ok: true, simulated: true };
   }
   const actionBox = firstSale
     ? `
       <div style="margin:18px 0;padding:14px 16px;background:#faf3f4;border:1px solid #e6c9ce;border-radius:12px">
-        <div style="font-size:14px;font-weight:700;color:#7d1d2d">Action item: add your PayPal email</div>
+        <div style="font-size:14px;font-weight:700;color:#7d1d2d">Congrats, you made your first sale!</div>
         <p style="color:#56524a;font-size:14px;line-height:1.6;margin:6px 0 0">
-          This was your first sale! Payouts go out <b>every two weeks</b> via PayPal.
-          Log in to your seller dashboard and add your PayPal email under
-          <b>Your seller profile</b> so we know where to send your earnings.
+          You earned <b>$${net.toFixed(2)}</b>. Please set up your payout so Stripe
+          can send your earnings to your bank. You only have to do this once.
         </p>
-        <a href="https://admitfolio.com/?login=1" style="display:inline-block;margin-top:10px;background:#7d1d2d;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;padding:9px 18px">Open seller login</a>
+        <a href="https://admitfolio.com/?login=1&amp;payouts=setup" style="display:inline-block;margin-top:10px;background:#7d1d2d;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;padding:9px 18px">Set up my payout</a>
       </div>`
     : `
       <p style="color:#56524a;font-size:14px;line-height:1.6">
-        Your share is paid out every two weeks via PayPal to the address on your seller profile.
+        Your earnings are recorded in your seller dashboard. Once payout setup is complete,
+        Stripe sends them automatically to your bank.
       </p>`;
   const html = `
     <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1b1a17">
       <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
-      <h2 style="margin:22px 0 6px">You made a sale! 🎉</h2>
+      <h2 style="margin:22px 0 6px">${firstSale ? 'Congrats, you made your first sale! 🎉' : 'You made a sale! 🎉'}</h2>
       <p style="color:#56524a;font-size:15px;line-height:1.6">
         <b>${esc(itemLabel)}</b> just sold for <b>$${amount}</b>.
         Your share: <b>$${net.toFixed(2)}</b>.
@@ -77,14 +78,17 @@ export async function sendSaleNotification(
       <p style="color:#8a857b;font-size:13px">See details anytime in your seller dashboard.</p>
     </div>`;
   const subject = firstSale
-    ? 'Your first Admitfolio sale! One quick action needed'
+    ? 'Congrats, you made your first sale! Set up your payout'
     : `You made a sale: ${itemLabel}`;
   const text =
     `${itemLabel} just sold for $${amount}. Your share: $${net.toFixed(2)}.\n\n` +
     (firstSale
-      ? 'This was your first sale! Payouts go out every two weeks via PayPal. Log in to your seller dashboard (https://admitfolio.com/?login=1) and add your PayPal email under "Your seller profile" so we know where to send your earnings.'
-      : 'Your share is paid out every two weeks via PayPal to the address on your seller profile.');
-  return send(email, subject, html, text);
+      ? `Congrats, you made your first sale! You earned $${net.toFixed(2)}. Please set up your payout so Stripe can send your earnings to your bank. You only have to do this once: https://admitfolio.com/?login=1&payouts=setup`
+      : 'Your earnings are recorded in your seller dashboard. Once payout setup is complete, Stripe sends them automatically to your bank.');
+  return send(email, subject, html, text, {
+    from: SELLER_FROM,
+    replyTo: SELLER_REPLY_TO,
+  });
 }
 
 // Tells the admin(s) a new listing just landed in the review queue. Submissions
@@ -217,22 +221,34 @@ export async function sendListingDecisionNotification(
 // essays, so this email IS the product handoff.
 export async function sendPurchaseReceipt(
   email: string,
-  opts: { itemLabel: string; amount: number; accessUrl: string },
+  opts: {
+    itemLabel: string;
+    accessUrl: string;
+    fingerprint?: string;
+    amount?: number;
+    amountCents?: number;
+  },
 ): Promise<SendResult> {
-  const { itemLabel, amount, accessUrl } = opts;
+  const { itemLabel, accessUrl, fingerprint } = opts;
+  const amountCents = opts.amountCents ?? Math.round((opts.amount ?? 0) * 100);
+  const amountLabel = `$${(amountCents / 100).toFixed(2)}`;
   if (!RESEND_API_KEY) {
-    console.log(`[email:dev] purchase receipt for ${email}: ${itemLabel} $${amount} -> ${accessUrl}`);
+    console.log(`[email:dev] purchase receipt for ${email}: ${itemLabel} ${amountLabel} -> ${accessUrl} (reply-to ${SELLER_REPLY_TO ?? 'none'})`);
     return { ok: true, simulated: true };
   }
+  const licenseLine = fingerprint
+    ? `<p style="color:#8a857b;font-size:13px;line-height:1.6">Your unique license code is <b>${esc(fingerprint)}</b>. It identifies your copy without printing your email or IP inside the essay.</p>`
+    : '';
   const html = `
     <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1b1a17">
       <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
       <h2 style="margin:22px 0 6px">Your essays are ready 🎉</h2>
       <p style="color:#56524a;font-size:15px;line-height:1.6">
-        Thanks for your purchase of <b>${esc(itemLabel)}</b> ($${amount}).
-        Your private reading link is below - keep this email, the link is yours.
+        Thanks for your purchase of <b>${esc(itemLabel)}</b> (${amountLabel}).
+        Your private reading link is below. Keep this email, the link is yours.
       </p>
       <a href="${accessUrl}" style="display:inline-block;margin:14px 0;background:#7d1d2d;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;padding:12px 24px">Read your essays</a>
+      ${licenseLine}
       <p style="color:#8a857b;font-size:13px;line-height:1.6">
         A note on how to use them: these essays are for inspiration and learning only.
         Submitting them (or close rewrites) as your own work violates our Terms of Service
@@ -240,9 +256,17 @@ export async function sendPurchaseReceipt(
       </p>
     </div>`;
   const text =
-    `Thanks for your purchase of ${itemLabel} ($${amount}). Read your essays at your private link (keep this email, the link is yours):\n\n${accessUrl}\n\n` +
+    `Thanks for your purchase of ${itemLabel} (${amountLabel}). Read your essays at your private link (keep this email, the link is yours):\n\n${accessUrl}\n\n` +
+    (fingerprint ? `Your unique license code is ${fingerprint}. It identifies your copy without printing your email or IP inside the essay.\n\n` : '') +
     'A note on how to use them: these essays are for inspiration and learning only. Submitting them (or close rewrites) as your own work violates our Terms of Service and can carry serious consequences, including rescinded admissions.';
-  return send(email, `Your Admitfolio purchase: ${itemLabel}`, html, text);
+  return send(email, `Your Admitfolio purchase: ${itemLabel}`, html, text, {
+    from: SELLER_FROM,
+    replyTo: SELLER_REPLY_TO,
+    // If Resend accepts the message and the server dies before we mark the
+    // Purchase delivered, the webhook retry reuses this key instead of sending
+    // the buyer a second receipt.
+    idempotencyKey: fingerprint ? `purchase-delivery/${fingerprint}` : undefined,
+  });
 }
 
 // Every email includes a plain-text part alongside the HTML - HTML-only
@@ -253,7 +277,7 @@ async function send(
   subject: string,
   html: string,
   text: string,
-  opts?: { from?: string; replyTo?: string },
+  opts?: { from?: string; replyTo?: string; idempotencyKey?: string },
 ): Promise<SendResult> {
   try {
     const resp = await fetch('https://api.resend.com/emails', {
@@ -261,6 +285,7 @@ async function send(
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
+        ...(opts?.idempotencyKey ? { 'Idempotency-Key': opts.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from: opts?.from || FROM_EMAIL,

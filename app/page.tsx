@@ -3,11 +3,12 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
-import { TIER, packageFloor, perEssayFloor, admitsTier, SELLER_SHARE } from '@/lib/pricing';
+import { TIER, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
-import { schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
+import { SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
+import { catalogSchool } from '@/lib/listingSchool';
 
 /* ============================================================================
    Types & static data
@@ -44,6 +45,8 @@ type SortKey = 'competitive' | 'newest' | 'price-asc' | 'price-desc';
 type PublicListing = {
   id: string;
   school: string;
+  targetSchool?: string | null;
+  applicationSystem?: string | null;
   admitTags: string[];
   // The subset of admitTags backed by an acceptance letter a human checked.
   // /api/listings has always computed this; the client never declared it, so
@@ -65,6 +68,11 @@ type PricingMode = 'package' | 'separate';
 
 type EssayRow = { prompt: string; question: string; fileName: string; file: File | null; price: string };
 
+async function fileSha256(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 // Real dashboard data from /api/seller/listings.
 type SellerEssay = {
   id: string;
@@ -73,10 +81,15 @@ type SellerEssay = {
   price: number | null;
   sales: number;
   gross: number;
+  grossCents?: number;
+  sellerEarningsCents?: number;
+  platformFeeCents?: number;
 };
 type SellerListing = {
   id: string;
   school: string;
+  targetSchool?: string | null;
+  applicationSystem?: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'removed';
   pricingMode: string;
   packagePrice: number | null;
@@ -85,7 +98,27 @@ type SellerListing = {
   createdAt: string;
   sales: number;
   gross: number;
+  grossCents?: number;
+  sellerEarningsCents?: number;
+  platformFeeCents?: number;
   essays: SellerEssay[];
+};
+
+type SellerAccounting = {
+  allTimeGrossCents: number;
+  allTimeSellerEarningsCents: number;
+  allTimePlatformFeeCents: number;
+  monthGrossCents: number;
+  monthSellerEarningsCents: number;
+  monthPlatformFeeCents: number;
+};
+
+type SellerPayouts = {
+  status: 'not_eligible' | 'setup_required' | 'in_review' | 'ready';
+  setupAvailable: boolean;
+  liveSaleCount: number;
+  pendingCents: number;
+  paidCents: number;
 };
 
 const essays: Essay[] = [
@@ -148,10 +181,14 @@ const anonApiValue: Record<AnonMode, Anonymity> = {
 // that can drift apart.
 const listingPrice = (l: SellerListing) =>
   l.packagePrice ?? l.essays.reduce((sum, e) => sum + (e.price || 0), 0);
-const listingTitle = (l: SellerListing) =>
-  l.essays.length === 1
-    ? `${l.essays[0].question || l.essays[0].prompt} · ${l.school}`
-    : `${l.school} · ${l.essays.length} essays`;
+const sellerListingSchool = (l: SellerListing) => catalogSchool(l);
+const listingTitle = (l: SellerListing) => {
+  const titleSchool = sellerListingSchool(l);
+  if (!titleSchool) return 'School confirmation needed';
+  return l.essays.length === 1
+    ? `${l.essays[0].question || l.essays[0].prompt} · ${titleSchool}`
+    : `${titleSchool} · ${l.essays.length} essays`;
+};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
@@ -261,7 +298,7 @@ export default function Page() {
     const copy = [...pubListings];
     if (sortBy === 'price-asc') return copy.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
     if (sortBy === 'price-desc') return copy.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-    return copy.sort((a, b) => (admitsTier(a.admitTags) ?? 9) - (admitsTier(b.admitTags) ?? 9));
+    return copy.sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b)));
   }, [pubListings, sortBy]);
   useEffect(() => {
     if (!LAUNCHED) return;
@@ -298,7 +335,8 @@ export default function Page() {
   const [currentMajor, setCurrentMajor] = useState('');
   const [uniErr, setUniErr] = useState('');
   const [anonMode, setAnonMode] = useState<AnonMode>('public');
-  const [targetSchool, setTargetSchool] = useState('');
+  const [applicationType, setApplicationType] = useState('');
+  const [listingSchool, setListingSchool] = useState('');
   const [admits, setAdmits] = useState<string[]>([]);
   const [admitInput, setAdmitInput] = useState('');
   const [admitFocus, setAdmitFocus] = useState(false);
@@ -318,6 +356,10 @@ export default function Page() {
     }
     return out;
   }, [admits]);
+  useEffect(() => {
+    if (listingSchool && admits.some((school) => sameSchool(school, listingSchool))) return;
+    setListingSchool('');
+  }, [admits, listingSchool]);
   // Pricing toggle removed: every listing has one price for the whole set.
   // 'separate' support stays in the API/dashboard for existing data.
   const pricingMode: PricingMode = 'package';
@@ -338,7 +380,10 @@ export default function Page() {
   const admitInputRef = useRef<HTMLInputElement>(null);
 
   // The tier is fixed - derived from the seller's admits, no manual override.
-  const suggestedTier: 1 | 2 | 3 | null = useMemo(() => admitsTier(admits), [admits]);
+  const suggestedTier: 1 | 2 | 3 | null = useMemo(
+    () => (listingSchool ? schoolTier(listingSchool) : null),
+    [listingSchool],
+  );
 
   // Auto-apply the tier floor to prices (mirrors applyTierToPrices).
   useEffect(() => {
@@ -361,7 +406,8 @@ export default function Page() {
   }, [suggestedTier, essayRows.length]);
 
   const resetListingForm = useCallback(() => {
-    setTargetSchool('');
+    setApplicationType('');
+    setListingSchool('');
     setPackagePrice('');
     setAdmits([]);
     setAdmitInput('');
@@ -525,7 +571,7 @@ export default function Page() {
   /* ---- admit tags ---- */
   function addAdmit() {
     const v = admitInput.trim().replace(/,$/, '').trim();
-    if (v && !admits.some((a) => a.toLowerCase() === v.toLowerCase())) {
+    if (v && !admits.some((a) => sameSchool(a, v))) {
       setAdmits((prev) => [...prev, v]);
     }
     setAdmitInput('');
@@ -553,14 +599,14 @@ export default function Page() {
   }
 
   const reqHint = useMemo(() => {
-    const req = reqMap[targetSchool];
+    const req = reqMap[applicationType];
     if (!req) return '';
     let html = req.text;
     if (req.count > 1) {
       html += `<br>You've added <b>${essayRows.length} of ${req.count}</b> ${req.name}.`;
     }
     return html;
-  }, [targetSchool, essayRows.length]);
+  }, [applicationType, essayRows.length]);
 
   const admitNames = admits.slice(0, 3).join(', ') + (admits.length > 3 ? '…' : '');
 
@@ -575,10 +621,15 @@ export default function Page() {
     const rows = essayRows;
     const separate = pricingMode === 'separate';
     let msg = '';
-    if (!targetSchool) msg = 'Pick the application type for these essays.';
+    if (!applicationType) msg = 'Pick the application type for these essays.';
     else if (admits.length === 0) msg = 'Add at least one school you got into.';
-    else if (admitProofRows.some((a) => !admitFiles[a.key])) msg = 'Upload an acceptance letter for every school you got into.';
-    else if (admitProofRows.some((a) => (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each acceptance letter must be 4MB or smaller.';
+    else if (!listingSchool || !admits.some((school) => sameSchool(school, listingSchool))) msg = 'Choose which college this listing is for.';
+    else if (admitProofRows.some((a) => !admitFiles[a.key])) msg = 'Upload proof for every school you got into.';
+    else if (admitProofRows.some((a) => (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each proof file must be 4MB or smaller.';
+    else if (admitProofRows.some((a) => {
+      const file = admitFiles[a.key] as File;
+      return !['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) && !/\.(pdf|png|jpe?g)$/i.test(file.name);
+    })) msg = 'Proof must be a PDF, PNG, or JPG.';
     else if (rows.some((r) => !r.prompt)) msg = 'Choose a prompt type for every essay.';
     else if (rows.some((r) => /^other/i.test(r.prompt) && !r.question.trim())) msg = 'Type the essay question for every "Other" essay.';
     else if (rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
@@ -595,24 +646,34 @@ export default function Page() {
     }
     setDetailsErr('');
 
+    let contentHashes: string[];
+    try {
+      contentHashes = await Promise.all(rows.map((row) => fileSha256(row.file as File)));
+    } catch {
+      setDetailsErr('Could not check the essay files for duplicates. Please choose the files again.');
+      return;
+    }
+
     const payload = {
       email: verifiedEmail,
       emailToken,
       password: signupPw || undefined,
       school: currentUni.trim(),
+      targetSchool: listingSchool,
       admitTags: admits,
       anonymity: anonApiValue[anonMode],
-      applicationSystem: appLabels[targetSchool] || targetSchool,
+      applicationSystem: appLabels[applicationType] || applicationType,
       pricingMode,
       packagePrice: separate ? undefined : Number(packagePrice) || undefined,
       major: currentMajor.trim() || undefined,
       appliedMajors: appliedMajors.trim() || undefined,
       teaser: teaser.trim() || undefined,
       sellerNote: sellerNote.trim() || undefined,
-      essays: rows.map((r) => ({
+      essays: rows.map((r, index) => ({
         prompt: r.prompt,
         question: /^other/i.test(r.prompt) ? r.question.trim() || undefined : undefined,
         price: separate ? Number(r.price) || undefined : undefined,
+        contentHash: contentHashes[index],
       })),
     };
 
@@ -643,7 +704,7 @@ export default function Page() {
       for (let i = 0; i < needed.length; i++) {
         const file = admitFiles[schoolKey(needed[i].school)];
         if (!file) continue;
-        setSubmitLabel(`Uploading acceptance letter ${i + 1} of ${needed.length}…`);
+        setSubmitLabel(`Uploading admission proof ${i + 1} of ${needed.length}…`);
         const fd = new FormData();
         fd.append('token', data.uploadToken);
         fd.append('proofId', needed[i].id);
@@ -651,7 +712,7 @@ export default function Page() {
         const up = await fetch('/api/upload-admit-proof', { method: 'POST', body: fd });
         const upData = (await up.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!up.ok || upData.ok === false) {
-          throw new Error(upData.error || 'Could not upload one of your acceptance letters. Please try again.');
+          throw new Error(upData.error || 'Could not upload one of your proof files. Please try again.');
         }
       }
 
@@ -873,26 +934,57 @@ export default function Page() {
     setSellerEmail(email || '');
     setListings([]);
     setMonthGross(0);
+    setSellerAccounting(null);
+    setSellerPayouts(null);
+    setPayoutSetupError('');
     setDashErr('');
     setDashLoading(true);
     setDashOpen(true);
     setProfMsg({ text: '', kind: '' });
     fetch('/api/seller/profile')
       .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { name?: string | null; paypalEmail?: string | null; bio?: string | null; backgroundTags?: string[] };
+        const d = (await r.json().catch(() => ({}))) as { name?: string | null; bio?: string | null; backgroundTags?: string[] };
         if (!r.ok) return;
         setProfName(d.name || '');
-        setProfPaypal(d.paypalEmail || '');
         setProfBio(d.bio || '');
         setProfTags(Array.isArray(d.backgroundTags) ? d.backgroundTags : []);
       })
       .catch(() => {});
     fetch('/api/seller/listings')
       .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { listings?: SellerListing[]; monthGross?: number; error?: string };
+        const d = (await r.json().catch(() => ({}))) as {
+          listings?: SellerListing[];
+          monthGross?: number;
+          allTimeGrossCents?: number;
+          allTimeSellerEarningsCents?: number;
+          allTimePlatformFeeCents?: number;
+          monthGrossCents?: number;
+          monthSellerEarningsCents?: number;
+          monthPlatformFeeCents?: number;
+          payouts?: SellerPayouts | null;
+          error?: string;
+        };
         if (!r.ok || !d.listings) throw new Error(d.error || 'Could not load your listings.');
         setListings(d.listings);
         setMonthGross(d.monthGross || 0);
+        setSellerPayouts(d.payouts || null);
+        if (
+          typeof d.allTimeGrossCents === 'number' &&
+          typeof d.allTimeSellerEarningsCents === 'number' &&
+          typeof d.allTimePlatformFeeCents === 'number' &&
+          typeof d.monthGrossCents === 'number' &&
+          typeof d.monthSellerEarningsCents === 'number' &&
+          typeof d.monthPlatformFeeCents === 'number'
+        ) {
+          setSellerAccounting({
+            allTimeGrossCents: d.allTimeGrossCents,
+            allTimeSellerEarningsCents: d.allTimeSellerEarningsCents,
+            allTimePlatformFeeCents: d.allTimePlatformFeeCents,
+            monthGrossCents: d.monthGrossCents,
+            monthSellerEarningsCents: d.monthSellerEarningsCents,
+            monthPlatformFeeCents: d.monthPlatformFeeCents,
+          });
+        }
       })
       .catch((err) => setDashErr(err instanceof Error ? err.message : 'Could not load your listings.'))
       .finally(() => setDashLoading(false));
@@ -983,12 +1075,15 @@ export default function Page() {
   const [sellerEmail, setSellerEmail] = useState('');
   const [listings, setListings] = useState<SellerListing[]>([]);
   const [monthGross, setMonthGross] = useState(0);
+  const [sellerAccounting, setSellerAccounting] = useState<SellerAccounting | null>(null);
+  const [sellerPayouts, setSellerPayouts] = useState<SellerPayouts | null>(null);
   const [dashLoading, setDashLoading] = useState(false);
   const [dashErr, setDashErr] = useState('');
+  const [payoutSetupBusy, setPayoutSetupBusy] = useState(false);
+  const [payoutSetupError, setPayoutSetupError] = useState('');
 
   /* ---- Seller profile (name, bio, background tags; avatar = initials) ---- */
   const [profName, setProfName] = useState('');
-  const [profPaypal, setProfPaypal] = useState('');
   const [profBio, setProfBio] = useState('');
   const [profTags, setProfTags] = useState<string[]>([]);
   const [profMsg, setProfMsg] = useState<Msg>({ text: '', kind: '' });
@@ -1006,7 +1101,7 @@ export default function Page() {
       const resp = await fetch('/api/seller/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profName, paypalEmail: profPaypal, bio: profBio, backgroundTags: profTags }),
+        body: JSON.stringify({ name: profName, bio: profBio, backgroundTags: profTags }),
       });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not save your profile.');
@@ -1019,22 +1114,54 @@ export default function Page() {
   }
 
   const earnings = useMemo(() => {
-    const totalGross = listings.reduce((sum, l) => sum + l.gross, 0);
+    const fallbackGross = listings.reduce((sum, l) => sum + l.gross, 0);
+    const totalGross = sellerAccounting ? sellerAccounting.allTimeGrossCents / 100 : fallbackGross;
     const totalSales = listings.reduce((sum, l) => sum + l.sales, 0);
     return {
       totalGross,
-      totalNet: round2(totalGross * SELLER_SHARE),
-      totalFee: round2(totalGross * (1 - SELLER_SHARE)),
-      monthGross,
-      monthNet: round2(monthGross * SELLER_SHARE),
+      totalNet: sellerAccounting
+        ? sellerAccounting.allTimeSellerEarningsCents / 100
+        : round2(totalGross * SELLER_SHARE),
+      totalFee: sellerAccounting
+        ? sellerAccounting.allTimePlatformFeeCents / 100
+        : round2(totalGross * (1 - SELLER_SHARE)),
+      monthGross: sellerAccounting ? sellerAccounting.monthGrossCents / 100 : monthGross,
+      monthNet: sellerAccounting
+        ? sellerAccounting.monthSellerEarningsCents / 100
+        : round2(monthGross * SELLER_SHARE),
       totalSales,
-      pendingPayout: round2(totalGross * SELLER_SHARE),
+      pendingPayout: sellerAccounting
+        ? (sellerPayouts?.pendingCents ?? sellerAccounting.allTimeSellerEarningsCents) / 100
+        : round2(totalGross * SELLER_SHARE),
     };
-  }, [listings, monthGross]);
+  }, [listings, monthGross, sellerAccounting, sellerPayouts]);
 
-  const sellerPct = Math.round(SELLER_SHARE * 100);
-  const platformPct = 100 - sellerPct;
-  const publishedListings = listings.filter((l) => l.status === 'approved');
+  async function handlePayoutSetup() {
+    setPayoutSetupBusy(true);
+    setPayoutSetupError('');
+    try {
+      const resp = await fetch('/api/seller/connect/start', { method: 'POST' });
+      const data = (await resp.json().catch(() => ({}))) as {
+        ok?: boolean;
+        url?: string;
+        alreadyReady?: boolean;
+        error?: string;
+      };
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not start payout setup.');
+      if (data.alreadyReady) {
+        setSellerPayouts((current) => current ? { ...current, status: 'ready' } : current);
+        return;
+      }
+      if (!data.url) throw new Error('Stripe did not return a payout setup link.');
+      window.location.assign(data.url);
+    } catch (error) {
+      setPayoutSetupError(error instanceof Error ? error.message : 'Could not start payout setup.');
+    } finally {
+      setPayoutSetupBusy(false);
+    }
+  }
+
+  const publishedListings = listings.filter((l) => l.status === 'approved' && sellerListingSchool(l));
   const publishedCount = publishedListings.length;
 
   async function listingAction(id: string, action: 'takedown' | 'resubmit') {
@@ -1097,12 +1224,24 @@ export default function Page() {
     document.body.classList.add(q.get('layout') === 'backdrop' ? 'layout-backdrop' : 'layout-frame');
     if (q.get('bg') === 'soft') document.body.classList.add('bg-soft');
     let t: ReturnType<typeof setTimeout> | undefined;
-    if (q.get('login')) t = setTimeout(() => openLogin(), 300);
+    if (q.get('payouts')) {
+      t = setTimeout(() => {
+        fetch('/api/seller/session')
+          .then(async (response) => {
+            const data = (await response.json().catch(() => ({}))) as { email?: string };
+            if (!response.ok || !data.email) throw new Error('login required');
+            openDashboard(data.email);
+          })
+          .catch(() => openLogin());
+      }, 200);
+    } else if (q.get('login')) {
+      t = setTimeout(() => openLogin(), 300);
+    }
     return () => {
       document.body.classList.remove('layout-frame', 'layout-backdrop', 'bg-soft');
       if (t) clearTimeout(t);
     };
-  }, [openLogin]);
+  }, [openDashboard, openLogin]);
 
   // Escape closes the top-most overlay.
   useEffect(() => {
@@ -1725,8 +1864,8 @@ export default function Page() {
             <p className="sub">Pick the application system your essays came from, then add every essay in that application so buyers get the complete set.</p>
 
             <div className="field">
-              <label htmlFor="targetSchool">Which application are these essays from?</label>
-              <select id="targetSchool" value={targetSchool} onChange={(e) => { setTargetSchool(e.target.value); setDetailsErr(''); }}>
+              <label htmlFor="applicationType">Which application are these essays from?</label>
+              <select id="applicationType" value={applicationType} onChange={(e) => { setApplicationType(e.target.value); setDetailsErr(''); }}>
                 <option value="">Pick an application type…</option>
                 <optgroup label="Multi-school platforms">
                   <option value="commonapp">Common App</option>
@@ -1749,9 +1888,21 @@ export default function Page() {
                     {name} <button type="button" aria-label="Remove" onClick={(e) => { e.stopPropagation(); setAdmits((prev) => prev.filter((_, idx) => idx !== i)); }}>&times;</button>
                   </span>
                 ))}
-                <input ref={admitInputRef} type="text" id="admitInput" placeholder="Type a school, press Enter" autoComplete="off" value={admitInput} onChange={(e) => setAdmitInput(e.target.value)} onKeyDown={handleAdmitKeyDown} onFocus={() => setAdmitFocus(true)} onBlur={() => { setAdmitFocus(false); addAdmit(); }} />
+                <input ref={admitInputRef} type="text" id="admitInput" list="schoolOptions" placeholder="Choose a school, press Enter" autoComplete="off" value={admitInput} onChange={(e) => setAdmitInput(e.target.value)} onKeyDown={handleAdmitKeyDown} onFocus={() => setAdmitFocus(true)} onBlur={() => { setAdmitFocus(false); addAdmit(); }} />
               </div>
-              <div className="field-hint">Add every school these essays helped you get into.</div>
+              <datalist id="schoolOptions">
+                {SCHOOL_OPTIONS.map((school) => <option key={school} value={school} />)}
+              </datalist>
+              <div className="field-hint">Choose the exact campus when a university has several.</div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="listingSchool">Of the schools above, which college is this listing for?</label>
+              <select id="listingSchool" value={listingSchool} disabled={admits.length === 0} onChange={(e) => { setListingSchool(e.target.value); setDetailsErr(''); }}>
+                <option value="">{admits.length ? 'Choose the main college…' : 'Add a school above first'}</option>
+                {admits.map((school) => <option key={school} value={school}>{school}</option>)}
+              </select>
+              <div className="field-hint">We use this as the card title. Your full list still appears under “Accepted in.”</div>
             </div>
 
             {/* Always rendered, even with no schools added yet. This is a required
@@ -1762,7 +1913,7 @@ export default function Page() {
               <div>
                 {admitProofRows.length === 0 ? (
                   <div className="proof-empty">
-                    Add a school above and we&apos;ll ask for its acceptance letter here.
+                    Add a school above and we&apos;ll ask for proof here.
                   </div>
                 ) : (
                   admitProofRows.map((a) => {
@@ -1772,7 +1923,7 @@ export default function Page() {
                         <span className="proof-school">{a.label}</span>
                         <input
                           type="file"
-                          accept="application/pdf,.pdf"
+                          accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
                           hidden
                           onChange={(e) => {
                             const file = e.target.files?.[0] ?? null;
@@ -1780,16 +1931,16 @@ export default function Page() {
                             setDetailsErr('');
                           }}
                         />
-                        <span className="proof-file">{f ? f.name : 'Upload letter (PDF)'}</span>
+                        <span className="proof-file">{f ? f.name : 'Letter, portal, or email proof'}</span>
                       </label>
                     );
                   })
                 )}
               </div>
               <div className="field-hint">
-                Upload the acceptance letter or admitted-student portal screenshot for each school, saved as a
-                PDF. Buyers choose an essay by where it got in, so we check every school before a listing goes
-                live. Letters are seen only by our review team, never by buyers, and you can black out anything
+                Upload an acceptance letter, admitted-student portal screenshot, or acceptance email for each school.
+                PDF, PNG, and JPG files work. Buyers choose an essay by where it got in, so we check every school before a listing goes
+                live. Proof files are seen only by our review team, never by buyers, and you can black out anything
                 that isn&apos;t your name, the school, and the decision.
               </div>
             </div>
@@ -2074,7 +2225,7 @@ export default function Page() {
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total net earnings</div>
                 <div className="dash-stat-value">{fmt(earnings.totalNet)}</div>
-                <div className="dash-stat-sub">After {platformPct}% platform fee · all time</div>
+                <div className="dash-stat-sub">After platform fees · all time</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">This month (net)</div>
@@ -2084,7 +2235,17 @@ export default function Page() {
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Pending payout</div>
                 <div className="dash-stat-value">{fmt(earnings.pendingPayout)}</div>
-                <div className="dash-stat-sub">{earnings.pendingPayout > 0 ? 'Paid out biweekly via PayPal, starting when buying launches' : 'No sales yet'}</div>
+                <div className="dash-stat-sub">
+                  {sellerPayouts?.status === 'setup_required'
+                    ? 'Payout setup needed'
+                    : sellerPayouts?.status === 'in_review'
+                      ? 'Stripe verification in progress'
+                      : sellerPayouts?.status === 'ready' && earnings.pendingPayout > 0
+                        ? 'Processing automatically through Stripe'
+                        : earnings.pendingPayout > 0
+                          ? 'Recorded and waiting safely'
+                          : 'No unpaid earnings'}
+                </div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total sales</div>
@@ -2092,6 +2253,32 @@ export default function Page() {
                 <div className="dash-stat-sub">Across {publishedCount} live listing{publishedCount === 1 ? '' : 's'}</div>
               </div>
             </div>
+            {sellerPayouts?.status === 'setup_required' && (
+              <div className="dash-payout-setup" role="region" aria-label="Set up seller payouts">
+                <div className="dash-payout-copy">
+                  <div className="dash-payout-kicker">Your first sale</div>
+                  <div className="dash-payout-title">Congrats, you made your first sale!</div>
+                  <p>
+                    You have <strong>{fmt(sellerPayouts.pendingCents / 100)}</strong> waiting.
+                    Set up your payout once so Stripe can send this and future earnings to your bank.
+                  </p>
+                  <div className="dash-payout-privacy">Identity and bank details go directly to Stripe. Admitfolio never stores them.</div>
+                  {payoutSetupError && <div className="dash-payout-error" role="alert">{payoutSetupError}</div>}
+                </div>
+                <button className="modal-btn dash-payout-button" type="button" onClick={handlePayoutSetup} disabled={payoutSetupBusy}>
+                  {payoutSetupBusy ? 'Opening Stripe…' : 'Set up my payout'}
+                </button>
+              </div>
+            )}
+            {sellerPayouts?.status === 'in_review' && (
+              <div className="dash-payout-review" role="status">
+                <strong>Stripe is reviewing your payout details.</strong>
+                <span>Your earnings stay recorded and will be released when Stripe enables payouts.</span>
+                <button className="secondary-btn" type="button" onClick={handlePayoutSetup} disabled={payoutSetupBusy}>
+                  {payoutSetupBusy ? 'Opening Stripe…' : 'Continue payout setup'}
+                </button>
+              </div>
+            )}
             <div className="dash-revenue-card">
               <div className="dash-revenue-title">All-time revenue breakdown</div>
               <div className="dash-rev-row">
@@ -2099,11 +2286,11 @@ export default function Page() {
                 <span className="dash-rev-value">{fmt(earnings.totalGross)}</span>
               </div>
               <div className="dash-rev-row fee">
-                <span className="dash-rev-label">Platform fee ({platformPct}%)</span>
+                <span className="dash-rev-label">Platform fees</span>
                 <span className="dash-rev-value">− {fmt(earnings.totalFee)}</span>
               </div>
               <div className="dash-rev-row net">
-                <span className="dash-rev-label">Your payout ({sellerPct}%)</span>
+                <span className="dash-rev-label">Your earnings</span>
                 <span className="dash-rev-value">{fmt(earnings.totalNet)}</span>
               </div>
             </div>
@@ -2144,24 +2331,6 @@ export default function Page() {
                 />
                 <div className="field-hint">Shown on your listings according to your display choice: full name, first name only, or hidden.</div>
               </div>
-
-              {/* Payout details only matter once there is something to pay out */}
-              {earnings.totalSales > 0 && (
-                <div className="field">
-                  <label htmlFor="profPaypal">PayPal email <span className="floor-hint">(for payouts)</span></label>
-                  <input
-                    type="email"
-                    id="profPaypal"
-                    maxLength={254}
-                    placeholder="you@paypal.com"
-                    autoComplete="email"
-                    spellCheck={false}
-                    value={profPaypal}
-                    onChange={(e) => { setProfPaypal(e.target.value); setProfMsg({ text: '', kind: '' }); }}
-                  />
-                  <div className="field-hint">You have sales waiting to be paid out. Earnings go to this PayPal address <b>every two weeks</b>, starting when buying launches. Never shown to buyers.</div>
-                </div>
-              )}
 
               <div className="field">
                 <label htmlFor="profBio">Short bio</label>
@@ -2214,11 +2383,13 @@ export default function Page() {
                       <div className="dash-table-row" key={e.id}>
                         <div>
                           <div className="dash-table-essay">{e.question || e.prompt}</div>
-                          <div className="dash-table-school">{l.school}{e.price == null && l.packagePrice != null ? ' · package' : ''}</div>
+                          <div className="dash-table-school">{sellerListingSchool(l)}{e.price == null && l.packagePrice != null ? ' · package' : ''}</div>
                         </div>
                         <div className="dash-table-num">{e.sales}</div>
                         <div className="dash-table-num">{fmt(e.price ?? l.packagePrice ?? 0)}</div>
-                        <div className="dash-table-rev">{fmt(round2(e.gross * SELLER_SHARE))}</div>
+                        <div className="dash-table-rev">
+                          {fmt(e.sellerEarningsCents != null ? e.sellerEarningsCents / 100 : round2(e.gross * SELLER_SHARE))}
+                        </div>
                       </div>
                     )),
                   )}
@@ -2235,11 +2406,15 @@ export default function Page() {
             </div>
             <div>
               {([
-                { key: 'approved', label: 'Published', dot: 'published', statuses: ['approved'] },
-                { key: 'pending', label: 'Pending review', dot: 'pending', statuses: ['pending'] },
-                { key: 'draft', label: 'Rejected / Removed', dot: 'draft', statuses: ['rejected', 'removed'] },
+                { key: 'school', label: 'School confirmation needed', dot: 'pending', statuses: ['approved', 'pending', 'rejected', 'removed'], needsSchool: true },
+                { key: 'approved', label: 'Published', dot: 'published', statuses: ['approved'], needsSchool: false },
+                { key: 'pending', label: 'Pending review', dot: 'pending', statuses: ['pending'], needsSchool: false },
+                { key: 'draft', label: 'Rejected / Removed', dot: 'draft', statuses: ['rejected', 'removed'], needsSchool: false },
               ] as const).map((g) => {
-                const items = listings.filter((l) => (g.statuses as readonly string[]).includes(l.status));
+                const items = listings.filter((l) =>
+                  (g.statuses as readonly string[]).includes(l.status) &&
+                  (g.needsSchool ? !sellerListingSchool(l) : !!sellerListingSchool(l)),
+                );
                 return (
                   <div className="dash-status-group" key={g.key}>
                     <div className="dash-status-label">
@@ -2292,10 +2467,14 @@ function AltValue({ v }: { v: string }) {
 // 88 of 144 cards belong to a seller with more than one listing, and every one
 // of those sellers had an identical headline on all of their cards.
 //
-// When the seller attends one of the schools that admitted them, that admit is
-// the strongest one to lead with; otherwise take the first admit they claim.
+// New listings store this explicitly. Legacy listings fall back to the first
+// admit because the upload form historically discarded its application-school
+// field; using the seller's current university recreates the original bug.
 function headlineSchool(l: PublicListing): string {
-  return l.admitTags.find((t) => sameSchool(t, l.school)) || l.admitTags[0] || l.school;
+  // /api/listings excludes unresolved legacy records, so public data always
+  // has a real target. Keep the guard neutral rather than ever using the
+  // seller's current university as a title.
+  return catalogSchool(l) || 'College essay listing';
 }
 
 // The sub-line is always the contents: how many essays, and which ones.
@@ -2723,14 +2902,19 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
   const [saving, setSaving] = useState(false);
 
   const isPackage = l.pricingMode === 'package';
-  const tier = admitsTier(l.admitTags);
+  const titleSchool = sellerListingSchool(l);
+  const tier = titleSchool ? schoolTier(titleSchool) : null;
   const floor = tier ? (isPackage ? packageFloor(tier, l.essays.length) : perEssayFloor(tier)) : 1;
 
   const metaParts = [`${fmt(listingPrice(l))}/sale`];
   if (l.sales) metaParts.push(`${l.sales} sale${l.sales > 1 ? 's' : ''}`);
   metaParts.push(`Added ${new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
-  const statusLabel = { approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status;
-  const statusClass = { approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft';
+  const statusLabel = !titleSchool
+    ? 'School confirmation needed'
+    : ({ approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status);
+  const statusClass = !titleSchool
+    ? 'pending'
+    : ({ approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft');
 
   function startEdit() {
     setPkgInput(l.packagePrice != null ? String(l.packagePrice) : '');
@@ -2783,6 +2967,7 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
       <div className="dash-listing-info">
         <div className="dash-listing-title">{listingTitle(l)}</div>
         <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
+        {!titleSchool && <div className="dash-listing-meta" style={{ color: '#b45309' }}>This older listing is hidden from Browse until Admitfolio confirms which college the essays are for.</div>}
         {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
         {editing && (
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2811,7 +2996,7 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
       </div>
       <div className="dash-listing-actions">
         <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
-        {!editing && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
+        {!editing && titleSchool && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
         {l.status === 'approved' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
         {(l.status === 'removed' || l.status === 'rejected') && <button className="dash-action-btn" onClick={() => onAction(l.id, 'resubmit')}>Resubmit for review</button>}
       </div>

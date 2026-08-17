@@ -6,12 +6,13 @@ export const FROM_EMAIL = process.env.FROM_EMAIL || 'Admitfolio <onboarding@rese
 
 // Support address for seller-facing mail: replies (questions) route here, and
 // when it's on our own verified sending domain it also becomes the visible
-// "from". Set to hello@admitfolio.com once Cloudflare Email Routing is live;
-// falls back to the public contact email, then empty (no reply-to).
+// "from". Replies always go to hello@admitfolio.com unless explicitly
+// overridden. Inbound routing for that address still has to be configured at
+// the mail/DNS provider; Reply-To cannot create a mailbox by itself.
 export const SUPPORT_EMAIL = (
   process.env.SUPPORT_EMAIL ||
   process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-  ''
+  'hello@admitfolio.com'
 ).trim();
 
 // Who can sign into the admin review console. Comma-separated in ADMIN_EMAILS.

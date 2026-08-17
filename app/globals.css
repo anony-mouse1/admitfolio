@@ -933,6 +933,46 @@ footer { background: #1b1a17; color: #cfccc4; }
 }
 .dash-stat-sub { font-size: 12px; color: var(--faint); margin-top: 4px; }
 
+/* First-sale payout setup. Stripe owns the sensitive identity and bank form;
+   Admitfolio only explains why setup is available and starts that flow. */
+.dash-payout-setup {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  margin-top: 18px; padding: 20px 22px; border: 1px solid #d9d5ff;
+  border-radius: 16px; background: #fbfaff; box-shadow: 0 1px 3px rgba(20,18,15,.04);
+}
+.dash-payout-copy { min-width: 0; }
+.dash-payout-kicker {
+  color: #635bff; font-size: 10px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.dash-payout-title {
+  margin-top: 5px; color: var(--ink); font-family: var(--serif); font-size: 21px;
+  font-weight: 700; letter-spacing: -.02em;
+}
+.dash-payout-copy p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.dash-payout-privacy { margin-top: 7px; color: var(--faint); font-size: 11px; line-height: 1.45; }
+.dash-payout-error { margin-top: 8px; color: #b3261e; font-size: 11.5px; font-weight: 650; }
+.dash-payout-button { width: auto; min-width: 166px; margin: 0; flex: none; }
+.dash-payout-review {
+  display: flex; align-items: center; gap: 14px; margin-top: 18px; padding: 16px 18px;
+  border: 1px solid #f0d69b; border-radius: 16px; background: #fff9ea;
+  color: #725014; font-size: 12px;
+}
+.dash-payout-review strong { color: #5b3f0d; }
+.dash-payout-review span { flex: 1; line-height: 1.45; }
+.secondary-btn {
+  border: 1px solid var(--card-line); border-radius: 999px; padding: 10px 15px;
+  background: white; color: var(--muted); font-size: 12px; font-weight: 700;
+  white-space: nowrap;
+}
+.secondary-btn:disabled { cursor: wait; opacity: .65; }
+@media (max-width: 620px) {
+  .dash-payout-setup { align-items: stretch; flex-direction: column; gap: 15px; }
+  .dash-payout-button { width: 100%; }
+  .dash-payout-review { align-items: stretch; flex-direction: column; }
+  .dash-payout-review .secondary-btn { width: 100%; }
+}
+
 /* ---- Revenue breakdown card ---- */
 /* Labels each figure: gross / platform fee / your payout - never ambiguous */
 .dash-revenue-card {
@@ -1359,6 +1399,9 @@ body { -webkit-tap-highlight-color: transparent; }
   border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--accent) 3%, transparent);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .essay-reader-head {
   display: flex;
@@ -1394,4 +1437,17 @@ body { -webkit-tap-highlight-color: transparent; }
 .essay-reader-pages canvas {
   pointer-events: none;
   max-width: 100%;
+}
+
+/* Printing a browser page is another easy path to an untracked copy. This is
+   only a deterrent, like the other client-side controls. The fingerprint still
+   provides the real attribution if someone bypasses it. */
+@media print {
+  .essay-reader-pages { display: none !important; }
+  .essay-reader::after {
+    content: 'Purchased essays are available only in the private Admitfolio reader.';
+    display: block;
+    margin-top: 12px;
+    color: #56524a;
+  }
 }

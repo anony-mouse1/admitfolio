@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   // Nothing to look at means nothing to decide - guards against verifying a row
   // that was created at submission but never received a file.
   if (!proof.pdfPath) {
-    return NextResponse.json({ error: 'No letter has been uploaded yet.' }, { status: 409 });
+    return NextResponse.json({ error: 'No proof has been uploaded yet.' }, { status: 409 });
   }
 
   const note = String(body?.note || '').trim().slice(0, 500) || null;
