@@ -53,8 +53,10 @@ Mockups under `public/` remain ignored and are not part of the deployment.
   `NEXT_PUBLIC_LAUNCH=1`. Do not use `npm run build` locally because it runs
   migrations against the live database.
 
-The six pending migrations were inspected and are additive. A read-only
-`prisma migrate status` confirmed that they are not applied yet.
+The six pending migrations were inspected and are additive. The Vercel preview
+build applied them because Preview uses the live database. A read-only
+`prisma migrate status` after the preview completed reports that the production
+schema is up to date. No data backfill was run.
 
 ## Production rollout still required
 
@@ -73,7 +75,7 @@ Before merging to `main`:
    connected-account `account.updated` events.
 5. Confirm the Stripe platform account is activated for Connect and transfers.
 
-After merge, Vercel will apply the six migrations before building. Monitor that
+After merge, Vercel should find the migrations already applied. Monitor that
 deployment and confirm the new unauthenticated seller payout routes return 401.
 Do not click a real checkout or create a real transfer as a smoke test.
 
