@@ -40,7 +40,7 @@ type Msg = { text: string; kind: '' | 'ok' | 'err' };
 // Unset/off keeps the pre-launch waitlist experience byte-for-byte.
 const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
 
-type SortKey = 'competitive' | 'newest' | 'price-asc' | 'price-desc';
+type BrowseView = 'cards' | 'rows';
 
 type PublicListing = {
   id: string;
@@ -214,7 +214,8 @@ export default function Page() {
   /* ---- Public catalog (only fetched in launch mode) ---- */
   const [pubListings, setPubListings] = useState<PublicListing[]>([]);
   const [pubState, setPubState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [sortBy, setSortBy] = useState<SortKey>('competitive');
+  const [browseView, setBrowseView] = useState<BrowseView>('cards');
+  const [searchQuery, setSearchQuery] = useState('');
 
   /* ---- Paging ----
      24 at a time: a whole number of rows at all three breakpoints (3 columns,
@@ -227,7 +228,7 @@ export default function Page() {
   const anchorRef = useRef<number | null>(null);
 
   // Reordering the grid invalidates how far down it you had read.
-  useEffect(() => setShown(PAGE_SIZE), [sortBy]);
+  useEffect(() => setShown(PAGE_SIZE), [searchQuery]);
 
   const loadMore = useCallback(() => {
     anchorRef.current = moreRef.current?.getBoundingClientRect().top ?? null;
@@ -238,7 +239,7 @@ export default function Page() {
   // does not jump and you carry on reading from the same place.
   useEffect(() => {
     if (anchorRef.current == null) return;
-    const cards = document.querySelectorAll('.ecard');
+    const cards = document.querySelectorAll('.public-grid .catalog-card');
     const first = cards[shown - PAGE_SIZE] as HTMLElement | undefined;
     if (first) window.scrollBy(0, first.getBoundingClientRect().top - anchorRef.current);
     anchorRef.current = null;
@@ -286,20 +287,36 @@ export default function Page() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // The API returns newest-reviewed first, so 'newest' is the array as it
-  // arrived. Everything else sorts a copy, never the state array in place.
-  //
   // "Most competitive" uses the same tier the pricing floors use
   // (lib/pricing.ts), so the order a buyer sees and the price a seller may
-  // charge come from one definition of how selective a school is. Ties fall
-  // back to newest, so a Tier 1 listing approved today still leads its group.
-  const sortedListings = useMemo(() => {
-    if (sortBy === 'newest') return pubListings;
-    const copy = [...pubListings];
-    if (sortBy === 'price-asc') return copy.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-    if (sortBy === 'price-desc') return copy.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-    return copy.sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b)));
-  }, [pubListings, sortBy]);
+  // charge come from one definition of how selective a school is. Stable sort
+  // keeps the API's newest-reviewed order within each tier.
+  const matchingListings = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return pubListings;
+    return pubListings.filter((listing) => {
+      const searchable = [
+        headlineSchool(listing),
+        listing.school,
+        listing.applicationSystem,
+        listing.appliedMajors,
+        listing.teaser,
+        listing.openingLine,
+        ...listing.admitTags,
+        ...listing.seller.backgroundTags,
+        ...listing.essays.flatMap((essay) => [essay.prompt, essay.question]),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase();
+      return searchable.includes(query);
+    });
+  }, [pubListings, searchQuery]);
+
+  const sortedListings = useMemo(
+    () => [...matchingListings].sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b))),
+    [matchingListings],
+  );
   useEffect(() => {
     if (!LAUNCHED) return;
     fetch('/api/listings')
@@ -1402,13 +1419,69 @@ export default function Page() {
       </section>
 
       {/* ===== Featured ===== */}
-      <section className="featured" id="browse">
+      <section className={`featured${LAUNCHED ? ' catalog-section' : ''}`} id="browse">
         {LAUNCHED ? (
           <>
             <div className="featured-head">
               <div>
                 <h2>Browse essays</h2>
-                <p>Real essays from verified admits. Unlock a listing to read the full application set.</p>
+                <p>Shop by the school you want to get into. Every listing is from a verified admit, with the essays that got them in.</p>
+              </div>
+              <div className="browse-controls">
+                <label className="pub-search">
+                  <svg className="pub-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+                  </svg>
+                  <span className="sr-only">Search essays</span>
+                  <input
+                    type="search"
+                    placeholder="Search school, major, prompt…"
+                    spellCheck={false}
+                    autoComplete="off"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="pub-search-clear"
+                      aria-label="Clear search"
+                      onClick={() => setSearchQuery('')}
+                    >
+                      ×
+                    </button>
+                  )}
+                </label>
+                <div className="view-toggle" role="group" aria-label="Choose browse layout">
+                  <button
+                    className="view-option"
+                    type="button"
+                    aria-pressed={browseView === 'rows'}
+                    onClick={() => setBrowseView('rows')}
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <rect x="2" y="3" width="16" height="3" rx="1" />
+                      <rect x="2" y="8.5" width="16" height="3" rx="1" />
+                      <rect x="2" y="14" width="16" height="3" rx="1" />
+                    </svg>
+                    Rows
+                  </button>
+                  <button
+                    className="view-option"
+                    type="button"
+                    aria-pressed={browseView === 'cards'}
+                    onClick={() => setBrowseView('cards')}
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <rect x="2" y="2" width="7" height="7" rx="1.4" />
+                      <rect x="11" y="2" width="7" height="7" rx="1.4" />
+                      <rect x="2" y="11" width="7" height="7" rx="1.4" />
+                      <rect x="11" y="11" width="7" height="7" rx="1.4" />
+                    </svg>
+                    Cards
+                  </button>
+                </div>
               </div>
             </div>
             {pubState === 'loading' && <div className="pub-empty">Loading essays&hellip;</div>}
@@ -1419,22 +1492,28 @@ export default function Page() {
             {pubListings.length > 0 && (
               <div className="pub-count">
                 <span>
-                  Showing {Math.min(shown, pubListings.length)} of {pubListings.length} listing
-                  {pubListings.length === 1 ? '' : 's'}
+                  Showing {Math.min(shown, sortedListings.length)} of {sortedListings.length} listing
+                  {sortedListings.length === 1 ? '' : 's'}
+                  {searchQuery ? ` matching “${searchQuery.trim()}”` : ''}
                 </span>
-                <label className="pub-sort">
-                  Sort
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}>
-                    <option value="competitive">Most competitive</option>
-                    <option value="newest">Newest</option>
-                    <option value="price-asc">Price: low to high</option>
-                    <option value="price-desc">Price: high to low</option>
-                  </select>
-                </label>
               </div>
             )}
-            {pubListings.length > 0 && (
-              <div className="grid">
+            {pubListings.length > 0 && sortedListings.length === 0 && (
+              <div className="pub-empty">
+                Nothing matches that search.{' '}
+                <button type="button" className="pub-count-reset" onClick={() => setSearchQuery('')}>Clear search</button>
+              </div>
+            )}
+            {sortedListings.length > 0 && browseView === 'rows' && (
+              <div className="row-head" aria-hidden="true">
+                <span>Listing</span>
+                <span>Opening and background</span>
+                <span>College results</span>
+                <span>Price</span>
+              </div>
+            )}
+            {sortedListings.length > 0 && (
+              <div className={`grid public-grid${browseView === 'rows' ? ' rows' : ''}`}>
                 {sortedListings.slice(0, shown).map((l) => (
                   <PublicListingCard
                     key={l.id}
@@ -2601,7 +2680,7 @@ function PublicListingCard({
     // The whole card opens the detail sheet. It has had `cursor: pointer` since
     // launch while doing nothing, which is why clicking a card felt broken.
     <div
-      className="ecard"
+      className={`ecard catalog-card${count > 1 ? ' is-set' : ''}`}
       role="button"
       tabIndex={0}
       onClick={onOpen}
@@ -2622,6 +2701,11 @@ function PublicListingCard({
           fontSize={18}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
+          <div className={`ecard-type ${count > 1 ? 'kind-package' : 'kind-single'}`}>
+            <span className="type-glyph" aria-hidden="true" />
+            <span>{count > 1 ? 'Package' : 'Single'}</span>
+            <b>{count} essay{count === 1 ? '' : 's'}</b>
+          </div>
           <div className="ecard-school">{label}</div>
           <div className="ecard-meta">{contentsLine(listing)}</div>
         </div>
