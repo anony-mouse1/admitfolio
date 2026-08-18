@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { stripe, SITE_URL } from '@/lib/stripe';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
-import { CHECKOUT_VERSION, PURCHASE_UNIT, quoteListing } from '@/lib/commerce';
+import { checkoutSessionParams, quoteListing } from '@/lib/commerce';
 import { clientIpFromHeaders } from '@/lib/requestIp';
 
 export const runtime = 'nodejs';
@@ -58,41 +58,9 @@ export async function POST(req: Request) {
   const { quote } = result;
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      client_reference_id: quote.listingId,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'usd',
-            unit_amount: quote.amountCents,
-            product_data: { name: quote.stripeProductName },
-          },
-        },
-      ],
-      // buyerIp rides through Stripe metadata because THIS request comes from
-      // the buyer's browser. The webhook that writes the Purchase row is called
-      // by Stripe, so its own x-forwarded-for is Stripe's address - reading it
-      // there would record our payment processor and look like buyer data.
-      metadata: {
-        checkoutVersion: CHECKOUT_VERSION,
-        purchaseUnit: PURCHASE_UNIT,
-        listingId: quote.listingId,
-        amountCents: String(quote.amountCents),
-        itemLabel: quote.itemLabel,
-        buyerIp: buyerIp || '',
-      },
-      payment_intent_data: {
-        metadata: {
-          checkoutVersion: CHECKOUT_VERSION,
-          purchaseUnit: PURCHASE_UNIT,
-          listingId: quote.listingId,
-        },
-      },
-      success_url: `${SITE_URL}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}/?checkout=canceled`,
-    });
+    const session = await stripe.checkout.sessions.create(
+      checkoutSessionParams(quote, buyerIp, SITE_URL),
+    );
     return NextResponse.json({ ok: true, url: session.url });
   } catch (e) {
     console.error('stripe checkout create failed:', e instanceof Error ? e.message : e);

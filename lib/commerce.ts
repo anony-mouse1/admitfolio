@@ -126,6 +126,51 @@ export type ListingQuote = {
   essayCount: number;
 };
 
+// Admitfolio is a marketplace that pays sellers through Stripe Connect.
+// Managed Payments is Stripe's merchant-of-record product and does not support
+// Connect marketplaces, so every Checkout Session must opt out explicitly.
+export function checkoutSessionParams(
+  quote: ListingQuote,
+  buyerIp: string | null,
+  siteUrl: string,
+) {
+  const origin = siteUrl.replace(/\/$/, '');
+  return {
+    mode: 'payment' as const,
+    managed_payments: { enabled: false },
+    client_reference_id: quote.listingId,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: 'usd',
+          unit_amount: quote.amountCents,
+          product_data: { name: quote.stripeProductName },
+        },
+      },
+    ],
+    // buyerIp rides through Stripe metadata because this request comes from
+    // the buyer's browser. The webhook request itself comes from Stripe.
+    metadata: {
+      checkoutVersion: CHECKOUT_VERSION,
+      purchaseUnit: PURCHASE_UNIT,
+      listingId: quote.listingId,
+      amountCents: String(quote.amountCents),
+      itemLabel: quote.itemLabel,
+      buyerIp: buyerIp || '',
+    },
+    payment_intent_data: {
+      metadata: {
+        checkoutVersion: CHECKOUT_VERSION,
+        purchaseUnit: PURCHASE_UNIT,
+        listingId: quote.listingId,
+      },
+    },
+    success_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/?checkout=canceled`,
+  };
+}
+
 export type QuoteResult =
   | { ok: true; quote: ListingQuote }
   | { ok: false; reason: 'unavailable' | 'school_unconfirmed'; message: string };
