@@ -2594,6 +2594,22 @@ function admitNameLine(list: string[]): string {
   return shown.join(', ') + (rest > 0 ? `, +${rest} more` : '');
 }
 
+function isQuestBridgeTag(value: string): boolean {
+  return schoolInfo(value)?.domain === 'questbridge.org';
+}
+
+function collegeAdmitTags(listing: PublicListing): string[] {
+  return listing.admitTags.filter((tag) => !isQuestBridgeTag(tag));
+}
+
+function questBridgeLabel(listing: PublicListing): string | null {
+  const tags = listing.admitTags.map((tag) => tag.toLowerCase().trim());
+  if (tags.includes('questbridge scholar')) return 'QuestBridge Scholar';
+  if (tags.includes('questbridge finalist')) return 'QuestBridge Finalist';
+  if (tags.includes('questbridge')) return 'QuestBridge';
+  return null;
+}
+
 // What a browse card calls an essay.
 //
 // `question` is the seller's free-text box, filled in when they pick "Other",
@@ -2694,7 +2710,11 @@ function PublicListingCard({
   const label = info ? info.short : schoolShortName(head);
   const majors = majorsOf(listing);
   const title = publicListingTitle(listing);
-  const otherCount = listing.otherListingIds?.length || 0;
+  const admittedColleges = collegeAdmitTags(listing);
+  const questBridge = questBridgeLabel(listing);
+  const displayTags = questBridge
+    ? [questBridge, ...listing.seller.backgroundTags.filter((tag) => tag !== questBridge)]
+    : listing.seller.backgroundTags;
   return (
     // The whole card opens the detail sheet. It has had `cursor: pointer` since
     // launch while doing nothing, which is why clicking a card felt broken.
@@ -2733,13 +2753,13 @@ function PublicListingCard({
         {majors.length ? `${majors[0]}${majors.length > 1 ? ` +${majors.length - 1}` : ''}` : 'Essay focus'}
       </div>
       <div className="ecard-hook" title={title}>{title}</div>
-      <div className={`ecard-tags${listing.seller.backgroundTags.length ? '' : ' is-empty'}`}>
-        {listing.seller.backgroundTags.slice(0, 2).map((t) => (
-          <span key={t} className="etag">{t}</span>
+      <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>
+        {displayTags.slice(0, 2).map((t) => (
+          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{t}</span>
         ))}
-        {listing.seller.backgroundTags.length > 2 && (
-          <span className="etag" title={listing.seller.backgroundTags.slice(2).join(', ')}>
-            +{listing.seller.backgroundTags.length - 2}
+        {displayTags.length > 2 && (
+          <span className="etag" title={displayTags.slice(2).join(', ')}>
+            +{displayTags.length - 2}
           </span>
         )}
       </div>
@@ -2752,15 +2772,10 @@ function PublicListingCard({
         </div>
         <div className="ecard-admits">
           <span className="ecard-admits-label">Accepted in:</span>
-          <span className="admit-names multi" title={listing.admitTags.join(', ')}>
-            {listing.admitTags.length ? admitNameLine(listing.admitTags) : 'Not listed'}
+          <span className="admit-names multi" title={admittedColleges.join(', ')}>
+            {admittedColleges.length ? admitNameLine(admittedColleges) : 'Not listed'}
           </span>
         </div>
-      </div>
-      <div className={`ecard-author-action${otherCount ? '' : ' is-muted'}`}>
-        {otherCount
-          ? 'Browse other essays from this seller →'
-          : 'No other essays from this seller yet'}
       </div>
       <div className="ecard-foot">
         <div className="ecard-price">
@@ -2843,6 +2858,11 @@ function ListingDetail({
   });
   const count = listing.essays.length;
   const title = publicListingTitle(listing);
+  const admittedColleges = collegeAdmitTags(listing);
+  const questBridge = questBridgeLabel(listing);
+  const sellerTags = questBridge
+    ? [questBridge, ...listing.seller.backgroundTags.filter((tag) => tag !== questBridge)]
+    : listing.seller.backgroundTags;
   const otherListings = (listing.otherListingIds || [])
     .map((id) => allListings.find((candidate) => candidate.id === id))
     .filter((candidate): candidate is PublicListing => Boolean(candidate));
@@ -2897,11 +2917,11 @@ function ListingDetail({
           </ul>
         </div>
 
-        {listing.admitTags.length > 0 && (
+        {admittedColleges.length > 0 && (
           <div className="d-sec">
             <h4>Admitted to</h4>
             <div className="d-schools">
-              {listing.admitTags.map((t) => (
+              {admittedColleges.map((t) => (
                 <SchoolChip key={t} name={t} verified={verified.has(t)} />
               ))}
             </div>
@@ -2938,19 +2958,30 @@ function ListingDetail({
                 </div>
               </div>
             </div>
-            {listing.seller.backgroundTags.length > 0 && (
+            {sellerTags.length > 0 && (
               <div className="ecard-tags">
-                {listing.seller.backgroundTags.map((t) => (
-                  <span key={t} className="etag">{t}</span>
+                {sellerTags.map((t) => (
+                  <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{t}</span>
                 ))}
               </div>
             )}
           </div>
         </div>
 
+        <div className="d-foot">
+          <div className="d-price">
+            {listing.price != null ? `$${listing.price}` : 'Free'}
+            <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
+          </div>
+          <button className="btn-primary" type="button" onClick={onUnlock}>
+            Unlock and read
+          </button>
+        </div>
+
         {otherListings.length > 0 && (
-          <div className="d-sec">
-            <h4>Browse other essays from this seller</h4>
+          <div className="d-more-seller">
+            <h3>Browse more essays from this seller</h3>
+            <p>{otherListings.length} other public listing{otherListings.length === 1 ? '' : 's'}</p>
             <div className="d-related-list">
               {otherListings.map((other) => {
                 const otherSchool = headlineSchool(other);
@@ -2986,16 +3017,6 @@ function ListingDetail({
             </div>
           </div>
         )}
-
-        <div className="d-foot">
-          <div className="d-price">
-            {listing.price != null ? `$${listing.price}` : 'Free'}
-            <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
-          </div>
-          <button className="btn-primary" type="button" onClick={onUnlock}>
-            Unlock and read
-          </button>
-        </div>
       </div>
     </div>
   );
