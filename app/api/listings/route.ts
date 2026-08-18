@@ -57,7 +57,7 @@ export async function GET() {
   });
 
   const usedHooksBySeller = new Map<string, Set<string>>();
-  const listings = rows
+  const catalogRows = rows
     .filter((l) => !isAdminEmail(l.seller.email) && !TEST_EMAILS.has(l.seller.email.toLowerCase()))
     .flatMap((l) => {
       const verifiedKeys = new Set(l.seller.admitProofs.map((p) => p.schoolKey));
@@ -80,41 +80,64 @@ export async function GET() {
         if (usedHooks.has(key)) openingLine = null;
         else usedHooks.add(key);
       }
+      const anonymity = normalizeAnonymity(l.anonymity);
       return [{
-      id: l.id,
-      school: l.school,
-      targetSchool,
-      applicationSystem: l.applicationSystem,
-      admitTags,
-      // The subset of admitTags backed by an acceptance letter a human checked.
-      // Sent as its own list rather than filtering admitTags, so the UI can show
-      // an unproven claim honestly instead of silently deleting it - every
-      // listing submitted before this feature has zero verified admits, and
-      // dropping their claims outright would gut the catalogue.
-      verifiedAdmitTags: admitTags.filter((t) => verifiedKeys.has(schoolKey(t))),
-      price: l.packagePrice,
-      teaser,
-      // Shown only when the seller wrote no teaser of their own. Their line
-      // wins when they took the trouble to write one.
-      openingLine,
-      // Current major stays private: combined with the school it could help
-      // deanonymize an anonymous seller, and no public UI shows it yet.
-      appliedMajors: l.appliedMajors,
-      createdAt: l.createdAt,
-      essays: l.essays.map((e) => ({ prompt: e.prompt, question: e.question, wordCount: e.wordCount })),
-      seller: {
-        displayName: publicDisplayName(l.anonymity, l.seller.name),
-        backgroundTags: parseTags(l.seller.backgroundTags),
-        // The anonymity POLICY, not the name. Safe to publish because it says
-        // what will happen, never who the seller is, and the listing detail
-        // needs it to describe the seller honestly: "anonymous" means never
-        // named even after buying, which is a different promise from
-        // "revealOnPurchase". Hardcoding one sentence for both would have the
-        // site promise a reveal that lib/anonymity.ts guarantees never happens.
-        anonymity: normalizeAnonymity(l.anonymity),
-      },
+        // Kept only while this response is assembled. Neither value is returned
+        // publicly; they let us build safe related-listing edges without exposing
+        // a seller id or linking a named listing to one that should stay anonymous.
+        _sellerId: l.sellerId,
+        _anonymity: anonymity,
+        id: l.id,
+        school: l.school,
+        targetSchool,
+        applicationSystem: l.applicationSystem,
+        admitTags,
+        // The subset of admitTags backed by an acceptance letter a human checked.
+        // Sent as its own list rather than filtering admitTags, so the UI can show
+        // an unproven claim honestly instead of silently deleting it - every
+        // listing submitted before this feature has zero verified admits, and
+        // dropping their claims outright would gut the catalogue.
+        verifiedAdmitTags: admitTags.filter((t) => verifiedKeys.has(schoolKey(t))),
+        price: l.packagePrice,
+        teaser,
+        // Shown only when the seller wrote no teaser of their own. Their line
+        // wins when they took the trouble to write one.
+        openingLine,
+        // Current major stays private: combined with the school it could help
+        // deanonymize an anonymous seller, and no public UI shows it yet.
+        appliedMajors: l.appliedMajors,
+        createdAt: l.createdAt,
+        essays: l.essays.map((e) => ({ prompt: e.prompt, question: e.question, wordCount: e.wordCount })),
+        seller: {
+          displayName: publicDisplayName(l.anonymity, l.seller.name),
+          backgroundTags: parseTags(l.seller.backgroundTags),
+          // The anonymity POLICY, not the name. Safe to publish because it says
+          // what will happen, never who the seller is, and the listing detail
+          // needs it to describe the seller honestly: "anonymous" means never
+          // named even after buying, which is a different promise from
+          // "revealOnPurchase". Hardcoding one sentence for both would have the
+          // site promise a reveal that lib/anonymity.ts guarantees never happens.
+          anonymity,
+        },
       }];
     });
+
+  const siblingIdsBySellerPolicy = new Map<string, string[]>();
+  for (const listing of catalogRows) {
+    const key = `${listing._sellerId}:${listing._anonymity}`;
+    const ids = siblingIdsBySellerPolicy.get(key) || [];
+    ids.push(listing.id);
+    siblingIdsBySellerPolicy.set(key, ids);
+  }
+
+  const listings = catalogRows.map(({ _sellerId, _anonymity, ...listing }) => ({
+    ...listing,
+    // Deliberately publish only the eligible listing ids, never sellerId or a
+    // reusable seller key. Exact anonymity-policy matching prevents a public
+    // name on one listing from deanonymizing a sibling listing.
+    otherListingIds: (siblingIdsBySellerPolicy.get(`${_sellerId}:${_anonymity}`) || [])
+      .filter((id) => id !== listing.id),
+  }));
 
   return NextResponse.json({ ok: true, listings });
 }

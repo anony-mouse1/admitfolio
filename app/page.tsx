@@ -61,6 +61,7 @@ type PublicListing = {
   createdAt: string;
   essays: { prompt: string; question: string | null; wordCount: number | null }[];
   seller: { displayName: string; backgroundTags: string[]; anonymity?: Anonymity };
+  otherListingIds?: string[];
 };
 
 type AnonMode = 'anonymous' | 'reveal' | 'public';
@@ -2142,8 +2143,11 @@ export default function Page() {
       {/* ===== Listing detail sheet ===== */}
       {detailListing && (
         <ListingDetail
+          key={detailListing.id}
           listing={detailListing}
+          allListings={pubListings}
           onClose={closeDetail}
+          onOpenListing={openDetail}
           onUnlock={() => {
             // Close first so the two overlays never stack: the scroll lock and
             // the Escape chain both stay trivially correct that way.
@@ -2620,6 +2624,19 @@ function essayLabel(e: { prompt: string; question: string | null }): string {
   return truncateWords(raw, PROMPT_MAX);
 }
 
+// Every card gets one compelling, predictable title. Seller-written copy wins;
+// otherwise `openingLine` is the extractor-approved first sentence (seller-name
+// checks run before it is stored). A prompt-based label is the safe fallback for
+// scanned PDFs, short answers, or any opening the extractor refused to publish.
+function publicListingTitle(listing: PublicListing): string {
+  const written = (listing.teaser || listing.openingLine || '').trim();
+  if (written) return truncateWords(written, 120);
+  const prompt = listing.essays[0] ? essayLabel(listing.essays[0]) : '';
+  if (prompt) return prompt;
+  const school = schoolShortName(headlineSchool(listing));
+  return `${school} admission essay${listing.essays.length === 1 ? '' : ' collection'}`;
+}
+
 // Two shortened labels joined can still run past 100 characters, which is what
 // made cards in the same row different heights. So the line gets its own budget:
 // the first label always shows, a second only if it fits, and whatever is left
@@ -2676,6 +2693,8 @@ function PublicListingCard({
   const info = schoolInfo(head);
   const label = info ? info.short : schoolShortName(head);
   const majors = majorsOf(listing);
+  const title = publicListingTitle(listing);
+  const otherCount = listing.otherListingIds?.length || 0;
   return (
     // The whole card opens the detail sheet. It has had `cursor: pointer` since
     // launch while doing nothing, which is why clicking a card felt broken.
@@ -2710,28 +2729,20 @@ function PublicListingCard({
           <div className="ecard-meta">{contentsLine(listing)}</div>
         </div>
       </div>
-      {majors.length > 0 && (
-        <div className="ecard-prompt" title={majors.join(', ')}>
-          {majors[0]}{majors.length > 1 ? ` +${majors.length - 1}` : ''}
-        </div>
-      )}
-      {/* The seller's own line wins. Their essay's opening sentence stands in
-          when they left it blank, which is where the card used to show nothing. */}
-      {(listing.teaser || listing.openingLine) && (
-        <div className="ecard-hook">{listing.teaser || listing.openingLine}</div>
-      )}
-      {listing.seller.backgroundTags.length > 0 && (
-        <div className="ecard-tags">
-          {listing.seller.backgroundTags.slice(0, 2).map((t) => (
-            <span key={t} className="etag">{t}</span>
-          ))}
-          {listing.seller.backgroundTags.length > 2 && (
-            <span className="etag" title={listing.seller.backgroundTags.slice(2).join(', ')}>
-              +{listing.seller.backgroundTags.length - 2}
-            </span>
-          )}
-        </div>
-      )}
+      <div className={`ecard-prompt${majors.length ? '' : ' is-empty'}`} title={majors.join(', ')}>
+        {majors.length ? `${majors[0]}${majors.length > 1 ? ` +${majors.length - 1}` : ''}` : 'Essay focus'}
+      </div>
+      <div className="ecard-hook" title={title}>{title}</div>
+      <div className={`ecard-tags${listing.seller.backgroundTags.length ? '' : ' is-empty'}`}>
+        {listing.seller.backgroundTags.slice(0, 2).map((t) => (
+          <span key={t} className="etag">{t}</span>
+        ))}
+        {listing.seller.backgroundTags.length > 2 && (
+          <span className="etag" title={listing.seller.backgroundTags.slice(2).join(', ')}>
+            +{listing.seller.backgroundTags.length - 2}
+          </span>
+        )}
+      </div>
       {/* Two labelled lines with reserved heights, so every card is the same
           shape and the price rules line up straight across a row. */}
       <div className="ecard-lines">
@@ -2739,14 +2750,17 @@ function PublicListingCard({
           <span className="ecard-admits-label">Attends</span>
           <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
         </div>
-        {listing.admitTags.length > 0 && (
-          <div className="ecard-admits">
-            <span className="ecard-admits-label">Accepted in:</span>
-            <span className="admit-names multi" title={listing.admitTags.join(', ')}>
-              {admitNameLine(listing.admitTags)}
-            </span>
-          </div>
-        )}
+        <div className="ecard-admits">
+          <span className="ecard-admits-label">Accepted in:</span>
+          <span className="admit-names multi" title={listing.admitTags.join(', ')}>
+            {listing.admitTags.length ? admitNameLine(listing.admitTags) : 'Not listed'}
+          </span>
+        </div>
+      </div>
+      <div className={`ecard-author-action${otherCount ? '' : ' is-muted'}`}>
+        {otherCount
+          ? 'Browse other essays from this seller →'
+          : 'No other essays from this seller yet'}
       </div>
       <div className="ecard-foot">
         <div className="ecard-price">
@@ -2806,11 +2820,15 @@ function anonymityNote(mode: Anonymity | undefined): string {
    data, and one missed escape in a template would be stored XSS. */
 function ListingDetail({
   listing,
+  allListings,
   onClose,
+  onOpenListing,
   onUnlock,
 }: {
   listing: PublicListing;
+  allListings: PublicListing[];
   onClose: () => void;
+  onOpenListing: (id: string) => void;
   onUnlock: () => void;
 }) {
   const head = headlineSchool(listing);
@@ -2824,6 +2842,10 @@ function ListingDetail({
     year: 'numeric',
   });
   const count = listing.essays.length;
+  const title = publicListingTitle(listing);
+  const otherListings = (listing.otherListingIds || [])
+    .map((id) => allListings.find((candidate) => candidate.id === id))
+    .filter((candidate): candidate is PublicListing => Boolean(candidate));
 
   return (
     <div
@@ -2855,9 +2877,7 @@ function ListingDetail({
           </div>
         </div>
 
-        {(listing.teaser || listing.openingLine) && (
-          <div className="d-hook">{listing.teaser || listing.openingLine}</div>
-        )}
+        <div className="d-hook">{title}</div>
         {/* On the sheet there is room for both, so when the seller wrote a
             teaser their essay's opening still gets shown underneath it. */}
         {listing.teaser && listing.openingLine && (
@@ -2927,6 +2947,45 @@ function ListingDetail({
             )}
           </div>
         </div>
+
+        {otherListings.length > 0 && (
+          <div className="d-sec">
+            <h4>Browse other essays from this seller</h4>
+            <div className="d-related-list">
+              {otherListings.map((other) => {
+                const otherSchool = headlineSchool(other);
+                const otherInfo = schoolInfo(otherSchool);
+                const otherLabel = otherInfo ? otherInfo.short : schoolShortName(otherSchool);
+                return (
+                  <button
+                    key={other.id}
+                    className="d-related"
+                    type="button"
+                    onClick={() => onOpenListing(other.id)}
+                  >
+                    <LogoBadge
+                      domain={otherInfo ? otherInfo.domain : undefined}
+                      letter={(otherLabel[0] || 'A').toUpperCase()}
+                      color={schoolColor(otherSchool)}
+                      school={otherSchool}
+                      size={36}
+                      fontSize={14}
+                    />
+                    <span className="d-related-copy">
+                      <strong>{otherLabel}</strong>
+                      <span>{publicListingTitle(other)}</span>
+                    </span>
+                    <span className="d-related-meta">
+                      {other.essays.length} {other.essays.length === 1 ? 'essay' : 'essays'}
+                      {other.price != null ? ` · $${other.price}` : ''}
+                    </span>
+                    <span className="d-related-arrow" aria-hidden="true">→</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="d-foot">
           <div className="d-price">
