@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
-import { admitsTier, packageFloor, perEssayFloor, TIER } from '@/lib/pricing';
+import { packageFloor, perEssayFloor, priceAllowedAtFloor, schoolTier, TIER } from '@/lib/pricing';
+import { catalogSchool } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
 
@@ -37,17 +38,28 @@ export async function POST(req: Request) {
   } catch {
     /* no admits, no floor */
   }
-  const tier = admitsTier(admits);
+  const targetSchool = catalogSchool({
+    school: listing.school,
+    targetSchool: listing.targetSchool,
+    admitTags: admits,
+  });
+  if (!targetSchool) {
+    return NextResponse.json(
+      { error: 'The listing college must be confirmed before changing its price.' },
+      { status: 409 },
+    );
+  }
+  const tier = schoolTier(targetSchool);
 
   if (listing.pricingMode === 'package') {
     const price = Math.round(Number(body?.packagePrice));
     if (!Number.isFinite(price) || price < 1) {
       return NextResponse.json({ error: 'Enter a valid package price.' }, { status: 400 });
     }
-    const floor = tier ? packageFloor(tier, listing.essays.length) : 1;
-    if (price < floor) {
+    const floor = packageFloor(tier, listing.essays.length);
+    if (!priceAllowedAtFloor(price, floor, listing.packagePrice)) {
       return NextResponse.json(
-        { error: `Your ${TIER[tier!].label} floor is $${floor}. You can charge that or more.` },
+        { error: `Your ${TIER[tier].label} floor is $${floor}. You can charge that or more.` },
         { status: 400 },
       );
     }
@@ -57,7 +69,7 @@ export async function POST(req: Request) {
 
   // Separate pricing: update each essay's price.
   const essayPrices = body?.essayPrices || {};
-  const floor = tier ? perEssayFloor(tier) : 1;
+  const floor = perEssayFloor(tier);
   const updates: { id: string; price: number }[] = [];
   for (const essay of listing.essays) {
     const raw = essayPrices[essay.id];
@@ -66,9 +78,9 @@ export async function POST(req: Request) {
     if (!Number.isFinite(price) || price < 1) {
       return NextResponse.json({ error: 'Enter a valid price for every essay.' }, { status: 400 });
     }
-    if (price < floor) {
+    if (!priceAllowedAtFloor(price, floor, essay.price)) {
       return NextResponse.json(
-        { error: `Each essay's floor at ${TIER[tier!].label} is $${floor}. You can charge that or more.` },
+        { error: `Each essay's floor at ${TIER[tier].label} is $${floor}. You can charge that or more.` },
         { status: 400 },
       );
     }

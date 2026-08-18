@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/accessToken';
 import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 import { watermarkPdf } from '@/lib/watermark';
+import { makePurchaseFingerprint } from '@/lib/purchaseFingerprint';
+import { clientIpFromHeaders } from '@/lib/requestIp';
+import { SESSION_SECRET } from '@/lib/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,7 +59,7 @@ export async function GET(req: Request, { params }: { params: { essayId: string 
   // Log the read before serving. Non-fatal: a logging outage must not lock a
   // paying buyer out of what they bought, but it is awaited so the row is
   // written even though the function may freeze right after responding.
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || null;
+  const ip = clientIpFromHeaders(req.headers);
   try {
     await prisma.essayView.create({
       data: {
@@ -70,13 +73,11 @@ export async function GET(req: Request, { params }: { params: { essayId: string 
     console.error('essay view logging failed:', e instanceof Error ? e.message : e);
   }
 
+  const fingerprint = purchase.deliveryFingerprint ||
+    makePurchaseFingerprint(purchase.id, purchase.buyerEmail, SESSION_SECRET);
   let body: Buffer;
   try {
-    body = await watermarkPdf(original, {
-      buyerEmail: purchase.buyerEmail,
-      purchaseId: purchase.id,
-      viewedAt,
-    });
+    body = await watermarkPdf(original, { fingerprint, viewedAt });
   } catch (e) {
     // A PDF too malformed to stamp must not be served unmarked - an unwatermarked
     // copy is exactly what this route exists to prevent.
@@ -87,12 +88,14 @@ export async function GET(req: Request, { params }: { params: { essayId: string 
   return new NextResponse(new Uint8Array(body), {
     headers: {
       'Content-Type': 'application/pdf',
-      // inline, and named for the buyer - if it is saved anyway, the filename
-      // carries the attribution too.
-      'Content-Disposition': `inline; filename="admitfolio-${purchase.id}.pdf"`,
+      // Inline, and named with the same non-reversible fingerprint. If it is
+      // saved anyway, the filename carries the attribution too.
+      'Content-Disposition': `inline; filename="admitfolio-${fingerprint}.pdf"`,
       // Never cached by a proxy or CDN: the body is buyer-specific.
       'Cache-Control': 'private, no-store, max-age=0',
       'X-Robots-Tag': 'noindex, nofollow',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
     },
   });
 }

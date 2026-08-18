@@ -4,9 +4,16 @@
 # Keep the template
 !.env.example
 
-# Local dev-preview pages — never publish (they'd go live on the prod domain)
+# Local dev-preview pages — never publish (they'd go live on the prod domain).
+# Mock-ups keep landing here one file at a time and each one had to be added by
+# hand, so anything ending -mockup.html is ignored up front.
 public/iphone-preview.html
+public/iphone-preview.jpg
 public/design-concepts.html
+public/*-mockup.html
+public/*-mock-up.html
+public/**/*-mockup.html
+public/**/*-mock-up.html
 
 # Dependencies / noise
 node_modules/
@@ -20,6 +27,7 @@ essays/
 
 # Local tooling & throwaway
 .claude/
+.codex/
 index-indigo.html
 
 # Next.js
@@ -34,3 +42,5 @@ next-env.d.ts
 prisma/dev.db
 prisma/migrations/dev.db
 *.tsbuildinfo
+public/browse-mockup.html
+public/.mock-listings.json

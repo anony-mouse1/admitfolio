@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import styles from './admin.module.css';
+import { catalogSchool } from '@/lib/listingSchool';
 
 type Essay = {
   id: string;
@@ -11,6 +12,7 @@ type Essay = {
   wordCount: number | null;
   pdfPath: string | null;
   pdfUrl: string | null;
+  duplicateFile?: boolean;
 };
 // One reviewer lens's verdict, as returned by /api/admin/listings.
 type Lens = {
@@ -23,6 +25,8 @@ type Lens = {
 type Listing = {
   id: string;
   school: string;
+  targetSchool?: string | null;
+  applicationSystem?: string | null;
   gradYear: string | null;
   major: string | null;
   appliedMajors: string | null;
@@ -62,7 +66,7 @@ type Listing = {
   sellerName: string | null;
   sellerBio: string | null;
   sellerTags: string[];
-  isT20: boolean; // seller attends a Tier 1 school (lib/pricing schoolTier === 1)
+  isT20: boolean; // listing targets a Tier 1 school (lib/pricing schoolTier === 1)
   isTest: boolean; // seller is an admin/test account - dummy data, not a real student
 };
 type ListingFull = Listing & { essays: Essay[] };
@@ -107,6 +111,7 @@ const ANONYMITY_LABEL: Record<string, string> = {
   full: 'Full name shown to buyers',
 };
 const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
+const listingCollege = (l: Listing) => catalogSchool(l);
 
 const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
   { key: 'needsReview', label: 'Needs your review', match: needsReview },
@@ -453,6 +458,8 @@ export default function AdminPage() {
   const [openReview, setOpenReview] = useState<Record<string, boolean>>({});
   // Listing id currently being decided, so we can disable its buttons.
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [schoolDrafts, setSchoolDrafts] = useState<Record<string, string>>({});
+  const [confirmingSchool, setConfirmingSchool] = useState<string | null>(null);
 
   const loadListings = useCallback(async (): Promise<boolean> => {
     const r = await fetch('/api/admin/listings', { credentials: 'same-origin' });
@@ -573,12 +580,17 @@ export default function AdminPage() {
     const note = (notes[id] || '').trim() || undefined;
     setDeciding(id);
     try {
-      await fetch('/api/admin/decision', {
+      const resp = await fetch('/api/admin/decision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({ id, decision, note }),
       });
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as { error?: string };
+        window.alert(data.error || 'Could not save that decision.');
+        return;
+      }
       // Clear the draft so a reloaded card doesn't look like it still has an
       // unsent note pending.
       setNotes((n) => {
@@ -589,6 +601,32 @@ export default function AdminPage() {
       await loadListings();
     } finally {
       setDeciding(null);
+    }
+  }
+
+  async function confirmListingSchool(listing: Listing) {
+    const targetSchool = schoolDrafts[listing.id] || '';
+    if (!targetSchool) return;
+    if (previewOn()) {
+      setListings((rows) => rows.map((row) => row.id === listing.id ? { ...row, targetSchool } : row));
+      return;
+    }
+    setConfirmingSchool(listing.id);
+    try {
+      const resp = await fetch('/api/admin/listing-school', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id: listing.id, targetSchool }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { error?: string };
+      if (!resp.ok) {
+        window.alert(data.error || 'Could not confirm the listing college.');
+        return;
+      }
+      await loadListings();
+    } finally {
+      setConfirmingSchool(null);
     }
   }
 
@@ -714,11 +752,11 @@ export default function AdminPage() {
                     <div>
                       <h3 className={styles.serif}>
                         {l.isT20 && <span className={styles.t20Badge}>T20</span>}
-                        {l.school}
+                        {listingCollege(l) || 'School confirmation needed'}
                         {l.gradYear ? ` · Class of ${l.gradYear}` : ''}
                       </h3>
                       <div className={styles.who}>
-                        {l.major ? `${l.major} · ` : ''}
+                        Attends {l.school}{l.applicationSystem ? ` · ${l.applicationSystem}` : ''}{l.major ? ` · ${l.major}` : ''} ·{' '}
                         <span className={styles.anonTag}>{anonymityLabel(l.anonymity)}</span>
                       </div>
                       {/* What the seller wrote about themselves. Shown to you no
@@ -744,6 +782,30 @@ export default function AdminPage() {
                     </div>
                     <span className={`${styles.status} ${styles[l.status] || styles.rejected}`}>{l.status}</span>
                   </div>
+
+                  {!listingCollege(l) && (
+                    <div className={styles.schoolConfirm}>
+                      <div>
+                        <b>School confirmation needed</b>
+                        <span>This listing cannot appear on Browse until you confirm which college these essays are for.</span>
+                      </div>
+                      <select
+                        value={schoolDrafts[l.id] || ''}
+                        onChange={(e) => setSchoolDrafts((drafts) => ({ ...drafts, [l.id]: e.target.value }))}
+                        aria-label="College this listing is for"
+                      >
+                        <option value="">Choose from accepted schools</option>
+                        {l.admitTags.map((school) => <option key={school} value={school}>{school}</option>)}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => confirmListingSchool(l)}
+                        disabled={!schoolDrafts[l.id] || confirmingSchool === l.id}
+                      >
+                        {confirmingSchool === l.id ? 'Saving…' : 'Confirm college'}
+                      </button>
+                    </div>
+                  )}
 
                   {!l.aiReviewedAt ? (
                     // Only worth saying while it's still coming. On a listing you
@@ -846,7 +908,7 @@ export default function AdminPage() {
                           </span>
                           {p.pdfUrl && (
                             <a className={styles.proofLink} href={p.pdfUrl} target="_blank" rel="noopener noreferrer">
-                              View letter
+                              View proof
                             </a>
                           )}
                           {p.id && p.pdfUrl && p.status !== 'verified' && (
@@ -918,6 +980,7 @@ export default function AdminPage() {
                           ) : (
                             ' · (no PDF uploaded)'
                           )}
+                          {e.duplicateFile && ' · DUPLICATE FILE IN ANOTHER ACTIVE LISTING'}
                         </span>
                       </div>
                     ))}
@@ -965,7 +1028,8 @@ export default function AdminPage() {
                       <div className={styles.actions}>
                         <button
                           className={`${styles.btn} ${l.aiSuggestion === 'approve' && l.status === 'pending' ? styles.suggested : ''}`}
-                          disabled={deciding === l.id}
+                          disabled={deciding === l.id || !listingCollege(l)}
+                          title={!listingCollege(l) ? 'Confirm the listing college first' : undefined}
                           onClick={() => decide(l.id, 'approved')}
                         >
                           {l.status === 'approved' ? 'Confirm approval' : 'Approve & notify'}

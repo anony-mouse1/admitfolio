@@ -2,13 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { CRON_SECRET } from '@/lib/config';
-import {
-  fetchEssayPdfsBase64,
-  fetchAdmitProofPdfsBase64,
-  runReviewPanel,
-  type ReviewableListing,
-} from '@/lib/review';
-import { applyListingDecision } from '@/lib/listingDecision';
+import { reviewLeaseCutoff, reviewListing, type ReviewOutcome } from '@/lib/reviewRunner';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,8 +10,9 @@ export const dynamic = 'force-dynamic';
 // 300s is the Pro ceiling (Hobby caps at 60); the project is on Pro, so this
 // no longer has to sit at the 60 that f10310a was forced back down to.
 //
-// vercel.json now runs this every 5 minutes, which is the Pro floor. It stayed
-// daily while the panel's judgement was unproven; that hold is over - the
+// vercel.json runs this every 5 minutes as a fallback. New complete submissions
+// start the same runner immediately from /api/upload-essay. It stayed daily
+// while the panel's judgement was unproven; that hold is over - the
 // decision rule was recalibrated once the first batch showed it approved
 // nothing, so the backlog is worth clearing at speed. A batch of 10 takes ~27s
 // of the 300s, so runs cannot overlap.
@@ -34,18 +29,6 @@ export const maxDuration = 300;
 // budget at CONCURRENCY 5) once the panel's judgement has been spot-checked.
 const BATCH_SIZE = 10;
 
-// Whether a clean panel verdict may push a listing live on its own.
-//
-// OFF: nothing the panel screens goes public or emails its seller. A listing
-// it accepts is recorded as accepted and left `pending`, exactly like one it
-// flags, and both wait in the admin console's "AI review" tab for a human to
-// approve. The panel's role while this is false is to annotate, not to decide.
-//
-// The panel has never been able to auto-REJECT (see lib/review.ts) - that is a
-// property of the aggregation rule, not of this flag, and flipping this back on
-// does not change it. The only thing this gates is the auto-approve path.
-const AUTO_APPROVE = false;
-
 // How many listings to screen at once. Listings were screened serially at
 // ~12s each, so a 60s run only ever finished four of a batch of five; the
 // wall-clock was entirely spent waiting on the API, not on us. Kept separate
@@ -58,7 +41,7 @@ const CONCURRENCY = 5;
 // Run `fn` over `items` with at most `limit` in flight. Workers pull from a
 // shared cursor rather than running fixed slices, so one slow listing doesn't
 // idle a worker that could be starting the next one. `fn` must not reject -
-// screenListing() below handles its own failures - so a single bad listing
+// reviewListing() handles its own failures - so a single bad listing
 // cannot take the run down with it.
 async function mapPool<T, R>(
   items: T[],
@@ -74,94 +57,6 @@ async function mapPool<T, R>(
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
-}
-
-type PendingListing = ReviewableListing & { id: string; sellerId: string };
-
-// Screen one listing end to end and persist its verdict. Resolves rather than
-// rejects on failure so one bad listing cannot abort its neighbours now that
-// the batch runs concurrently.
-//
-// 'accepted' means the panel found nothing wrong. Whether that also makes the
-// listing public depends on AUTO_APPROVE; the verdict recorded is the same
-// either way, so turning the flag on later changes what happens next, not how
-// past listings were judged.
-async function screenListing(
-  listing: PendingListing,
-): Promise<'accepted' | 'flagged' | 'errored' | 'deferred'> {
-  try {
-    const pdfs = await fetchEssayPdfsBase64(listing);
-    // The seller's acceptance letters. Fetched per listing rather than per
-    // seller because the panel's admissions lens needs them attached to this
-    // listing's review, and a seller's set can change between runs.
-    const proofRows = await prisma.admitProof.findMany({
-      where: { sellerId: listing.sellerId },
-      select: { id: true, schoolLabel: true, pdfPath: true },
-    });
-    const proofs = await fetchAdmitProofPdfsBase64(proofRows);
-    const result = await runReviewPanel(listing, pdfs, proofs);
-
-    // The API was unreachable, so there is no judgement to record. Write nothing
-    // - not even aiReviewedAt - so the listing stays in the queue and the next
-    // run screens it for real. Writing here is what would strand a good essay as
-    // "flagged: review error" forever, since the batch selector only picks up
-    // listings with aiReviewedAt still null.
-    if (result.decision === 'retry') return 'deferred';
-
-    // Record the panel's verdict regardless of decision (aiReviewedAt also
-    // stops this listing from being picked up again next run).
-    await prisma.listing.update({
-      where: { id: listing.id },
-      data: {
-        aiReviewedAt: new Date(),
-        aiDecision: result.decision,
-        aiConfidence: result.confidence,
-        aiReasons: result.reasons || null,
-        aiSuggestion: result.suggestion,
-        aiLenses: result.lenses.length ? JSON.stringify(result.lenses) : null,
-      },
-    });
-
-    // Record what the panel made of each acceptance letter, beside the letter
-    // itself. Advisory only - `status` is untouched, so a letter still becomes
-    // `verified` solely through a human in the admin console.
-    for (const c of result.admitChecks) {
-      await prisma.admitProof
-        .update({
-          where: { id: c.proofId },
-          data: { aiCheckedAt: new Date(), aiGenuine: c.looksGenuine, aiNote: c.note },
-        })
-        .catch(() => {});
-    }
-
-    if (result.decision !== 'approved') return 'flagged';
-    // Hold for a human unless auto-approve is switched on. Skipping this call
-    // is what keeps the listing `pending` AND keeps the seller's inbox quiet -
-    // applyListingDecision is the only thing that emails them.
-    if (!AUTO_APPROVE) return 'accepted';
-    // Flip status live + email the seller, via the shared decision path.
-    await applyListingDecision(listing.id, 'approved', null);
-    return 'accepted';
-  } catch (e) {
-    // Mark it reviewed-and-flagged so a deterministic failure (e.g. a corrupt
-    // PDF) doesn't loop forever; the admin sees it flagged with the reason.
-    const message = e instanceof Error ? e.message : 'unknown error';
-    console.error(`cron review failed for listing ${listing.id}:`, message);
-    await prisma.listing
-      .update({
-        where: { id: listing.id },
-        data: {
-          aiReviewedAt: new Date(),
-          aiDecision: 'flagged',
-          aiConfidence: 'low',
-          aiReasons: `Automated review failed: ${message}`,
-          aiSuggestion: null,
-          aiLenses: null,
-        },
-      })
-      .catch(() => {});
-    return 'errored';
-  }
 }
 
 // GET /api/cron/review — invoked by Vercel Cron (see vercel.json). Gated by
@@ -189,29 +84,25 @@ export async function GET(req: Request) {
     where: {
       status: 'pending',
       aiReviewedAt: null,
+      OR: [
+        { aiReviewStartedAt: null },
+        { aiReviewStartedAt: { lt: reviewLeaseCutoff() } },
+      ],
       essays: { every: { pdfPath: { not: null } }, some: {} },
     },
     orderBy: { createdAt: 'asc' },
     take: BATCH_SIZE,
-    select: {
-      id: true,
-      sellerId: true, // the panel reads this seller's acceptance letters
-      school: true,
-      major: true,
-      appliedMajors: true,
-      admitTags: true,
-      essays: {
-        orderBy: { sortOrder: 'asc' },
-        select: { id: true, prompt: true, question: true, wordCount: true, pdfPath: true },
-      },
-    },
+    select: { id: true },
   });
 
-  const outcomes = await mapPool(listings, CONCURRENCY, screenListing);
+  const outcomes: ReviewOutcome[] = await mapPool(listings, CONCURRENCY, (listing) =>
+    reviewListing(listing.id),
+  );
 
   const accepted = outcomes.filter((o) => o === 'accepted').length;
   const flagged = outcomes.filter((o) => o === 'flagged').length;
   const errored = outcomes.filter((o) => o === 'errored').length;
+  const skipped = outcomes.filter((o) => o === 'skipped').length;
   // Nothing was written for these; they are still queued for the next run.
   // Reported separately from `errored` because they are not failures of the
   // listing - a non-zero count here means the API was struggling, not that
@@ -221,13 +112,12 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     selected: listings.length,
-    reviewed: listings.length - deferred,
+    reviewed: accepted + flagged + errored,
     accepted,
     flagged,
     errored,
     deferred,
-    // Explicit so a run's output says whether anything went live, rather than
-    // leaving it to be inferred from the deployed constant.
-    autoApproved: AUTO_APPROVE,
+    skipped,
+    autoApproved: false,
   });
 }

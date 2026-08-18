@@ -58,6 +58,8 @@ export type PanelResult = {
 // Minimal shape the panel needs from a listing (with essays included).
 export type ReviewableListing = {
   school: string;
+  targetSchool: string | null;
+  applicationSystem: string | null;
   major: string | null;
   appliedMajors: string | null;
   admitTags: string; // JSON array string
@@ -184,15 +186,15 @@ const LENSES: Lens[] = [
 ];
 
 // The admissions lens is its own request rather than a fourth entry in LENSES,
-// because it reads a different set of documents: the acceptance letters, not the
-// essays. It also returns a per-letter breakdown so the console can put a note
+// because it reads a different set of documents: admission proof, not the
+// essays. It also returns a per-document breakdown so the console can put a note
 // beside each Verify button instead of one verdict for the whole listing.
 const ADMIT_LENS_SYSTEM =
   TRUST_BOUNDARY.replace('Judge only the essay content, on the criteria below.', 'Judge only the documents, on the criteria below.') +
   'You are verifying PROOF OF ADMISSION for a marketplace where admitted students sell their essays. ' +
   'Each attached PDF is a document a seller uploaded to prove they were admitted to one specific school, listed in order below. ' +
-  'For each letter judge: is it a genuine admission decision (an offer of admission, an admitted-student portal page, or an enrollment confirmation) from the school it is supposed to prove, and does it look like it belongs to one person rather than a template or a blank form? ' +
-  'A letter naming a different school than the one claimed is the most important failure to catch. ' +
+  'For each document judge: is it a genuine admission decision (an offer of admission, an admitted-student portal page, an acceptance email, or an enrollment confirmation) from the school it is supposed to prove, and does it look like it belongs to one person rather than a template or a blank form? ' +
+  'A document naming a different school than the one claimed is the most important failure to catch. ' +
   'Deferrals, waitlists, and rejections are NOT proof of admission. ' +
   'Do not penalise a seller for redacting their address, student ID, or financial details - they are told they may. A redacted name is acceptable only if the school and the decision remain legible. ' +
   'Set the top-level pass=false if ANY letter fails, and name which. confidence is your certainty overall.';
@@ -227,12 +229,9 @@ function buildUserContent(listing: ReviewableListing, pdfs: EssayPdf[]): Anthrop
   const admits = safeParseTags(listing.admitTags);
   const meta =
     `Submission metadata:\n` +
-    // `school` is the university the seller currently ATTENDS - the sell wizard
-    // collects it as "Current university" and posts it as `school`. The school
-    // each essay was actually written FOR is asked in the wizard but never
-    // persisted, so it cannot be stated here; don't imply otherwise, or the
-    // authenticity lens will flag good essays for a mismatch we invented.
     `- University the seller currently attends: ${listing.school}\n` +
+    `- College this listing is for: ${listing.targetSchool ?? '(legacy listing; not recorded)'}\n` +
+    `- Application system: ${listing.applicationSystem ?? '(not recorded)'}\n` +
     `- Seller's current major there: ${listing.major ?? '(not given)'}\n` +
     `- Major(s) applied to with these essays: ${listing.appliedMajors ?? '(not given)'}\n` +
     `- Schools admitted to: ${admits.length ? admits.join(', ') : '(none listed)'}\n` +
@@ -452,15 +451,15 @@ export async function runReviewPanel(
     proofs.length > 0
       ? runAdmitLens(client, proofs)
       : Promise.resolve<{ verdict: LensVerdict; checks: AdmitCheck[] }>({
-          // No letters at all. Not a transient failure and not a pass: the
+          // No proof at all. Not a transient failure and not a pass: the
           // seller claimed admissions and proved none of them.
           verdict: {
             pass: false,
             confidence: 'high',
             concerns: [
               claimed.length > 0
-                ? `No acceptance letter was uploaded for ${claimed.length === 1 ? 'the school claimed' : `any of the ${claimed.length} schools claimed`} (${claimed.join(', ')}).`
-                : 'No schools were claimed and no acceptance letters were uploaded.',
+                ? `No admission proof was uploaded for ${claimed.length === 1 ? 'the school claimed' : `any of the ${claimed.length} schools claimed`} (${claimed.join(', ')}).`
+                : 'No schools were claimed and no admission proof was uploaded.',
             ],
           },
           checks: [],

@@ -3,6 +3,9 @@ import { verifyAccessToken } from '@/lib/accessToken';
 import { prisma } from '@/lib/prisma';
 import EssayReader from '@/components/EssayReader';
 import { ANONYMOUS_LABEL, buyerDisplayName } from '@/lib/anonymity';
+import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
+import { makePurchaseFingerprint } from '@/lib/purchaseFingerprint';
+import { SESSION_SECRET } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -57,15 +60,25 @@ export default async function PurchasePage({ params }: { params: { token: string
   }
 
   const essays = purchase.listing.essays;
+  const targetSchool = catalogSchool({
+    school: purchase.listing.school,
+    targetSchool: purchase.listing.targetSchool,
+    admitTags: parseAdmitTags(purchase.listing.admitTags),
+  });
+  const listingLabel = targetSchool
+    ? `${targetSchool} · ${essays.length} essay${essays.length === 1 ? '' : 's'}`
+    : 'Admitfolio essay listing';
   // Named only if this seller's choice allows it after a sale. A seller who
   // picked "always anonymous" stays anonymous here too.
   const writtenBy = buyerDisplayName(purchase.listing.anonymity, purchase.listing.seller.name);
   const named = writtenBy !== ANONYMOUS_LABEL;
+  const fingerprint = purchase.deliveryFingerprint ||
+    makePurchaseFingerprint(purchase.id, purchase.buyerEmail, SESSION_SECRET);
 
   return (
     <Shell>
       <h1>Your essays</h1>
-      <p className="legal-date">{purchase.itemLabel || purchase.listing.school}</p>
+      <p className="legal-date">{listingLabel}</p>
       <p>
         Thanks for supporting a real student. These essays are for <b>inspiration and learning only</b>,
         never for copying or submitting as your own; see our <a href="/terms">Terms</a>.
@@ -77,8 +90,9 @@ export default async function PurchasePage({ params }: { params: { token: string
         </p>
       )}
       <p>
-        Each essay is watermarked with your email (<b>{purchase.buyerEmail}</b>) and opens here for
-        reading. Reads are logged.
+        Each essay is watermarked with your unique license code <b>{fingerprint}</b> and opens here
+        for reading. Access is logged so redistributed copies can be traced without printing your
+        email or IP in the document.
       </p>
       {essays.map((e) =>
         e.pdfPath ? (

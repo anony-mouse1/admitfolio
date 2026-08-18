@@ -436,6 +436,46 @@
   margin-top: 14px;
   flex-wrap: wrap;
 }
+.schoolConfirm {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid #f0c36a;
+  border-radius: 10px;
+  background: #fff9e8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.schoolConfirm > div {
+  flex: 1 1 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #7a4b00;
+  font-size: 13px;
+}
+.schoolConfirm select {
+  min-width: 220px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d7b15e;
+  border-radius: 8px;
+  background: white;
+}
+.schoolConfirm button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #8f1d2c;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+.schoolConfirm button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;

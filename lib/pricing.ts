@@ -1,13 +1,38 @@
 // Smart pricing engine - shared by the sell wizard (client) and the seller
 // price-edit API (server), so floors can't be bypassed with a direct request.
 
-const T1_KEYS = ['harvard', 'yale', 'princeton', 'stanford', 'mit', 'massachusetts institute', 'columbia', 'university of chicago', 'uchicago', 'upenn', 'university of pennsylvania', ' penn ', 'caltech', 'california institute', 'brown', 'dartmouth', 'cornell', 'duke', 'northwestern', 'johns hopkins', 'john hopkins', 'vanderbilt', 'rice', 'notre dame', 'washington university', 'washu', ' ivy ', 'williams', 'amherst', 'pomona', 'swarthmore', 'bowdoin', 'claremont mckenna', 'georgetown'];
-const T2_KEYS = ['ucla', 'uc los angeles', 'berkeley', ' cal ', 'usc', 'southern california', 'michigan', 'ann arbor', 'unc', 'north carolina', 'nyu', 'new york university', 'carnegie mellon', 'cmu', 'emory', ' uva ', 'virginia', 'tufts', 'wake forest', 'boston college', 'georgia tech', 'georgia institute', 'ut austin', 'texas at austin', 'wisconsin', 'madison', 'boston university', 'northeastern', 'uc san diego', 'ucsd', 'uc irvine', 'uc davis', 'uc santa barbara', 'ucsb', 'case western', 'rochester', 'lehigh', 'villanova', 'william and mary', 'william & mary', 'tulane', 'rensselaer', ' rpi ', 'purdue', 'illinois urbana', 'university of florida', 'ohio state', 'maryland', 'pittsburgh', 'miami', 'washington seattle'];
+import { schoolInfo } from './schools';
+
+// Tiers are keyed on the resolved school, not on loose substrings of the name
+// the seller typed.
+//
+// The previous version matched a keyword list, and ' penn ' in the tier 1 list
+// matched "Penn State", so a Penn State admit was priced as if it were UPenn.
+// Worse, it was inconsistent: "Penn State" scored tier 1 while "Pennsylvania
+// State University" scored tier 3, so the floor a seller saw depended on how
+// they spelled their own school. lib/schools.ts already resolves both to
+// psu.edu and keeps them apart from upenn.edu, so tiers now hang off that.
+const T1_DOMAINS = new Set([
+  'harvard.edu', 'yale.edu', 'princeton.edu', 'stanford.edu', 'mit.edu', 'columbia.edu',
+  'uchicago.edu', 'upenn.edu', 'caltech.edu', 'brown.edu', 'dartmouth.edu', 'cornell.edu',
+  'duke.edu', 'northwestern.edu', 'jhu.edu', 'vanderbilt.edu', 'rice.edu', 'nd.edu',
+  'wustl.edu', 'williams.edu', 'amherst.edu', 'pomona.edu', 'swarthmore.edu', 'bowdoin.edu',
+  'cmc.edu', 'georgetown.edu',
+]);
+const T2_DOMAINS = new Set([
+  'ucla.edu', 'berkeley.edu', 'usc.edu', 'umich.edu', 'unc.edu', 'nyu.edu', 'cmu.edu',
+  'emory.edu', 'virginia.edu', 'tufts.edu', 'wfu.edu', 'bc.edu', 'gatech.edu', 'utexas.edu',
+  'wisc.edu', 'bu.edu', 'northeastern.edu', 'ucsd.edu', 'uci.edu', 'ucdavis.edu', 'ucsb.edu',
+  'case.edu', 'rochester.edu', 'lehigh.edu', 'villanova.edu', 'wm.edu', 'tulane.edu',
+  'rpi.edu', 'purdue.edu', 'illinois.edu', 'ufl.edu', 'osu.edu', 'umd.edu', 'pitt.edu',
+  'miami.edu', 'washington.edu',
+]);
 
 export function schoolTier(name: string): 1 | 2 | 3 {
-  const n = ' ' + String(name).toLowerCase().replace(/[^a-z0-9 &]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
-  if (T1_KEYS.some((k) => n.includes(k))) return 1;
-  if (T2_KEYS.some((k) => n.includes(k))) return 2;
+  const info = schoolInfo(name);
+  if (!info) return 3;
+  if (T1_DOMAINS.has(info.domain)) return 1;
+  if (T2_DOMAINS.has(info.domain)) return 2;
   return 3;
 }
 
@@ -18,16 +43,25 @@ export const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: numbe
 };
 
 // Revenue split: sellers keep this share of every sale, the platform keeps the
-// rest. Single source of truth - the Stripe webhook's `net`, the seller
-// dashboard's earnings and payout figures, and its "you keep N%" label all
-// derive from it. Keep it that way: a split change that reached the webhook but
-// not the dashboard would pay a seller one number and show them another.
+// rest. New purchases snapshot this value in cents. The dashboard reads those
+// snapshots so historical purchases keep the terms in effect when they sold.
 // The published split in app/terms/page.tsx does NOT derive from this and must
 // be edited by hand to match - it is a commitment to sellers, not a computation.
-export const SELLER_SHARE = 0.7;
+export const SELLER_SHARE_BPS = 6_000;
+export const SELLER_SHARE = SELLER_SHARE_BPS / 10_000;
+// The marketplace has not had a live paid purchase yet, so there is no older
+// revenue promise to preserve. Rows created by prototypes also use 60/40.
+export const UNSNAPSHOTTED_SELLER_SHARE_BPS = SELLER_SHARE_BPS;
 
 export const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
 export const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
+
+// A seller who submitted under the floor in force at the time can keep that
+// exact price. Any change must meet today's floor. This prevents a school alias
+// correction from trapping an existing listing in the price editor.
+export function priceAllowedAtFloor(price: number, floor: number, currentPrice: number | null): boolean {
+  return price >= floor || (currentPrice != null && currentPrice < floor && price === currentPrice);
+}
 
 // Best (lowest-numbered) tier among a seller's admit schools; null without admits.
 export function admitsTier(admits: string[]): 1 | 2 | 3 | null {

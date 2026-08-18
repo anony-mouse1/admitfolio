@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from '@/lib/prisma';
 import { sendListingDecisionNotification } from '@/lib/email';
+import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
 
 // Apply an approve/reject decision to a listing and notify the seller.
 //
@@ -21,12 +22,20 @@ export async function applyListingDecision(
   decision: 'approved' | 'rejected',
   note: string | null,
   opts: { human?: boolean } = {},
-): Promise<{ ok: true; status: string } | { ok: false; error: 'not_found' }> {
+): Promise<{ ok: true; status: string } | { ok: false; error: 'not_found' | 'target_school_required' }> {
   const existing = await prisma.listing.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, school: true, targetSchool: true, admitTags: true },
   });
   if (!existing) return { ok: false, error: 'not_found' };
+  const existingSchool = catalogSchool({
+    school: existing.school,
+    targetSchool: existing.targetSchool,
+    admitTags: parseAdmitTags(existing.admitTags),
+  });
+  if (decision === 'approved' && !existingSchool) {
+    return { ok: false, error: 'target_school_required' };
+  }
 
   const listing = await prisma.listing.update({
     where: { id },
@@ -42,8 +51,13 @@ export async function applyListingDecision(
   });
 
   if (existing.status !== decision) {
-    const notify = await sendListingDecisionNotification(listing.seller.email, {
+    const listingSchool = catalogSchool({
       school: listing.school,
+      targetSchool: listing.targetSchool,
+      admitTags: parseAdmitTags(listing.admitTags),
+    });
+    const notify = await sendListingDecisionNotification(listing.seller.email, {
+      school: listingSchool || 'your essay listing',
       decision,
       note,
     });

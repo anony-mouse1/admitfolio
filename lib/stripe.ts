@@ -5,5 +5,8 @@ import Stripe from 'stripe';
 // return a friendly 503 instead of crashing the build.
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+// Stripe issues a separate signing secret for a webhook configured to receive
+// events from connected accounts. Do not reuse the ordinary checkout secret.
+export const STRIPE_CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || '';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://admitfolio.com').replace(/\/$/, '');
