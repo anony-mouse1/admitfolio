@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
+import MatchFinder from '@/components/MatchFinder';
 import { TIER, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
@@ -217,6 +218,10 @@ export default function Page() {
   const [pubState, setPubState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [browseView, setBrowseView] = useState<BrowseView>('cards');
   const [searchQuery, setSearchQuery] = useState('');
+  const [pageView, setPageView] = useState<'home' | 'browse'>('home');
+  const [matcherOpen, setMatcherOpen] = useState(false);
+  const [matchIds, setMatchIds] = useState<string[] | null>(null);
+  const [matchLabel, setMatchLabel] = useState('');
 
   /* ---- Paging ----
      24 at a time: a whole number of rows at all three breakpoints (3 columns,
@@ -229,7 +234,7 @@ export default function Page() {
   const anchorRef = useRef<number | null>(null);
 
   // Reordering the grid invalidates how far down it you had read.
-  useEffect(() => setShown(PAGE_SIZE), [searchQuery]);
+  useEffect(() => setShown(PAGE_SIZE), [searchQuery, matchIds]);
 
   const loadMore = useCallback(() => {
     anchorRef.current = moreRef.current?.getBoundingClientRect().top ?? null;
@@ -293,9 +298,10 @@ export default function Page() {
   // charge come from one definition of how selective a school is. Stable sort
   // keeps the API's newest-reviewed order within each tier.
   const matchingListings = useMemo(() => {
+    const candidates = matchIds ? pubListings.filter((listing) => matchIds.includes(listing.id)) : pubListings;
     const query = searchQuery.trim().toLocaleLowerCase();
-    if (!query) return pubListings;
-    return pubListings.filter((listing) => {
+    if (!query) return candidates;
+    return candidates.filter((listing) => {
       const searchable = [
         headlineSchool(listing),
         listing.school,
@@ -312,12 +318,29 @@ export default function Page() {
         .toLocaleLowerCase();
       return searchable.includes(query);
     });
-  }, [pubListings, searchQuery]);
+  }, [pubListings, searchQuery, matchIds]);
 
   const sortedListings = useMemo(
     () => [...matchingListings].sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b))),
     [matchingListings],
   );
+  const featuredListings = useMemo(() => {
+    const priorityDomains = ['harvard.edu', 'stanford.edu', 'yale.edu', 'columbia.edu', 'upenn.edu', 'uchicago.edu'];
+    const ranked = [...pubListings].sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b)));
+    const picked: PublicListing[] = [];
+    const usedSchools = new Set<string>();
+    const add = (listing: PublicListing | undefined) => {
+      if (!listing) return;
+      const school = headlineSchool(listing);
+      const key = schoolInfo(school)?.domain || school.toLowerCase().trim();
+      if (usedSchools.has(key)) return;
+      usedSchools.add(key);
+      picked.push(listing);
+    };
+    priorityDomains.forEach((domain) => add(ranked.find((listing) => schoolInfo(headlineSchool(listing))?.domain === domain)));
+    ranked.forEach((listing) => { if (picked.length < 6) add(listing); });
+    return picked.slice(0, 6);
+  }, [pubListings]);
   useEffect(() => {
     if (!LAUNCHED) return;
     fetch('/api/listings')
@@ -328,6 +351,39 @@ export default function Page() {
         setPubState('ready');
       })
       .catch(() => setPubState('error'));
+  }, []);
+
+  useEffect(() => {
+    if (!LAUNCHED) return;
+    const syncPage = () => setPageView(window.location.hash === '#browse' ? 'browse' : 'home');
+    syncPage();
+    window.addEventListener('hashchange', syncPage);
+    window.addEventListener('popstate', syncPage);
+    return () => {
+      window.removeEventListener('hashchange', syncPage);
+      window.removeEventListener('popstate', syncPage);
+    };
+  }, []);
+
+  const openBrowse = useCallback(() => {
+    setPageView('browse');
+    if (window.location.hash !== '#browse') window.history.pushState(window.history.state, '', '#browse');
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  }, []);
+
+  const openFeatured = useCallback(() => {
+    setMatchIds(null);
+    setMatchLabel('');
+    setSearchQuery('');
+    setPageView('home');
+    if (window.location.hash !== '#featured') window.history.pushState(window.history.state, '', '#featured');
+    requestAnimationFrame(() => document.getElementById('featured')?.scrollIntoView({ behavior: 'smooth' }));
+  }, []);
+
+  const openMatcher = useCallback(() => {
+    setPageView('browse');
+    if (window.location.hash !== '#browse') window.history.pushState(window.history.state, '', '#browse');
+    setMatcherOpen(true);
   }, []);
 
   /* ---- Which overlays are open (drives body scroll lock) ---- */
@@ -1265,7 +1321,8 @@ export default function Page() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (menuOpen) setMenuOpen(false);
+      if (matcherOpen) setMatcherOpen(false);
+      else if (menuOpen) setMenuOpen(false);
       else if (dashOpen) closeDashboard();
       // Buy sits above detail: opening it closes the sheet first, so the two
       // are never stacked, but check it first anyway in case that ever changes.
@@ -1277,7 +1334,7 @@ export default function Page() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
+  }, [matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -1303,18 +1360,19 @@ export default function Page() {
   return (
     <>
       <nav className="nav">
-        <div className="logo">
-          <div className="logo-word">admitfolio</div>
+        <a className="logo" href="#home" onClick={() => setPageView('home')}>
+          <div className="logo-word">Admitfolio</div>
           <div className="logo-dot"></div>
-        </div>
+        </a>
         <div className="nav-links">
-          <a href="#browse">Browse essays</a>
-          <a href="#how">How it works</a>
-          <a onClick={openSell}>Sell yours</a>
+          <a href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse essays</a>
+          <a href="#featured" onClick={(event) => { event.preventDefault(); openFeatured(); }}>Featured</a>
+          <a onClick={openSell}>Sell your essays</a>
         </div>
         <div className="nav-cta">
           <a className="login" onClick={openLogin}><span className="login-prefix">Seller </span>login</a>
-          <a className="btn-primary" onClick={openSell}>Sell your essay</a>
+          {LAUNCHED && <button className="btn-primary" type="button" onClick={openMatcher}>Find my matches</button>}
+          {!LAUNCHED && <a className="btn-primary" onClick={openSell}>Sell your essay</a>}
           <button type="button" className={`nav-burger${menuOpen ? ' open' : ''}`} aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
             <span></span><span></span>
           </button>
@@ -1323,8 +1381,9 @@ export default function Page() {
           <>
             <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)}></div>
             <div className="nav-menu">
-              <a href="#browse" onClick={() => setMenuOpen(false)}>Browse essays</a>
-              <a href="#how" onClick={() => setMenuOpen(false)}>How it works</a>
+              <a href="#browse" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openBrowse(); }}>Browse essays</a>
+              <a href="#featured" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openFeatured(); }}>Featured</a>
+              {LAUNCHED && <a onClick={() => { setMenuOpen(false); openMatcher(); }}>Find my matches</a>}
               <a onClick={() => { setMenuOpen(false); openLogin(); }}>Seller login</a>
             </div>
           </>
@@ -1332,7 +1391,7 @@ export default function Page() {
       </nav>
 
       {/* ===== Hero ===== */}
-      <section className="hero">
+      <section className="hero" id="home" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div>
           <div className="pill"><span className="dot"></span>For inspiration, never to copy</div>
           <h1>Read the essays that <em>got them in</em>.</h1>
@@ -1341,7 +1400,7 @@ export default function Page() {
             <span className="hero-sub-short">Real admissions essays from the students who got accepted. See why each one worked, and find the angle only you can write.</span>
           </p>
           <div className="hero-actions">
-            <a className="btn-primary" href="#browse">Browse essays</a>
+            <a className="btn-primary" href="#browse" onClick={(event) => { if (LAUNCHED) { event.preventDefault(); openBrowse(); } }}>Browse essays</a>
             <a className="btn-ghost" onClick={openSell}>Sell your essay</a>
           </div>
           <div className="hero-stats">
@@ -1387,7 +1446,7 @@ export default function Page() {
       </section>
 
       {/* ===== Trust bar (marquee on mobile) ===== */}
-      <section className="trust">
+      <section className="trust" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div className="trust-label">Real essays from students now at</div>
         <div className="trust-marquee">
           <div className="trust-row">
@@ -1420,8 +1479,40 @@ export default function Page() {
       </section>
 
       {/* ===== Featured ===== */}
-      <section className={`featured${LAUNCHED ? ' catalog-section' : ''}`} id="browse">
-        {LAUNCHED ? (
+      <section className={`featured${LAUNCHED ? ' catalog-section' : ''}${LAUNCHED && pageView === 'home' ? ' home-featured' : ''}`} id={LAUNCHED && pageView === 'home' ? 'featured' : 'browse'}>
+        {LAUNCHED && pageView === 'home' ? (
+          <>
+            <div className="featured-head home-featured-head">
+              <div>
+                <h2>Featured essays</h2>
+                <p>Six standout schools to start with. The full catalogue stays one click away.</p>
+              </div>
+            </div>
+            {pubState === 'loading' && <div className="pub-empty">Loading essays&hellip;</div>}
+            {pubState === 'error' && <div className="pub-empty">Could not load essays right now. Refresh to try again.</div>}
+            {featuredListings.length > 0 && (
+              <div className="grid public-grid home-featured-grid">
+                {featuredListings.map((listing) => (
+                  <PublicListingCard
+                    key={listing.id}
+                    listing={listing}
+                    onUnlock={() => openBuy({
+                      listingId: listing.id,
+                      school: schoolShortName(headlineSchool(listing)),
+                      price: listing.price || 0,
+                      teaser: listing.teaser,
+                      essayCount: listing.essays.length,
+                    })}
+                    onOpen={() => openDetail(listing.id)}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="home-see-wrap">
+              <a className="home-see-more" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>See all essays</a>
+            </div>
+          </>
+        ) : LAUNCHED ? (
           <>
             <div className="featured-head">
               <div>
@@ -1496,7 +1587,9 @@ export default function Page() {
                   Showing {Math.min(shown, sortedListings.length)} of {sortedListings.length} listing
                   {sortedListings.length === 1 ? '' : 's'}
                   {searchQuery ? ` matching “${searchQuery.trim()}”` : ''}
+                  {matchIds ? ` · ${matchLabel}` : ''}
                 </span>
+                {matchIds && <button type="button" className="pub-count-reset" onClick={() => { setMatchIds(null); setMatchLabel(''); }}>Show all listings</button>}
               </div>
             )}
             {pubListings.length > 0 && sortedListings.length === 0 && (
@@ -1589,8 +1682,23 @@ export default function Page() {
         )}
       </section>
 
+      {LAUNCHED && pageView === 'browse' && (
+        <MatchFinder
+          listings={pubListings}
+          open={matcherOpen}
+          onOpenChange={setMatcherOpen}
+          onOpenListing={(id) => { setMatcherOpen(false); openDetail(id); }}
+          onShowMatches={(ids, query) => {
+            setMatchIds(ids);
+            setMatchLabel(`matches for “${query}”`);
+            setSearchQuery('');
+            requestAnimationFrame(() => document.getElementById('browse')?.scrollIntoView({ behavior: 'smooth' }));
+          }}
+        />
+      )}
+
       {/* ===== How it works ===== */}
-      <section className="how" id="how">
+      <section className="how" id="how" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div className="how-inner">
           <div className="eyebrow">How it works</div>
           <h2 className="reveal">From locked to admitted, in four steps</h2>
@@ -1716,7 +1824,7 @@ export default function Page() {
       </section>
 
       {/* ===== Why admitfolio / comparison ===== */}
-      <section className="why">
+      <section className="why" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div className="why-inner">
           <div style={{ textAlign: 'center' }}>
             <div className="eyebrow">Why admitfolio</div>
@@ -1790,7 +1898,7 @@ export default function Page() {
       </section>
 
       {/* ===== Seller band ===== */}
-      <section className="seller" id="sell">
+      <section className="seller" id="sell" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div className="seller-card">
           <div className="seller-glow"></div>
           <div className="seller-text">
