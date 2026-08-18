@@ -26,6 +26,7 @@ try {
   const {
     CHECKOUT_VERSION,
     PURCHASE_UNIT,
+    checkoutSessionParams,
     paidListingSession,
     purchaseAccounting,
     quoteListing,
@@ -121,6 +122,44 @@ try {
       essayCount: 2,
     },
   });
+  const quotedListing = quoteListing(baseListing, false);
+  assert.equal(quotedListing.ok, true);
+  if (!quotedListing.ok) throw new Error('Expected listing quote.');
+  assert.deepEqual(
+    checkoutSessionParams(quotedListing.quote, '203.0.113.8', 'https://admitfolio.com/'),
+    {
+      mode: 'payment',
+      managed_payments: { enabled: false },
+      client_reference_id: 'listing_1',
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: 4_500,
+            product_data: { name: 'Stanford · 2 essays (Admitfolio)' },
+          },
+        },
+      ],
+      metadata: {
+        checkoutVersion: CHECKOUT_VERSION,
+        purchaseUnit: PURCHASE_UNIT,
+        listingId: 'listing_1',
+        amountCents: '4500',
+        itemLabel: 'Stanford · 2 essays',
+        buyerIp: '203.0.113.8',
+      },
+      payment_intent_data: {
+        metadata: {
+          checkoutVersion: CHECKOUT_VERSION,
+          purchaseUnit: PURCHASE_UNIT,
+          listingId: 'listing_1',
+        },
+      },
+      success_url: 'https://admitfolio.com/purchase/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://admitfolio.com/?checkout=canceled',
+    },
+  );
   assert.equal(quoteListing({ ...baseListing, status: 'pending' }, false).ok, false);
   assert.equal(quoteListing({ ...baseListing, pricingMode: 'separate' }, false).ok, false);
   assert.equal(quoteListing({ ...baseListing, essays: [] }, false).ok, false);
