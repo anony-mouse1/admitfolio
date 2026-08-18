@@ -2560,7 +2560,9 @@ function headlineSchool(l: PublicListing): string {
   return catalogSchool(l) || 'College essay listing';
 }
 
-// The sub-line is always the contents: how many essays, and which ones.
+// The package pill already shows the essay count. Keep this line for the
+// contents only, matching the approved browse mockup without repeating the
+// same number twice on one card.
 //
 // This is what actually differs between one seller's listings, and it used to
 // read "Verified admit · 4 essays" on every card, which is why the grid looked
@@ -2575,8 +2577,7 @@ function contentsLine(l: PublicListing): string {
     if (label && !labels.includes(label)) labels.push(label);
   }
   const head = labels.slice(0, 2).join(', ') + (labels.length > 2 ? `, +${labels.length - 2} more` : '');
-  const n = l.essays.length;
-  return `${n} essay${n === 1 ? '' : 's'}${head ? ` · ${head}` : ''}`;
+  return head;
 }
 
 function majorsOf(l: PublicListing): string[] {
@@ -2780,7 +2781,7 @@ function PublicListingCard({
       <div className="ecard-foot">
         <div className="ecard-price">
           <span className="p">{listing.price != null ? `$${listing.price}` : ''}</span>
-          <span className="w">{count > 1 ? 'whole set' : 'full essay'}</span>
+          <span className="w">{count > 1 ? `${count}-essay set` : 'full essay'}</span>
         </div>
         {/* Decided buyers keep the one-click path; stopPropagation so it does
             not also open the sheet behind the buy modal. */}
