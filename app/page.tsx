@@ -2918,10 +2918,10 @@ function PublicListingCard({
       <div className="ecard-hook" title={title}>{title}</div>
       <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>
         {displayTags.slice(0, 2).map((t) => (
-          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{t}</span>
+          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`} title={t}>{t}</span>
         ))}
         {displayTags.length > 2 && (
-          <span className="etag" title={displayTags.slice(2).join(', ')}>
+          <span className="etag etag-more" title={displayTags.slice(2).join(', ')}>
             +{displayTags.length - 2}
           </span>
         )}

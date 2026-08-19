@@ -1671,8 +1671,12 @@ body { -webkit-tap-highlight-color: transparent; }
 .public-grid:not(.rows) .catalog-card .ecard-prompt.is-empty { visibility: hidden; }
 .public-grid:not(.rows) .catalog-card .ecard-hook { min-height: 50px; }
 .public-grid:not(.rows) .catalog-card .ecard-tags {
-  min-height: 30px; max-height: 30px; overflow: hidden;
+  min-height: 30px; max-height: 30px; gap: 4px; overflow: hidden; flex-wrap: nowrap;
 }
+.public-grid:not(.rows) .catalog-card .ecard-tags .etag {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.public-grid:not(.rows) .catalog-card .ecard-tags .etag-more { flex: none; }
 .public-grid:not(.rows) .catalog-card .ecard-tags.is-empty { visibility: hidden; }
 .public-grid:not(.rows) .catalog-card .ecard-lines { min-height: 76px; margin-top: 12px; }
 .public-grid .catalog-card .admit-names.multi {
