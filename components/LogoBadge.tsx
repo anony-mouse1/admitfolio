@@ -24,7 +24,7 @@ const HIGH_RES_LOGOS: Record<string, string> = {
   'uga.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Georgia_Athletics_logo.svg',
   'cmu.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/CMU_logo_stack_cmyk_red.jpg',
   'tulane.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Tulane_University_Logo.svg',
-  'uchicago.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Chicago_Maroons_logo.svg',
+  'uchicago.edu': '/mockup-assets/university-logos/uchicago-seal.png',
   'case.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Crwu_spartans_logo.png',
   'fsu.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Florida_State_Seminoles_baseball_logo.svg',
   'stanford.edu': 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Stanford_Cardinal_logo.svg',
