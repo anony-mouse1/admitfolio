@@ -71,6 +71,20 @@ try {
   assert.ok(footer.includes(fingerprint));
   assert.ok(!footer.includes('buyer@example.com'));
 
+  const readerSource = fs.readFileSync(path.join(root, 'components/EssayReader.tsx'), 'utf8');
+  assert.match(
+    readerSource,
+    /webpackIgnore:\s*true/,
+    'the browser must load pdf.js without passing its ESM build through Next 14 webpack',
+  );
+  for (const asset of ['pdf.min.mjs', 'pdf.worker.min.mjs']) {
+    assert.deepEqual(
+      fs.readFileSync(path.join(root, 'public/vendor/pdfjs', asset)),
+      fs.readFileSync(path.join(root, 'node_modules/pdfjs-dist/build', asset)),
+      `${asset} must match the installed pdf.js version`,
+    );
+  }
+
   const headers = (values) => ({ get: (name) => values[name] || null });
   assert.equal(
     ipModule.clientIpFromHeaders(headers({
