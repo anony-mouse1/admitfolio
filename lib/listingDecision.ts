@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/prisma';
 import { sendListingDecisionNotification } from '@/lib/email';
 import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
+import { ensureListingOpeningLine } from '@/lib/openingLine';
 
 // Apply an approve/reject decision to a listing and notify the seller.
 //
@@ -44,6 +45,16 @@ export async function applyListingDecision(
       essays: { select: { prompt: true, question: true } },
     },
   });
+
+  // Populate the card hook before approval returns. This is best-effort: a
+  // scanned or corrupt PDF still falls back to its prompt label and must not
+  // block an otherwise valid publication decision.
+  if (decision === 'approved') {
+    const opening = await ensureListingOpeningLine(id);
+    if (opening.status === 'failed') {
+      console.error(`opening-line extraction failed for listing ${id}:`, opening.error);
+    }
+  }
 
   if (existing.status !== decision) {
     const listingTitle = listingHeadline({

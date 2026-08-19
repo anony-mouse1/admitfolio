@@ -19,8 +19,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const buildVersion = process.env.VERCEL_GIT_COMMIT_SHA || 'local';
   return (
     <html lang="en">
+      <head>
+        <meta name="admitfolio-build" content={buildVersion} />
+      </head>
       <body>
         {children}
         {/* Cookieless analytics - exactly what the privacy policy describes.

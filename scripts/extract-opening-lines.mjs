@@ -39,6 +39,7 @@ if (!Promise.withResolvers) {
 import { PrismaClient } from '@prisma/client';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 // Rejects a candidate line containing the seller's own name. Lives in its own
 // file so it can be tested without a database: node scripts/name-leak.test.mjs
 import { nameLeak } from './name-leak.mjs';
@@ -52,9 +53,11 @@ const CLIP_MAX = Number(process.env.CLIP_MAX || 150);
 const BUCKET = 'essays';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing');
 
 async function download(path) {
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing');
+  }
   const res = await fetch(
     `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`,
     { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
@@ -204,7 +207,7 @@ function stripSchoolHeader(block, names) {
   return block;
 }
 
-function junkReason(block, question) {
+export function junkReason(block, question) {
   const words = block.split(/\s+/);
   // A block that never ends a sentence is a title or a header, not prose. This
   // used to be length-gated at 40 characters, which let through a 76-character
@@ -221,6 +224,13 @@ function junkReason(block, question) {
   }
   if (/\b(written|submitted)\s+by\s+[A-Z]/i.test(block)) return 'byline';
   if (/^by\s+[A-Z][a-z]+\s+[A-Z][a-z]/i.test(block)) return 'byline';
+  // School-specific PDFs often prefix a prompt with a label such as
+  // "WBB SPECIFIC 1. What experiences...". A long response in the same PDF
+  // block can otherwise outvote the second-person words and publish the prompt
+  // itself as the card hook.
+  if (/^(?:[A-Z][A-Z0-9&/ -]{1,30}\s+)?(?:SPECIFIC\s+)?\d+[.):-]\s*(what|why|how|describe|discuss|explain|tell|reflect|recount|share|respond)\b/i.test(block)) {
+    return 'numbered-prompt';
+  }
   for (const p of KNOWN_PROMPTS) if (shingleMatch(block, p) >= 0.6) return 'known-prompt';
   if (question && shingleMatch(block, question) >= 0.6) return 'listing-question';
   if (count(block, SECOND_PERSON) > count(block, FIRST_PERSON)) return 'second-person';
@@ -296,58 +306,15 @@ function essaySpecificity(prompt, essayCount) {
   return 0;
 }
 
-/* ---------------------------------- main --------------------------------- */
+/* --------------------------- reusable extraction -------------------------- */
 
-const prisma = new PrismaClient();
+export const openingKey = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-// `seller.name` is here only so nameLeak can reject a line containing it. It is
-// never written anywhere and never printed.
-const select = {
-  id: true, sellerId: true, school: true, admitTags: true,
-  seller: { select: { name: true } },
-  essays: { select: { pdfPath: true, prompt: true, question: true }, orderBy: { sortOrder: 'asc' } },
-};
-const noTeaser = { status: 'approved', OR: [{ teaser: null }, { teaser: '' }] };
-
-// Vercel applies the migration on merge to main, so before that lands the column
-// exists in schema.prisma but not in the database. Rather than fail, fall back to
-// extraction-only: every line still gets printed for review, and --confirm is
-// refused because there is nowhere to put them.
-let listings;
-let columnLive = true;
-try {
-  listings = await prisma.listing.findMany({ where: { ...noTeaser, openingLine: null }, select, orderBy: { createdAt: 'asc' } });
-} catch (e) {
-  if (e?.code !== 'P2022') throw e;
-  columnLive = false;
-  listings = await prisma.listing.findMany({ where: noTeaser, select, orderBy: { createdAt: 'asc' } });
-  console.log('NOTE: Listing.openingLine is not in the database yet, so this is a preview.');
-  console.log('      Merge the migration to main (Vercel runs prisma migrate deploy), then re-run.\n');
-}
-
-console.log(`${listings.length} approved listings have no teaser and no opening line yet\n`);
-
-const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0, nameRejected: 0, duplicateSkipped: 0 };
-// Listings where a block was skipped because it held the seller's name. Counted
-// so the dry run says how often the guard fired; the line itself is never
-// printed, because printing it would put the name back on a screen.
-const nameHits = new Set();
-const results = [];
-const usedOpenings = new Map();
-const openingKey = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-
-if (columnLive) {
-  const existing = await prisma.listing.findMany({
-    where: { openingLine: { not: null } },
-    select: { sellerId: true, openingLine: true },
-  });
-  for (const row of existing) {
-    if (!usedOpenings.has(row.sellerId)) usedOpenings.set(row.sellerId, new Set());
-    usedOpenings.get(row.sellerId).add(openingKey(row.openingLine));
-  }
-}
-
-for (const l of listings) {
+// This is the one extraction path used by both the production approval flow
+// and the one-time backfill below. Keeping the filters here prevents the live
+// cards and the maintenance script from quietly drifting apart again.
+export async function extractOpeningLineForListing(l, used = new Set(), clipMax = CLIP_MAX) {
+  const stats = { noText: 0, failed: 0, nameRejected: 0 };
   let names = [];
   try {
     const tags = JSON.parse(l.admitTags);
@@ -372,10 +339,10 @@ for (const l of listings) {
       blocks = linesToBlocks(lines);
       await doc.destroy();
     } catch (e) {
-      stats.failed++;
+      stats.failed += 1;
       continue;
     }
-    if (!chars) { stats.noText++; continue; }
+    if (!chars) { stats.noText += 1; continue; }
 
     for (const raw of blocks.slice(0, 8)) {
       const block = stripSchoolHeader(stripLabel(stripByline(raw)), names);
@@ -386,8 +353,7 @@ for (const l of listings) {
       // instead. Most essays that name the writer do it in the first paragraph
       // only, so the second one is usually clean.
       if (nameLeak(sentence, l.seller?.name)) {
-        stats.nameRejected++;
-        nameHits.add(l.id);
+        stats.nameRejected += 1;
         continue;
       }
       candidates.push({
@@ -399,42 +365,102 @@ for (const l of listings) {
   }
 
   candidates.sort((a, b) => b.score - a.score);
-  if (!candidates.length) { stats.noCandidate++; continue; }
-  if (!usedOpenings.has(l.sellerId)) usedOpenings.set(l.sellerId, new Set());
-  const used = usedOpenings.get(l.sellerId);
   const chosen = candidates.find((candidate) => !used.has(openingKey(candidate.raw)));
-  if (!chosen) { stats.duplicateSkipped++; continue; }
+  if (!chosen) {
+    return { line: null, reason: candidates.length ? 'duplicate' : 'no_candidate', stats };
+  }
   used.add(openingKey(chosen.raw));
-  results.push({ id: l.id, school: l.school, line: clip(chosen.raw, CLIP_MAX) });
-  stats.filled++;
-  if (!QUIET) process.stdout.write(`\r${results.length} extracted   `);
+  return { line: clip(chosen.raw, clipMax), reason: null, stats };
 }
 
-console.log('\n');
-if (!QUIET) results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. ${r.line}`));
-console.log('\n', stats);
-if (nameHits.size) {
-  console.log(`\n${stats.nameRejected} block(s) across ${nameHits.size} listing(s) were skipped for`);
-  console.log('holding the seller\'s own name. Those listings took a later block, or none.');
-}
+/* ---------------------------------- main --------------------------------- */
 
-if (CONFIRM && !columnLive) {
-  console.error('\nRefusing to write: Listing.openingLine does not exist in the database yet.');
+async function main() {
+  const prisma = new PrismaClient();
+  // `seller.name` is here only so nameLeak can reject a line containing it. It
+  // is never written anywhere and never printed.
+  const select = {
+    id: true, sellerId: true, school: true, admitTags: true,
+    seller: { select: { name: true } },
+    essays: { select: { pdfPath: true, prompt: true, question: true }, orderBy: { sortOrder: 'asc' } },
+  };
+  const noTeaser = { status: 'approved', OR: [{ teaser: null }, { teaser: '' }] };
+
+  let listings;
+  let columnLive = true;
+  try {
+    listings = await prisma.listing.findMany({ where: { ...noTeaser, openingLine: null }, select, orderBy: { createdAt: 'asc' } });
+  } catch (e) {
+    if (e?.code !== 'P2022') throw e;
+    columnLive = false;
+    listings = await prisma.listing.findMany({ where: noTeaser, select, orderBy: { createdAt: 'asc' } });
+    console.log('NOTE: Listing.openingLine is not in the database yet, so this is a preview.');
+    console.log('      Merge the migration to main (Vercel runs prisma migrate deploy), then re-run.\n');
+  }
+
+  console.log(`${listings.length} approved listings have no teaser and no opening line yet\n`);
+  const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0, nameRejected: 0, duplicateSkipped: 0 };
+  const nameHits = new Set();
+  const results = [];
+  const usedOpenings = new Map();
+
+  if (columnLive) {
+    const existing = await prisma.listing.findMany({
+      where: { openingLine: { not: null } },
+      select: { sellerId: true, openingLine: true },
+    });
+    for (const row of existing) {
+      if (!usedOpenings.has(row.sellerId)) usedOpenings.set(row.sellerId, new Set());
+      usedOpenings.get(row.sellerId).add(openingKey(row.openingLine));
+    }
+  }
+
+  for (const listing of listings) {
+    if (!usedOpenings.has(listing.sellerId)) usedOpenings.set(listing.sellerId, new Set());
+    const result = await extractOpeningLineForListing(listing, usedOpenings.get(listing.sellerId));
+    stats.noText += result.stats.noText;
+    stats.failed += result.stats.failed;
+    stats.nameRejected += result.stats.nameRejected;
+    if (result.stats.nameRejected) nameHits.add(listing.id);
+    if (!result.line) {
+      if (result.reason === 'duplicate') stats.duplicateSkipped += 1;
+      else stats.noCandidate += 1;
+      continue;
+    }
+    results.push({ id: listing.id, school: listing.school, line: result.line });
+    stats.filled += 1;
+    if (!QUIET) process.stdout.write(`\r${results.length} extracted   `);
+  }
+
+  console.log('\n');
+  if (!QUIET) results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. ${r.line}`));
+  console.log('\n', stats);
+  if (nameHits.size) {
+    console.log(`\n${stats.nameRejected} block(s) across ${nameHits.size} listing(s) were skipped for`);
+    console.log('holding the seller\'s own name. Those listings took a later block, or none.');
+  }
+
+  if (CONFIRM && !columnLive) {
+    console.error('\nRefusing to write: Listing.openingLine does not exist in the database yet.');
+    await prisma.$disconnect();
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!CONFIRM) {
+    console.log('\nDRY RUN. Nothing written. Re-read every line above, then re-run with --confirm.');
+    console.log('nameLeak rejects the seller\'s own account name, but a nickname, sibling or');
+    console.log('friend named in the prose can still get through.');
+    await prisma.$disconnect();
+    return;
+  }
+
+  for (const result of results) {
+    await prisma.listing.update({ where: { id: result.id }, data: { openingLine: result.line } });
+  }
+  console.log(`\nwrote ${results.length} opening lines`);
   await prisma.$disconnect();
-  process.exit(1);
 }
 
-if (!CONFIRM) {
-  console.log('\nDRY RUN. Nothing written. Re-read every line above, then re-run with --confirm.');
-  console.log('nameLeak now rejects the seller\'s own name, but it only knows the name on the');
-  console.log('account: a nickname, a sibling or a friend named in the prose still gets through,');
-  console.log('and so does a prompt the shingle test missed.');
-  await prisma.$disconnect();
-  process.exit(0);
-}
-
-for (const r of results) {
-  await prisma.listing.update({ where: { id: r.id }, data: { openingLine: r.line } });
-}
-console.log(`\nwrote ${results.length} opening lines`);
-await prisma.$disconnect();
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) await main();

@@ -12,6 +12,7 @@
     "test:listing-schools": "node scripts/listing-school.test.mjs",
     "test:purchase-fulfillment": "node scripts/purchase-fulfillment.test.mjs",
     "test:seller-payouts": "node scripts/seller-payouts.test.mjs",
+    "test:opening-lines": "node scripts/opening-line.test.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
