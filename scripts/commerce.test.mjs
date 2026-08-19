@@ -182,9 +182,9 @@ try {
       ok: true,
       quote: {
         listingId: 'listing_1',
-        headlineSchool: 'Common App Essay Package',
-        itemLabel: 'Common App Essay Package · 2 essays',
-        stripeProductName: 'Common App Essay Package · 2 essays (Admitfolio)',
+        headlineSchool: 'University of Washington',
+        itemLabel: 'UW · 2 essays',
+        stripeProductName: 'UW · 2 essays (Admitfolio)',
         amountCents: 4_500,
         essayCount: 2,
       },

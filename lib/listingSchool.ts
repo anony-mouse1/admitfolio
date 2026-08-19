@@ -48,9 +48,8 @@ function essayIdentityText(essay: ListingEssayIdentity): string {
 
 // The old onboarding asked which schools the essays helped the seller get
 // into, but did not record which one school the listing was written for. Those
-// are different facts. Approved legacy listings still need a truthful public
-// title, so use the application itself when one college cannot be established.
-// Never pick the seller's university or the first accepted school.
+// are different facts. This label remains useful for describing the contents,
+// but it is not a college and must never be sent to the logo component.
 export function legacyApplicationTitle(listing: ListingHeadlineInput): string {
   const applicationSystem = listing.applicationSystem?.trim().toLowerCase() || '';
   const essayTexts = (listing.essays || []).map(essayIdentityText);
@@ -78,5 +77,8 @@ export function legacyApplicationTitle(listing: ListingHeadlineInput): string {
 }
 
 export function listingHeadline(listing: ListingHeadlineInput): string {
-  return catalogSchool(listing) || legacyApplicationTitle(listing);
+  // Exact listing college first. If this is a genuinely general or ambiguous
+  // legacy package, use the seller's current university. That always resolves
+  // to a real college name and logo, unlike "Common App Essay Package".
+  return catalogSchool(listing) || listing.school;
 }

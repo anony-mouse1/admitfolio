@@ -178,8 +178,8 @@ export type QuoteResult =
 
 // A checkout buys one complete Listing, never an individual Essay. Keep every
 // rule here so a future checkout surface cannot accidentally sell an unreviewed,
-// empty or partially uploaded listing. Legacy listings without a one-school
-// answer use an accurate application title instead of being hidden or guessed.
+// empty or partially uploaded listing. General legacy packages use the seller's
+// current university, matching the browse card and its real college logo.
 export function quoteListing(listing: CheckoutListing | null, isTestSeller: boolean): QuoteResult {
   if (
     !listing ||
@@ -221,7 +221,7 @@ export function quoteListing(listing: CheckoutListing | null, isTestSeller: bool
     applicationSystem: listing.applicationSystem,
     essays: listing.essays,
   });
-  const headlineLabel = exactSchool ? schoolShortName(headlineSchool) : headlineSchool;
+  const headlineLabel = schoolShortName(headlineSchool);
   const itemLabel = `${headlineLabel} · ${essayCount} essay${essayCount === 1 ? '' : 's'}`;
 
   return {

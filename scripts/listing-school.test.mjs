@@ -48,8 +48,8 @@ assert.equal(
       { prompt: 'UC · Personal Insight Question' },
     ],
   }),
-  'UC Application',
-  'a legacy UC package must use the application title instead of inventing one campus',
+  'Stanford University',
+  'a general legacy UC package must use the university the seller attends',
 );
 assert.equal(
   listingSchool.listingHeadline({
@@ -60,8 +60,8 @@ assert.equal(
       { prompt: 'Community essay' },
     ],
   }),
-  'Common App Essay Package',
-  'a legacy Common App package must remain publishable without a false school title',
+  'University of Washington',
+  'a general Common App package must use the university the seller attends',
 );
 assert.equal(
   listingSchool.listingHeadline({
@@ -72,8 +72,8 @@ assert.equal(
       { prompt: 'UC · Personal Insight Question' },
     ],
   }),
-  'College Application Essay Package',
-  'a mixed legacy package must not be mislabeled as only Common App or only UC',
+  'Stanford University',
+  'a mixed general package must still show the university the seller attends',
 );
 assert.equal(
   listingSchool.listingHeadline({
