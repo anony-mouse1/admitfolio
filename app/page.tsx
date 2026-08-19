@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import LogoBadge from '@/components/LogoBadge';
+import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
 import MatchFinder from '@/components/MatchFinder';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
@@ -1507,7 +1507,7 @@ export default function Page() {
                 ].map(([name, domain]) => (
                   <span key={domain} className="trust-school">
                     <img
-                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                      src={universityLogoSrc(domain)}
                       alt={`${name} logo`}
                       loading="lazy"
                       onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
