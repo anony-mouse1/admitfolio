@@ -65,13 +65,19 @@ legacy field must not hide an otherwise approved listing.
     approved listing as `Approved and live`
 - The Stripe payment button was not clicked.
 
-## Production rollout
+## Production rollout completed
 
-Merge this branch to `main` and monitor the Vercel production deployment. No
-migration, database write, or backfill is needed for all 144 listings to appear.
+PR #30 was merged to `main` as `3035723`. Vercel reported success. Live checks
+then confirmed:
 
-After deployment, verify `https://admitfolio.com/#browse` reports 144 listings
-and the live admin console shows the approved rows under `Reviewed`.
+- `https://admitfolio.com/#browse` reports 144 listings.
+- The live admin console has no `Needs school title` tab.
+- `Reviewed` contains 143 `Approved and live` cards and no `Confirm approval`
+  buttons. The remaining approved listing is on the admin's Saved shelf, which
+  does not unpublish it; the public catalogue still contains all 144.
+- No live browser console errors were observed.
+
+No migration, database write, backfill, Stripe checkout, or email was needed.
 
 ## Optional later cleanup
 
