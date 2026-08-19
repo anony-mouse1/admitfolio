@@ -30,7 +30,7 @@ export default function EssayReader({ essayId, token, label }: Props) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!open || state !== 'idle') return;
+    if (!open) return;
     let cancelled = false;
 
     (async () => {
@@ -95,7 +95,7 @@ export default function EssayReader({ essayId, token, label }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open, state, essayId, token]);
+  }, [open, essayId, token]);
 
   return (
     <div

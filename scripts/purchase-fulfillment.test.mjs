@@ -77,6 +77,11 @@ try {
     /webpackIgnore:\s*true/,
     'the browser must load pdf.js without passing its ESM build through Next 14 webpack',
   );
+  assert.match(
+    readerSource,
+    /\}, \[open, essayId, token\]\);/,
+    'loading state changes must not cancel the active PDF render effect',
+  );
   for (const asset of ['pdf.min.mjs', 'pdf.worker.min.mjs']) {
     assert.deepEqual(
       fs.readFileSync(path.join(root, 'public/vendor/pdfjs', asset)),
