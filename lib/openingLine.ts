@@ -7,13 +7,14 @@ import {
 
 export type OpeningLineResult =
   | { status: 'stored'; line: string }
-  | { status: 'already_present' | 'seller_teaser' | 'no_candidate' | 'not_found' }
+  | { status: 'already_present' | 'no_candidate' | 'not_found' }
   | { status: 'failed'; error: string };
 
 // Generate the public hook from the submitted PDF once, then persist it. This
 // runs when a human approves a listing, so a newly published card cannot drift
 // from the approved card design just because a one-time maintenance script was
-// forgotten. It is idempotent and never overwrites seller-written teaser copy.
+// forgotten. It is idempotent. A seller-written teaser remains available as a
+// secondary summary, but the card title comes from the essay itself.
 export async function ensureListingOpeningLine(id: string): Promise<OpeningLineResult> {
   const listing = await prisma.listing.findUnique({
     where: { id },
@@ -32,7 +33,6 @@ export async function ensureListingOpeningLine(id: string): Promise<OpeningLineR
     },
   });
   if (!listing) return { status: 'not_found' };
-  if (listing.teaser?.trim()) return { status: 'seller_teaser' };
   if (listing.openingLine?.trim()) return { status: 'already_present' };
 
   try {
@@ -53,7 +53,6 @@ export async function ensureListingOpeningLine(id: string): Promise<OpeningLineR
       where: {
         id,
         openingLine: null,
-        OR: [{ teaser: null }, { teaser: '' }],
       },
       data: { openingLine: extracted.line },
     });

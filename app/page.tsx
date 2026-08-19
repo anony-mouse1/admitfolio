@@ -56,8 +56,8 @@ type PublicListing = {
   verifiedAdmitTags?: string[];
   price: number | null;
   teaser: string | null;
-  // The first sentence of the seller's essay, read from their PDF. Fallback for
-  // the 68 listings where the seller wrote no teaser.
+  // A safe first sentence read from one of this listing's own PDFs. This is the
+  // card title; teaser is only a fallback/secondary seller summary.
   openingLine?: string | null;
   appliedMajors: string | null;
   createdAt: string;
@@ -859,11 +859,11 @@ export default function Page() {
   /* ============================ Buyer checkout ============================ */
   // Payment is a Stripe-hosted checkout page; the modal is just a confirm
   // step. Real listings exist only when the launch flag is on.
-  const [curItem, setCurItem] = useState<{ listingId?: string; school?: string; price?: number; teaser?: string | null; essayCount?: number }>({});
+  const [curItem, setCurItem] = useState<{ listingId?: string; school?: string; price?: number; summary?: string | null; essayCount?: number }>({});
   const [buyErr, setBuyErr] = useState('');
   const [paying, setPaying] = useState(false);
 
-  const openBuy = useCallback((item: { listingId: string; school: string; price: number; teaser?: string | null; essayCount?: number }) => {
+  const openBuy = useCallback((item: { listingId: string; school: string; price: number; summary?: string | null; essayCount?: number }) => {
     setCurItem(item);
     setBuyErr('');
     setBuyOpen(true);
@@ -1545,7 +1545,7 @@ export default function Page() {
                       listingId: listing.id,
                       school: schoolShortName(headlineSchool(listing)),
                       price: listing.price || 0,
-                      teaser: listing.teaser,
+                      summary: publicListingTitle(listing),
                       essayCount: listing.essays.length,
                     })}
                     onOpen={() => openDetail(listing.id)}
@@ -1664,7 +1664,7 @@ export default function Page() {
                         // Stripe product name is built from, so all three agree.
                         school: schoolShortName(headlineSchool(l)),
                         price: l.price || 0,
-                        teaser: l.teaser,
+                        summary: publicListingTitle(l),
                         essayCount: l.essays.length,
                       })
                     }
@@ -2310,7 +2310,7 @@ export default function Page() {
               listingId: l.id,
               school: schoolShortName(headlineSchool(l)),
               price: l.price || 0,
-              teaser: l.teaser,
+              summary: publicListingTitle(l),
               essayCount: l.essays.length,
             });
           }}
@@ -2330,7 +2330,7 @@ export default function Page() {
               <div className="buy-summary-essay">
                 <div className="buy-summary-school">{curItem.school || 'This listing'}</div>
                 <div className="buy-summary-hook">
-                  {curItem.teaser || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
+                  {curItem.summary || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
                 </div>
               </div>
               <div className="buy-summary-price">{curItem.price != null ? `$${curItem.price}` : ''}</div>
@@ -2795,17 +2795,25 @@ function essayLabel(e: { prompt: string; question: string | null }): string {
   return truncateWords(raw, PROMPT_MAX);
 }
 
-// Every card gets one compelling, predictable title. Seller-written copy wins;
-// otherwise `openingLine` is the extractor-approved first sentence (seller-name
-// checks run before it is stored). A prompt-based label is the safe fallback for
-// scanned PDFs, short answers, or any opening the extractor refused to publish.
+// Every card gets one accurate title from an essay in this exact listing.
+// `openingLine` is extractor-approved and seller-name checks run before it is
+// stored. Seller-written marketing copy is only a fallback. A prompt label is
+// the last resort for scans or short answers with no safe prose to extract.
 function publicListingTitle(listing: PublicListing): string {
-  const written = (listing.teaser || listing.openingLine || '').trim();
+  const written = (listing.openingLine || listing.teaser || '').trim();
   if (written) return truncateWords(written, 120);
   const prompt = listing.essays[0] ? essayLabel(listing.essays[0]) : '';
   if (prompt) return prompt;
   const school = schoolShortName(headlineSchool(listing));
   return `${school} admission essay${listing.essays.length === 1 ? '' : ' collection'}`;
+}
+
+function sameTitleText(a: string | null | undefined, b: string | null | undefined): boolean {
+  const normalize = (value: string | null | undefined) =>
+    (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const left = normalize(a);
+  const right = normalize(b);
+  return Boolean(left && right && left.slice(0, 60) === right.slice(0, 60));
 }
 
 // Two shortened labels joined can still run past 100 characters, which is what
@@ -3053,10 +3061,10 @@ function ListingDetail({
         </div>
 
         <div className="d-hook">{title}</div>
-        {/* On the sheet there is room for both, so when the seller wrote a
-            teaser their essay's opening still gets shown underneath it. */}
-        {listing.teaser && listing.openingLine && (
-          <div className="d-teaser">Essay opens: {listing.openingLine}</div>
+        {/* The actual essay excerpt stays primary. A distinct seller-written
+            description can still add context once the buyer opens the card. */}
+        {listing.teaser && listing.openingLine && !sameTitleText(listing.teaser, listing.openingLine) && (
+          <div className="d-teaser">Seller&apos;s summary: {listing.teaser}</div>
         )}
 
         <div className="d-sec">
