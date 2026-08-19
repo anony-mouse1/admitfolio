@@ -6,7 +6,7 @@ import LogoBadge from '@/components/LogoBadge';
 import MatchFinder from '@/components/MatchFinder';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
-import { SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
+import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
@@ -330,12 +330,10 @@ export default function Page() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // "Most competitive" uses the exact listing school when known. Legacy
-  // application packages keep their accurate generic title but can still rank
-  // by their strongest claimed admit.
-  // (lib/pricing.ts), so the order a buyer sees and the price a seller may
-  // charge come from one definition of how selective a school is. Stable sort
-  // keeps the API's newest-reviewed order within each tier.
+  // Browse follows the exact 2026 National Universities rank when available.
+  // Schools outside that published top 50 retain the broader pricing tier as a
+  // fallback, then sort alphabetically. A stable final tie keeps the API order
+  // within one university.
   const matchingListings = useMemo(() => {
     const candidates = matchIds ? pubListings.filter((listing) => matchIds.includes(listing.id)) : pubListings;
     const query = searchQuery.trim().toLocaleLowerCase();
@@ -360,12 +358,12 @@ export default function Page() {
   }, [pubListings, searchQuery, matchIds]);
 
   const sortedListings = useMemo(
-    () => [...matchingListings].sort((a, b) => listingRankTier(a) - listingRankTier(b)),
+    () => [...matchingListings].sort(compareListingRank),
     [matchingListings],
   );
   const featuredListings = useMemo(() => {
     const priorityDomains = ['harvard.edu', 'stanford.edu', 'yale.edu', 'columbia.edu', 'upenn.edu', 'uchicago.edu'];
-    const ranked = [...pubListings].sort((a, b) => listingRankTier(a) - listingRankTier(b));
+    const ranked = [...pubListings].sort(compareListingRank);
     const picked: PublicListing[] = [];
     const usedSchools = new Set<string>();
     const add = (listing: PublicListing | undefined) => {
@@ -2714,6 +2712,21 @@ function listingRankTier(l: PublicListing): number {
     : 3;
 }
 
+function compareListingRank(a: PublicListing, b: PublicListing): number {
+  const schoolA = headlineSchool(a);
+  const schoolB = headlineSchool(b);
+  const rankA = nationalUniversityRank(schoolA);
+  const rankB = nationalUniversityRank(schoolB);
+  if (rankA != null || rankB != null) {
+    if (rankA == null) return 1;
+    if (rankB == null) return -1;
+    if (rankA !== rankB) return rankA - rankB;
+  }
+  const tierDifference = listingRankTier(a) - listingRankTier(b);
+  if (tierDifference) return tierDifference;
+  return schoolShortName(schoolA).localeCompare(schoolShortName(schoolB));
+}
+
 // The package pill already shows the essay count. Keep this line for the
 // contents only, matching the approved browse mockup without repeating the
 // same number twice on one card.
@@ -2918,10 +2931,10 @@ function PublicListingCard({
       <div className="ecard-hook" title={title}>{title}</div>
       <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>
         {displayTags.slice(0, 2).map((t) => (
-          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{t}</span>
+          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`} title={t}>{t}</span>
         ))}
         {displayTags.length > 2 && (
-          <span className="etag" title={displayTags.slice(2).join(', ')}>
+          <span className="etag etag-more" title={displayTags.slice(2).join(', ')}>
             +{displayTags.length - 2}
           </span>
         )}
@@ -2930,7 +2943,7 @@ function PublicListingCard({
           shape and the price rules line up straight across a row. */}
       <div className="ecard-lines">
         <div className="ecard-admits">
-          <span className="ecard-admits-label">Attends</span>
+          <span className="ecard-admits-label">Seller attends</span>
           <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
         </div>
         <div className="ecard-admits">

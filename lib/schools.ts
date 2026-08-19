@@ -20,6 +20,36 @@ export type School = {
   exactKeys?: string[];
 };
 
+// 2026 U.S. News Best National Universities. Ties intentionally share a rank.
+// Source: https://www.usnews.com/best-colleges/rankings/national-universities
+// The public page uses this only for catalogue ordering. Price floors continue
+// to use the broader, less volatile tiers in lib/pricing.ts.
+const NATIONAL_UNIVERSITY_RANK_2026 = new Map<string, number>([
+  ['princeton.edu', 1],
+  ['mit.edu', 2],
+  ['harvard.edu', 3],
+  ['stanford.edu', 4], ['yale.edu', 4],
+  ['uchicago.edu', 6],
+  ['duke.edu', 7], ['jhu.edu', 7], ['northwestern.edu', 7], ['upenn.edu', 7],
+  ['caltech.edu', 11],
+  ['cornell.edu', 12],
+  ['brown.edu', 13], ['dartmouth.edu', 13],
+  ['columbia.edu', 15], ['berkeley.edu', 15],
+  ['rice.edu', 17], ['ucla.edu', 17], ['vanderbilt.edu', 17],
+  ['cmu.edu', 20], ['umich.edu', 20], ['nd.edu', 20], ['wustl.edu', 20],
+  ['emory.edu', 24], ['georgetown.edu', 24],
+  ['unc.edu', 26], ['virginia.edu', 26],
+  ['usc.edu', 28],
+  ['ucsd.edu', 29],
+  ['ufl.edu', 30], ['utexas.edu', 30],
+  ['gatech.edu', 32], ['nyu.edu', 32], ['ucdavis.edu', 32], ['uci.edu', 32],
+  ['bc.edu', 36], ['tufts.edu', 36], ['illinois.edu', 36], ['wisc.edu', 36],
+  ['ucsb.edu', 40],
+  ['osu.edu', 41],
+  ['bu.edu', 42], ['rutgers.edu', 42], ['umd.edu', 42], ['washington.edu', 42],
+  ['lehigh.edu', 46], ['northeastern.edu', 46], ['purdue.edu', 46], ['uga.edu', 46], ['rochester.edu', 46],
+]);
+
 const SCHOOLS: School[] = [
   // ── Ivies + peers ────────────────────────────────────────
   { domain: 'harvard.edu', short: 'Harvard', keys: ['harvard'] },
@@ -217,6 +247,13 @@ export function schoolInfo(name: string | null | undefined): { domain: string; s
     }
   }
   return best ? { domain: best.domain, short: best.short } : null;
+}
+
+/** Exact 2026 National Universities rank, or null outside the published top 50. */
+export function nationalUniversityRank(name: string | null | undefined): number | null {
+  const info = schoolInfo(name);
+  if (!info) return null;
+  return NATIONAL_UNIVERSITY_RANK_2026.get(info.domain) ?? null;
 }
 
 // Words that stay lowercase unless they lead: "University of Michigan", not

@@ -1,71 +1,82 @@
-# Handover: accurate essay titles and college logos
+# Handover: production browse parity
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/accurate-essay-card-titles`
+Branch: `codex/fix-card-tag-spacing`
 
-Base: `origin/main` at `8989351` (`Merge pull request #32 from
-anony-mouse1/codex/fix-card-data-parity`). This branch is intentionally separate
-from the unpushed `codex/seller-university-integrity` migration branch.
+Base: `origin/main` at `cc93050` when the branch was created. `origin/main`
+later advanced to `3fc5570` with the purchased-reader fix. The browse changes do
+not overlap that reader work.
 
 ## What changed
 
-- The large browse-card title now prefers `Listing.openingLine`, a safe sentence
-  extracted from one of the PDFs in that exact listing. Seller-written teaser
-  copy is only a fallback.
-- The checkout confirmation uses the same title as the card.
-- The detail sheet keeps the essay excerpt primary and labels any different
-  seller-written teaser as `Seller's summary`.
-- Newly submitted listings get an extracted opening even when the seller also
-  supplied a teaser.
-- The backfill now covers every approved listing without an opening, not only
-  listings without teasers, and uses conditional writes so reruns are safe.
-- Extraction now rejects prompt text with word limits, institutional prompt
-  preambles, seller-name leaks, emails, phone numbers, account IDs, SSNs, and
-  street addresses. PDF resale notices are removed before selecting a sentence.
-- The approved real-data mock at `public/browse-mockup.html` was updated to put
-  the essay-derived line before the teaser. That file remains gitignored and is
-  not deployable.
-- A card now sends only a real college to the logo component. An exact
-  `targetSchool` wins. A legacy listing with one claimed admit uses that admit.
-  A genuinely general or ambiguous multi-college package uses the university
-  the seller currently attends. Application labels such as `Common App Essay
-  Package` are never treated as schools or rendered as a meaningless `C` badge.
-- Checkout uses the same college fallback as the card, so its title cannot
-  disagree with Browse.
+- Browse cards now match the approved localhost mock geometry at a 1280px
+  viewport: 358.7 by 366.2px, instead of the production-only 340 by 415px
+  portrait shape.
+- The card grid uses a 22px gap and no extra right padding, matching the mock.
+- Production-only minimum heights and invisible placeholder rows were removed.
+  Grid stretching still aligns every card within a row.
+- The card label now says `Seller attends`, matching the mock and distinguishing
+  the seller's current school from the college the essays target.
+- Browse sorts by the exact 2026 U.S. News National Universities rank when a
+  ranked school is available. Unranked schools fall back to the existing price
+  tier, then canonical school name.
+- With the current 144-listing catalogue, the first six results are Harvard
+  (single), four Stanford listings (three packages and one single), then Yale.
+  The first row therefore includes both a single essay and packages without
+  breaking rank order.
+- Card background tags stay on one line and the `+N` overflow tag does not
+  shrink.
+- Ranking regression tests cover Harvard, Stanford and Yale order, the initial
+  single/package mix, future Princeton/MIT inventory, rank ties, aliases and
+  unranked fallbacks.
+
+## Opening-line audit
+
+- No production title rewrite was needed. Production already derives card
+  titles from PDFs in the exact listing through `Listing.openingLine`.
+- The localhost mock is not the title source of truth. Its ignored HTML contains
+  a manually hardcoded `OPENINGS` map for 137 listings, while production has 144.
+- The audited Stanford package's mock line and live line both come verbatim from
+  essays sold in that package. The mock hardcodes the Common App opening. The
+  production extractor selected a later short-answer opening because it scored
+  higher and avoided seller-wide duplicates.
+- Live currently has 139 PDF-derived opening lines. Five unreadable or unsafe
+  cases use the intentional seller-summary or prompt fallback. There are no
+  duplicate stored opening lines within a seller.
+- Do not overwrite production titles from the mock's stale map. If the product
+  rule changes to specifically require the first listed essay instead of the
+  strongest safe excerpt in the package, that requires a new extractor version,
+  reviewable dry-run and explicitly approved production backfill.
 
 ## Verification completed
 
-- `npm run test:opening-lines`
+- Visible side-browser QA against the production-backed local app on port 3003.
+- DOM measurements: first three cards are all 358.7 by 366.2px, grid gap is
+  22px, grid padding is `14px 0 0`, and page overflow is zero.
+- First six schools: Harvard, Stanford, Stanford, Stanford, Stanford, Yale.
+- First row types: single, package, package.
+- Rows view still switches correctly and has zero horizontal overflow.
+- Read-only PDF extraction reproduced the live Stanford opening line exactly.
+- `npm run test:university-ranks`
 - `npm run test:listing-schools`
+- `npm run test:opening-lines`
 - `npm run test:commerce`
 - `npm run test:purchase-fulfillment`
 - `npm run test:seller-payouts`
-- `npx prisma validate`
 - `npx tsc --noEmit`
-- Direct `npx next build` with temporary build-only values.
-- Visible Browser comparison of the approved `single-count` mock and the real
-  app on port 3002. No checkout button was clicked.
-- Real-app DOM checks confirmed the generalized Architecture package renders
-  UVA with a loaded University of Virginia logo. The school-specific $202
-  Cornell package still renders Cornell's loaded logo while separately saying
-  that the seller attends UW.
-- Multiple read-only production extraction audits. The first audit caught a
-  pasted college prompt and a resale watermark; later audits drove fixes into
-  the shared extractor rather than editing individual titles.
+- Direct `npx next build` with temporary build-only values. No migration ran.
 
-## Production write still requires approval
+## Production status
 
-No database row has been changed. After the code is merged, run:
+PR #36 is the existing focused browse PR. Push the final layout/test commit,
+merge PR #36 into `main`, monitor Vercel, then repeat the browser measurements
+on `https://admitfolio.com/#browse`.
 
-`node --env-file=.env scripts/extract-opening-lines.mjs --confirm`
+No database write, migration or title backfill is required for this rollout.
 
-That command fills `Listing.openingLine` only where it is still null. It does
-not change essay files, prices, schools, approvals, seller data, or payments.
-Fatimah must explicitly approve this live backfill before it is run.
-
-The separate `Seller.currentUniversity` migration on
-`codex/seller-university-integrity` also remains unpushed and still needs its
-own explicit production-migration approval.
+Unrelated pre-existing local edits remain in `components/EssayReader.tsx`,
+`scripts/purchase-fulfillment.test.mjs`, and `public/vendor/`. Do not stage or
+revert them as part of this fix.
