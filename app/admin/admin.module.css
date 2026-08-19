@@ -143,6 +143,7 @@
 .filters {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 .chip {
   font-size: 13px;
@@ -475,6 +476,33 @@
 .schoolConfirm button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+.decisionDone {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+.decisionDone b {
+  font-weight: 800;
+}
+.decisionDone span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.decisionLive {
+  color: #175f35;
+  background: #edf8f1;
+  border-color: #cce7d5;
+}
+.decisionRejected {
+  color: #8f2119;
+  background: #fff1ef;
+  border-color: #f1d0cb;
 }
 .btn:disabled {
   opacity: 0.55;
