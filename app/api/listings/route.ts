@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { schoolKey } from '@/lib/admitProof';
 import { publicDisplayName, normalizeAnonymity } from '@/lib/anonymity';
-import { catalogSchool } from '@/lib/listingSchool';
+import { catalogSchool, listingHeadline } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,9 +63,13 @@ export async function GET() {
       const verifiedKeys = new Set(l.seller.admitProofs.map((p) => p.schoolKey));
       const admitTags = parseTags(l.admitTags);
       const targetSchool = catalogSchool({ school: l.school, targetSchool: l.targetSchool, admitTags });
-      // Multi-admit legacy listings never recorded which college these essays
-      // were for. Keep them off Browse until an admin confirms the title.
-      if (!targetSchool) return [];
+      const headlineSchool = listingHeadline({
+        school: l.school,
+        targetSchool: l.targetSchool,
+        admitTags,
+        applicationSystem: l.applicationSystem,
+        essays: l.essays,
+      });
       if (!usedHooksBySeller.has(l.sellerId)) usedHooksBySeller.set(l.sellerId, new Set());
       const usedHooks = usedHooksBySeller.get(l.sellerId) as Set<string>;
       let teaser = l.teaser;
@@ -90,6 +94,7 @@ export async function GET() {
         id: l.id,
         school: l.school,
         targetSchool,
+        headlineSchool,
         applicationSystem: l.applicationSystem,
         admitTags,
         // The subset of admitTags backed by an acceptance letter a human checked.

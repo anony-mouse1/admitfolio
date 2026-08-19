@@ -107,8 +107,8 @@ try {
     pricingMode: 'package',
     packagePrice: 45,
     essays: [
-      { id: 'essay_1', pdfPath: 'listings/listing_1/essay_1.pdf' },
-      { id: 'essay_2', pdfPath: 'listings/listing_1/essay_2.pdf' },
+      { id: 'essay_1', pdfPath: 'listings/listing_1/essay_1.pdf', prompt: 'Why Stanford' },
+      { id: 'essay_2', pdfPath: 'listings/listing_1/essay_2.pdf', prompt: 'Roommate essay' },
     ],
   };
   assert.deepEqual(quoteListing(baseListing, false), {
@@ -164,7 +164,7 @@ try {
   assert.equal(quoteListing({ ...baseListing, pricingMode: 'separate' }, false).ok, false);
   assert.equal(quoteListing({ ...baseListing, essays: [] }, false).ok, false);
   assert.equal(
-    quoteListing({ ...baseListing, essays: [{ id: 'essay_1', pdfPath: null }] }, false).ok,
+    quoteListing({ ...baseListing, essays: [{ id: 'essay_1', pdfPath: null, prompt: 'Personal statement' }] }, false).ok,
     false,
   );
   assert.equal(quoteListing(baseListing, true).ok, false);
@@ -174,13 +174,20 @@ try {
         ...baseListing,
         targetSchool: null,
         admitTags: JSON.stringify(['Stanford', 'University of Washington']),
+        applicationSystem: 'commonapp',
       },
       false,
     ),
     {
-      ok: false,
-      reason: 'school_unconfirmed',
-      message: 'This listing needs its college confirmed before purchase.',
+      ok: true,
+      quote: {
+        listingId: 'listing_1',
+        headlineSchool: 'Common App Essay Package',
+        itemLabel: 'Common App Essay Package · 2 essays',
+        stripeProductName: 'Common App Essay Package · 2 essays (Admitfolio)',
+        amountCents: 4_500,
+        essayCount: 2,
+      },
     },
   );
   assert.equal(

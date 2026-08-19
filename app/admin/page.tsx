@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import styles from './admin.module.css';
-import { catalogSchool } from '@/lib/listingSchool';
+import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
 
 type Essay = {
   id: string;
@@ -72,10 +72,10 @@ type Listing = {
 type ListingFull = Listing & { essays: Essay[] };
 
 type Stage = 'loading' | 'email' | 'console';
-// Four disjoint queues. An approved legacy listing can still need its essay
-// school confirmed before it is publishable, but that is catalogue cleanup,
-// not a second approval decision.
-type Filter = 'needsReview' | 'needsSchool' | 'reviewed' | 'saved';
+// Three disjoint queues. Approval is the publishing decision. An older listing
+// may lack a one-college title, but it still publishes under an application
+// title and stays in Reviewed.
+type Filter = 'needsReview' | 'reviewed' | 'saved';
 
 // --- What the AI said -------------------------------------------------------
 // The panel found nothing wrong. With auto-approve off (AUTO_APPROVE in
@@ -91,16 +91,10 @@ const aiFlagged = (l: Listing) => l.aiDecision === 'flagged';
 const saved = (l: Listing) => !!l.savedAt;
 // Screened by the panel and still pending: it has had its say, you haven't.
 const needsReview = (l: Listing) => !saved(l) && !!l.aiReviewedAt && l.status === 'pending';
-// Approved before targetSchool existed, so the decision is complete but the
-// listing remains hidden until its card title is confirmed.
-const needsSchool = (l: Listing) =>
-  !saved(l) && l.status === 'approved' && !listingCollege(l);
 // Completed and in its final public state: approved listings are live, rejected
-// listings remain private. Approved listings still missing a school are kept in
-// the separate cleanup queue above.
+// listings remain private.
 const reviewed = (l: Listing) =>
-  !saved(l) &&
-  (l.status === 'rejected' || (l.status === 'approved' && !!listingCollege(l)));
+  !saved(l) && (l.status === 'rejected' || l.status === 'approved');
 // Submitted, but the cron hasn't screened it yet. Deliberately NOT a tab: there
 // is nothing for you to do with these, you're waiting on the nightly run. It
 // renders as a plain count beside the tabs so the number stays visible.
@@ -118,10 +112,13 @@ const ANONYMITY_LABEL: Record<string, string> = {
 };
 const anonymityLabel = (v: string) => ANONYMITY_LABEL[v] ?? v;
 const listingCollege = (l: Listing) => catalogSchool(l);
+const listingTitle = (l: ListingFull) => resolveListingHeadline({
+  ...l,
+  essays: l.essays,
+});
 
 const TABS: { key: Filter; label: string; match: (l: Listing) => boolean }[] = [
   { key: 'needsReview', label: 'Needs your review', match: needsReview },
-  { key: 'needsSchool', label: 'Needs school title', match: needsSchool },
   { key: 'reviewed', label: 'Reviewed', match: reviewed },
   { key: 'saved', label: 'Saved for later', match: saved },
 ];
@@ -133,9 +130,6 @@ const SECTIONS: Record<Filter, { key: string; label: string; match: (l: Listing)
   needsReview: [
     { key: 'aiApproved', label: '✓ Approved by AI', match: aiApproved },
     { key: 'aiFlagged', label: '⚑ Flagged by AI', match: aiFlagged },
-  ],
-  needsSchool: [
-    { key: 'needsSchool', label: 'Approved, not live yet', match: needsSchool },
   ],
   reviewed: [
     { key: 'accepted', label: 'Accepted and live', match: (l) => l.status === 'approved' },
@@ -727,8 +721,6 @@ export default function AdminPage() {
                   ? 'No submissions yet.'
                   : filter === 'needsReview'
                     ? 'Nothing is waiting on you. 🎉'
-                    : filter === 'needsSchool'
-                      ? 'Every approved listing has a confirmed school and can appear on Browse. 🎉'
                     : filter === 'saved'
                       ? 'Nothing saved. Use “Save for later” on a card to park it here.'
                       : 'Nothing reviewed yet.'}
@@ -764,7 +756,7 @@ export default function AdminPage() {
                     <div>
                       <h3 className={styles.serif}>
                         {l.isT20 && <span className={styles.t20Badge}>T20</span>}
-                        {listingCollege(l) || (l.status === 'rejected' ? 'Rejected listing' : 'School confirmation needed')}
+                        {listingTitle(l)}
                         {l.gradYear ? ` · Class of ${l.gradYear}` : ''}
                       </h3>
                       <div className={styles.who}>
@@ -798,11 +790,11 @@ export default function AdminPage() {
                   {!listingCollege(l) && l.status !== 'rejected' && l.status !== 'removed' && (
                     <div className={styles.schoolConfirm}>
                       <div>
-                        <b>{l.status === 'approved' ? 'Approved, waiting for school title' : 'School confirmation needed'}</b>
+                        <b>Optional exact college title</b>
                         <span>
                           {l.status === 'approved'
-                            ? 'The approval is complete. Confirm which college these essays are for and the listing will go live automatically.'
-                            : 'This listing cannot be approved until you confirm which college these essays are for.'}
+                            ? `This listing is already live as “${listingTitle(l)}.” Choose one college only if every essay in this listing is for that college.`
+                            : `If the PDFs all belong to one college, you can use that college as the title. Otherwise approval will publish it as “${listingTitle(l)}.”`}
                         </span>
                       </div>
                       <select
@@ -818,19 +810,15 @@ export default function AdminPage() {
                         onClick={() => confirmListingSchool(l)}
                         disabled={!schoolDrafts[l.id] || confirmingSchool === l.id}
                       >
-                        {confirmingSchool === l.id
-                          ? 'Saving…'
-                          : l.status === 'approved'
-                            ? 'Confirm college and publish'
-                            : 'Confirm college'}
+                        {confirmingSchool === l.id ? 'Saving…' : 'Use exact college title'}
                       </button>
                     </div>
                   )}
 
-                  {l.status === 'approved' && listingCollege(l) && (
+                  {l.status === 'approved' && (
                     <div className={`${styles.decisionDone} ${styles.decisionLive}`}>
                       <b>✓ Approved and live</b>
-                      <span>This listing is visible on Browse. The approval email was triggered when the decision was saved.</span>
+                      <span>This listing is visible on Browse as “{listingTitle(l)}.” The approval email was triggered when the decision was saved.</span>
                     </div>
                   )}
                   {l.status === 'rejected' && (
@@ -1031,9 +1019,7 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  {/* A completed decision is final in this console. Approved
-                      legacy rows that only need a school title are published by
-                      the school confirmation control above, not approved again. */}
+                  {/* A completed decision is final in this console. */}
                   {l.status === 'pending' && (
                     <div className={styles.decide}>
                       <label className={styles.noteLabel} htmlFor={`note-${l.id}`}>
@@ -1059,8 +1045,7 @@ export default function AdminPage() {
                       <div className={styles.actions}>
                         <button
                           className={`${styles.btn} ${l.aiSuggestion === 'approve' && l.status === 'pending' ? styles.suggested : ''}`}
-                          disabled={deciding === l.id || !listingCollege(l)}
-                          title={!listingCollege(l) ? 'Confirm the listing college first' : undefined}
+                          disabled={deciding === l.id}
                           onClick={() => decide(l.id, 'approved')}
                         >
                           Approve &amp; notify

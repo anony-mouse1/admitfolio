@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
-import { packageFloor, perEssayFloor, priceAllowedAtFloor, schoolTier, TIER } from '@/lib/pricing';
+import { admitsTier, packageFloor, perEssayFloor, priceAllowedAtFloor, schoolTier, TIER } from '@/lib/pricing';
 import { catalogSchool } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
@@ -43,13 +43,12 @@ export async function POST(req: Request) {
     targetSchool: listing.targetSchool,
     admitTags: admits,
   });
-  if (!targetSchool) {
-    return NextResponse.json(
-      { error: 'The listing college must be confirmed before changing its price.' },
-      { status: 409 },
-    );
-  }
-  const tier = schoolTier(targetSchool);
+  // Legacy application packages may not have one exact college. Keep their
+  // original pricing behavior by using the strongest claimed admit for the
+  // floor, while their public title remains application-level and truthful.
+  const tier = targetSchool
+    ? schoolTier(targetSchool)
+    : admitsTier(admits) ?? 3;
 
   if (listing.pricingMode === 'package') {
     const price = Math.round(Number(body?.packagePrice));

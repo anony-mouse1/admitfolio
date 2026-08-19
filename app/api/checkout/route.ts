@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         where: { id: String(body.listingId) },
         include: {
           seller: { select: { email: true } },
-          essays: { select: { id: true, pdfPath: true } },
+          essays: { select: { id: true, pdfPath: true, prompt: true, question: true } },
         },
       })
     : null;

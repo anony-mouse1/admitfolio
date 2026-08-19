@@ -13,6 +13,16 @@ export type ListingSchoolInput = {
   admitTags: string[];
 };
 
+export type ListingEssayIdentity = {
+  prompt: string;
+  question?: string | null;
+};
+
+export type ListingHeadlineInput = ListingSchoolInput & {
+  applicationSystem?: string | null;
+  essays?: ListingEssayIdentity[];
+};
+
 export function parseAdmitTags(value: string): string[] {
   try {
     const parsed = JSON.parse(value);
@@ -30,4 +40,43 @@ export function catalogSchool(listing: ListingSchoolInput): string | null {
 
 export function needsTargetSchoolReview(listing: ListingSchoolInput): boolean {
   return catalogSchool(listing) === null;
+}
+
+function essayIdentityText(essay: ListingEssayIdentity): string {
+  return `${essay.prompt} ${essay.question || ''}`.toLowerCase();
+}
+
+// The old onboarding asked which schools the essays helped the seller get
+// into, but did not record which one school the listing was written for. Those
+// are different facts. Approved legacy listings still need a truthful public
+// title, so use the application itself when one college cannot be established.
+// Never pick the seller's university or the first accepted school.
+export function legacyApplicationTitle(listing: ListingHeadlineInput): string {
+  const applicationSystem = listing.applicationSystem?.trim().toLowerCase() || '';
+  const essayTexts = (listing.essays || []).map(essayIdentityText);
+  const hasUcEssay = essayTexts.some((text) =>
+    /\buc\b|university of california|personal insight question|\bpiq\b/.test(text),
+  );
+  const hasCommonAppEssay = essayTexts.some((text) =>
+    /common\s*app|personal statement/.test(text),
+  );
+
+  if (applicationSystem === 'uc' || (hasUcEssay && !hasCommonAppEssay)) {
+    return 'UC Application';
+  }
+  if (!applicationSystem && hasUcEssay && hasCommonAppEssay) {
+    return essayTexts.length === 1 ? 'College Essay' : 'College Application Essay Package';
+  }
+  if (applicationSystem === 'commonapp' || applicationSystem === 'common app' || hasCommonAppEssay) {
+    return essayTexts.length === 1 ? 'Common App Personal Statement' : 'Common App Essay Package';
+  }
+  if (applicationSystem === 'coalition' || applicationSystem === 'coalition app') {
+    return 'Coalition App Essay Package';
+  }
+  if (applicationSystem === 'mit') return 'MIT Application';
+  return essayTexts.length === 1 ? 'College Essay' : 'College Essay Package';
+}
+
+export function listingHeadline(listing: ListingHeadlineInput): string {
+  return catalogSchool(listing) || legacyApplicationTitle(listing);
 }

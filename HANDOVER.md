@@ -1,91 +1,80 @@
-# Handover: launch catalogue, protected delivery, and seller payouts
+# Handover: restore every approved legacy listing to Browse
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `browse-redesign-and-opening-lines`
+Branch: `codex/restore-approved-catalogue`
 
-Base: `origin/main` at `967a720`
+Base: `origin/main` at `09bc905` (`Merge admin reviewed workflow fix`)
 
-The branch combines the approved browse redesign and listing-school root fix
-with the payment, delivery, and seller-payout work requested on 2026-08-17.
-Mockups under `public/` remain ignored and are not part of the deployment.
+## Root cause
+
+The old onboarding did ask `Schools you got into with these essays`, but it
+stored a multi-school `admitTags` array. It did not ask which one college the
+listing itself was for. The separate `targetSchool` question and column first
+shipped in `fa6ced7` on 2026-08-17. All 84 active approved listings that were
+placed in `Needs school title` predate that field.
+
+Choosing the seller's current university or the first accepted school would be
+false for reusable Common App personal statements, UC PIQs, and multi-school
+application packages. Approval should be the publication decision, so a missing
+legacy field must not hide an otherwise approved listing.
 
 ## What changed
 
-- Listing titles now come from the listing's confirmed target school instead of
-  the seller's current university. New submissions require a target, ambiguous
-  old listings stay off Browse, and admin can confirm the correct school.
-- The catalogue, detail sheet, admin, seller dashboard, checkout, and receipts
-  share the same school and listing identity.
-- Pricing and purchase accounting use a 60% seller / 40% Admitfolio split.
-  Each paid purchase stores immutable gross, seller, platform, currency, and
-  Stripe identifiers instead of recomputing historical earnings later.
-- Checkout accepts only complete approved listings. The webhook upserts by
-  Checkout Session, validates the paid snapshot, and retries failed protected
-  delivery without creating a second purchase.
-- Buyer copies use a non-reversible fingerprint code. The protected reader
-  deters copy, paste, print, and download, records a hashed delivery-IP signal,
-  and routes receipt replies to `hello@admitfolio.com`.
-- A seller becomes eligible for Stripe Connect only after the first real sale.
-  The first-sale email and seller dashboard show the exact unpaid amount and a
-  single Stripe-hosted setup button. Admitfolio does not collect or store the
-  seller's SSN or bank details.
-- Once Stripe marks the connected account ready, delivered sales transfer the
-  stored seller amount with leases and idempotency keys. Refunds and lost
-  disputes reverse the corresponding seller share, including partial refunds.
-- Seller earnings count live Stripe sessions only and subtract transfer
-  reversals.
+- Approved legacy listings now publish under a truthful application title when
+  one exact college is not saved: `UC Application`, `Common App Personal
+  Statement`, `Common App Essay Package`, `College Application Essay Package`,
+  `College Essay`, or `College Essay Package`.
+- An explicit `targetSchool`, including every new submission, still wins. A
+  legacy listing with only one accepted school still uses that school.
+- The public catalogue no longer filters multi-admit legacy listings. Local
+  real-data verification now renders all 144 approved listings, up from 59.
+- Browse cards, detail sheets, seller dashboard, admin, checkout, Stripe
+  metadata, purchase records, approval emails, and the paid reader share the
+  same headline resolver.
+- The admin `Needs school title` tab is gone. Approved listings stay in
+  `Reviewed` and show `Approved and live`. Admin may optionally choose an exact
+  college only when every essay in the listing belongs to that school.
+- Older pending listings can be approved without fabricating a college title.
+- Legacy sellers can still edit prices. Their floor uses the strongest claimed
+  admit for pricing only, never as the public title.
+- `scripts/infer-legacy-target-schools.mjs` preserves the PDF-heading audit as a
+  dry-run tool. It found 16 of 85 multi-school targetless approved records with
+  one evidence-backed target; 69 had no safe one-school answer. No backfill was
+  written.
 
 ## Verification completed
 
-- `npx prisma format`
-- `npx prisma generate`
-- `npx tsc --noEmit`
-- `npm run test:seller-payouts`
+- `npm run test:listing-schools`
 - `npm run test:commerce`
 - `npm run test:purchase-fulfillment`
-- `node scripts/pricing.test.mjs`
-- `node scripts/listing-school.test.mjs`
-- `git diff --check`
+- `npm run test:seller-payouts`
+- `npx prisma validate`
+- `npx tsc --noEmit`
 - Direct `npx next build` with temporary build-only `SESSION_SECRET` and
-  `NEXT_PUBLIC_LAUNCH=1`. Do not use `npm run build` locally because it runs
-  migrations against the live database.
+  `NEXT_PUBLIC_LAUNCH=1`. No migration command was run.
+- Visible local Browser QA against production-read data:
+  - `Showing 144 of 144 listings`
+  - no `Load more` results left after expanding the catalogue
+  - no browser console errors
+  - a restored Common App legacy listing used the same title on its card,
+    detail sheet, and checkout modal
+  - admin preview has no `Needs school title` tab and shows an unresolved
+    approved listing as `Approved and live`
+- The Stripe payment button was not clicked.
 
-The six pending migrations were inspected and are additive. The Vercel preview
-build applied them because Preview uses the live database. A read-only
-`prisma migrate status` after the preview completed reports that the production
-schema is up to date. No data backfill was run.
+## Production rollout
 
-## Production rollout still required
+Merge this branch to `main` and monitor the Vercel production deployment. No
+migration, database write, or backfill is needed for all 144 listings to appear.
 
-Vercel production currently does not show `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`, or `STRIPE_CONNECT_WEBHOOK_SECRET`. The local Stripe
-secret is a placeholder and cannot be used to configure the live account.
+After deployment, verify `https://admitfolio.com/#browse` reports 144 listings
+and the live admin console shows the approved rows under `Reviewed`.
 
-Before merging to `main`:
+## Optional later cleanup
 
-1. Sign into the Stripe dashboard.
-2. Add the live Stripe secret and the two webhook signing secrets to Vercel
-   production.
-3. Subscribe `/api/stripe-webhook` to `checkout.session.completed`,
-   `charge.refunded`, and `charge.dispute.closed`.
-4. Create a Connect webhook for `/api/stripe-connect-webhook`, subscribed to
-   connected-account `account.updated` events.
-5. Confirm the Stripe platform account is activated for Connect and transfers.
-
-After merge, Vercel should find the migrations already applied. Monitor that
-deployment and confirm the new unauthenticated seller payout routes return 401.
-Do not click a real checkout or create a real transfer as a smoke test.
-
-## Manual work not performed
-
-- No production backfill was run. `scripts/backfill-target-schools.mjs` and
-  `scripts/extract-opening-lines.mjs` are dry-run by default and require
-  separate approval before `--confirm` writes to the live database.
-- No real purchase, seller account, Stripe connected account, payout, refund,
-  dispute, or email was created during verification.
-- `NEXT_PUBLIC_LAUNCH` was not added to Vercel production. The live site remains
-  on its existing pre-launch state unless Fatimah explicitly chooses to launch
-  the public catalogue.
+The 16 PDF-supported exact targets can be reviewed individually and written
+with `scripts/infer-legacy-target-schools.mjs --confirm`, but that is not needed
+for publication and requires explicit approval because `.env` is production.

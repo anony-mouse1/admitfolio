@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe';
 import { sendSaleNotification } from '@/lib/email';
-import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
+import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
 import { paidListingSession, splitForCheckoutVersion } from '@/lib/commerce';
 import { fulfillPurchase } from '@/lib/purchaseFulfillment';
 import { releaseSellerEarnings, reverseSellerTransfer } from '@/lib/sellerPayouts';
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     where: { id: paid.listingId },
     include: {
       seller: { select: { id: true, email: true } },
-      essays: { select: { id: true, pdfPath: true } },
+      essays: { select: { id: true, pdfPath: true, prompt: true, question: true } },
     },
   });
   if (!listing || listing.essays.length < 1 || listing.essays.some((essay) => !essay.pdfPath)) {
@@ -102,14 +102,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Paid amount could not be recorded.' }, { status: 500 });
   }
 
-  const listingSchool = catalogSchool({
+  const listingTitle = listingHeadline({
     school: listing.school,
     targetSchool: listing.targetSchool,
     admitTags: parseAdmitTags(listing.admitTags),
+    applicationSystem: listing.applicationSystem,
+    essays: listing.essays,
   });
-  const label = paid.itemLabel || (listingSchool
-    ? `${listingSchool} · ${listing.essays.length} essay${listing.essays.length === 1 ? '' : 's'}`
-    : `Admitfolio listing · ${listing.essays.length} essay${listing.essays.length === 1 ? '' : 's'}`);
+  const label = paid.itemLabel ||
+    `${listingTitle} · ${listing.essays.length} essay${listing.essays.length === 1 ? '' : 's'}`;
   // The session version snapshots the commercial promise. All Admitfolio sales
   // use 60/40 because no live purchase predates this release.
   const split = splitForCheckoutVersion(paid.amountCents, paid.checkoutVersion);

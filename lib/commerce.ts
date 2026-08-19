@@ -1,4 +1,4 @@
-import { catalogSchool, parseAdmitTags } from './listingSchool';
+import { catalogSchool, listingHeadline, parseAdmitTags } from './listingSchool';
 import { SELLER_SHARE_BPS, UNSNAPSHOTTED_SELLER_SHARE_BPS } from './pricing';
 import { sameSchool, schoolShortName } from './schools';
 
@@ -114,7 +114,8 @@ export type CheckoutListing = {
   status: string;
   pricingMode: string;
   packagePrice: number | null;
-  essays: Array<{ id: string; pdfPath: string | null }>;
+  applicationSystem?: string | null;
+  essays: Array<{ id: string; pdfPath: string | null; prompt: string; question?: string | null }>;
 };
 
 export type ListingQuote = {
@@ -177,7 +178,8 @@ export type QuoteResult =
 
 // A checkout buys one complete Listing, never an individual Essay. Keep every
 // rule here so a future checkout surface cannot accidentally sell an unreviewed,
-// empty, partially uploaded, or ambiguously titled listing.
+// empty or partially uploaded listing. Legacy listings without a one-school
+// answer use an accurate application title instead of being hidden or guessed.
 export function quoteListing(listing: CheckoutListing | null, isTestSeller: boolean): QuoteResult {
   if (
     !listing ||
@@ -197,16 +199,13 @@ export function quoteListing(listing: CheckoutListing | null, isTestSeller: bool
   }
 
   const admitTags = parseAdmitTags(listing.admitTags);
-  const headlineSchool = catalogSchool({
+  const exactSchool = catalogSchool({
     school: listing.school,
     targetSchool: listing.targetSchool,
     admitTags,
   });
   const explicitTarget = listing.targetSchool?.trim();
-  if (
-    !headlineSchool ||
-    (explicitTarget && !admitTags.some((school) => sameSchool(school, explicitTarget)))
-  ) {
+  if (explicitTarget && !admitTags.some((school) => sameSchool(school, explicitTarget))) {
     return {
       ok: false,
       reason: 'school_unconfirmed',
@@ -215,7 +214,14 @@ export function quoteListing(listing: CheckoutListing | null, isTestSeller: bool
   }
 
   const essayCount = listing.essays.length;
-  const headlineLabel = schoolShortName(headlineSchool);
+  const headlineSchool = exactSchool || listingHeadline({
+    school: listing.school,
+    targetSchool: listing.targetSchool,
+    admitTags,
+    applicationSystem: listing.applicationSystem,
+    essays: listing.essays,
+  });
+  const headlineLabel = exactSchool ? schoolShortName(headlineSchool) : headlineSchool;
   const itemLabel = `${headlineLabel} · ${essayCount} essay${essayCount === 1 ? '' : 's'}`;
 
   return {
