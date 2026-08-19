@@ -3,8 +3,9 @@
 //   node --env-file=.env scripts/extract-opening-lines.mjs           (dry run)
 //   node --env-file=.env scripts/extract-opening-lines.mjs --confirm (writes)
 //
-// Only listings with an empty `teaser` are touched, and only ones that do not
-// already have an openingLine, so it is safe to re-run and cheap the second time.
+// Only listings without an openingLine are touched, so it is safe to re-run and
+// cheap the second time. A seller-written teaser is kept as secondary copy. It
+// does not replace the title extracted from the essay that is actually for sale.
 //
 // Terms §Ownership grants the right to "excerpt ... and market" a listed essay
 // (app/terms/page.tsx), so no consent step is needed.
@@ -194,11 +195,20 @@ const stripByline = (b) => b.replace(BYLINE_PREFIX, '').trim();
 // flights of stairs...". The label is not part of the essay.
 const stripLabel = (b) => b.replace(/^(answer|response|essay|my answer|my response)\s*[:\-–—]\s*/i, '').trim();
 
+// Some sellers stamped deterrence text over the PDF itself. pdfjs can splice
+// that overlay into the middle of otherwise good prose, so remove only these
+// unmistakable notices before choosing the sentence shown publicly.
+export const stripResaleNotice = (b) => b
+  .replace(/\bDO NOT (?:RESELL OR REDISTRIBUTE|RESELL|REDISTRIBUTE)\b/gi, ' ')
+  .replace(/\bNOT FOR (?:RESALE|REDISTRIBUTION)\b/gi, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 // Sellers head each supplement with the college it is for. Strip that so the
 // prompt underneath is exposed to the tests below; a doubled header is never prose.
 function stripSchoolHeader(block, names) {
   for (const n of names) {
-    const re = new RegExp('^' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s:,.\\-–—]*', 'i');
+    const re = new RegExp('^' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s:,.\\-–—]+', 'i');
     if (!re.test(block)) continue;
     const rest = block.replace(re, '').trim();
     if (!rest || re.test(rest)) return null;
@@ -231,6 +241,21 @@ export function junkReason(block, question) {
   if (/^(?:[A-Z][A-Z0-9&/ -]{1,30}\s+)?(?:SPECIFIC\s+)?\d+[.):-]\s*(what|why|how|describe|discuss|explain|tell|reflect|recount|share|respond)\b/i.test(block)) {
     return 'numbered-prompt';
   }
+  // A prompt can be pasted without a label or stored `Essay.question`, followed
+  // immediately by its response in the same PDF text block. The parenthetical
+  // word limit makes this distinguishable from a student's rhetorical opening.
+  if (/^(what|why|how|describe|discuss|explain|tell|reflect|recount|share|respond)\b[^?]{8,300}\?\s*\(?\d{2,4}\s*(?:words?)?\)?/i.test(block)) {
+    return 'prompt-with-word-limit';
+  }
+  if (/^(state|describe|discuss|explain|tell|reflect|recount|share|respond)\b.{5,300}\(\s*\d{2,4}(?:\s*[-–]\s*\d{2,4})?\s*words?\s*\)/i.test(block)) {
+    return 'prompt-with-word-range';
+  }
+  if (/\bprinciples of community\b.*\b(access|inclusion|dignity|respecting differences)\b/i.test(block)) {
+    return 'institutional-prompt';
+  }
+  if (/^(?:[A-Z][A-Za-z .'-]+['’]s\s+)?(?:motto|mission)\b.*\b(means|highlights|affirms)\b/i.test(block)) {
+    return 'institutional-prompt';
+  }
   for (const p of KNOWN_PROMPTS) if (shingleMatch(block, p) >= 0.6) return 'known-prompt';
   if (question && shingleMatch(block, question) >= 0.6) return 'listing-question';
   if (count(block, SECOND_PERSON) > count(block, FIRST_PERSON)) return 'second-person';
@@ -238,7 +263,7 @@ export function junkReason(block, question) {
   return null;
 }
 
-const ABBREV = /\b(mr|mrs|ms|dr|st|jr|sr|prof|vs|u\.s|e\.g|i\.e|a\.m|p\.m)\.$/i;
+const ABBREV = /\b(mr|mrs|ms|dr|st|jr|sr|prof|rep|sen|vs|u\.s|e\.g|i\.e|a\.m|p\.m)\.$/i;
 
 // Up to two sentences: one is often too short to be a hook ("I was seven.").
 function firstSentences(block) {
@@ -269,6 +294,18 @@ function unusable(s) {
   if (words.some((w) => w.length > 25)) return 'glued-text';
   if (s === s.toUpperCase()) return 'all-caps';
   if ((s.match(/[^\x20-\x7E‘’“”—–…]/g) || []).length / s.length > 0.05) return 'non-text-glyphs';
+  if (directIdentifierReason(s)) return 'direct-identifier';
+  return null;
+}
+
+// Card excerpts are public. Reject direct contact/account identifiers even
+// when the sentence otherwise looks like good prose.
+export function directIdentifierReason(s) {
+  if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(s)) return 'email';
+  if (/\b(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}\b/.test(s)) return 'phone';
+  if (/\b(?:ssn|social security(?: number)?)\b.{0,20}\d/i.test(s)) return 'ssn';
+  if (/\b(?:student|application|applicant)\s*(?:id|number|#)\b.{0,24}\d/i.test(s)) return 'account-id';
+  if (/\b\d{1,5}\s+[A-Za-z0-9.' -]{2,35}\s+(?:street|st\.|road|rd\.|avenue|ave\.|boulevard|blvd\.|drive|dr\.)\b/i.test(s)) return 'street-address';
   return null;
 }
 
@@ -298,11 +335,10 @@ function score(s) {
 
 function essaySpecificity(prompt, essayCount) {
   if (essayCount <= 1) return 0;
-  // A Common App statement is often reused verbatim inside several different
-  // college packages. Prefer the package's school-specific supplement so the
-  // public hook distinguishes what the buyer is actually shopping for.
-  if (/common app.*personal statement/i.test(prompt || '')) return -6;
-  if (/(why-school|supplement|short answer|intellectual vitality|community|activity)/i.test(prompt || '')) return 3;
+  // A school-specific supplement gets a small tie-breaker, but prose quality
+  // still wins. A large bonus previously let institutional prompt boilerplate
+  // outrank a clean Common App opening from the same package.
+  if (/(why-school|supplement|short answer|intellectual vitality|community|activity)/i.test(prompt || '')) return 1;
   return 0;
 }
 
@@ -345,7 +381,7 @@ export async function extractOpeningLineForListing(l, used = new Set(), clipMax 
     if (!chars) { stats.noText += 1; continue; }
 
     for (const raw of blocks.slice(0, 8)) {
-      const block = stripSchoolHeader(stripLabel(stripByline(raw)), names);
+      const block = stripSchoolHeader(stripResaleNotice(stripLabel(stripByline(raw))), names);
       if (!block || junkReason(block, essay.question || '')) continue;
       const sentence = repairQuotes(firstSentences(block));
       if (unusable(sentence)) continue;
@@ -384,21 +420,22 @@ async function main() {
     seller: { select: { name: true } },
     essays: { select: { pdfPath: true, prompt: true, question: true }, orderBy: { sortOrder: 'asc' } },
   };
-  const noTeaser = { status: 'approved', OR: [{ teaser: null }, { teaser: '' }] };
+  const listingId = process.env.LISTING_ID?.trim();
+  const approved = { status: 'approved', ...(listingId ? { id: listingId } : {}) };
 
   let listings;
   let columnLive = true;
   try {
-    listings = await prisma.listing.findMany({ where: { ...noTeaser, openingLine: null }, select, orderBy: { createdAt: 'asc' } });
+    listings = await prisma.listing.findMany({ where: { ...approved, openingLine: null }, select, orderBy: { createdAt: 'asc' } });
   } catch (e) {
     if (e?.code !== 'P2022') throw e;
     columnLive = false;
-    listings = await prisma.listing.findMany({ where: noTeaser, select, orderBy: { createdAt: 'asc' } });
+    listings = await prisma.listing.findMany({ where: approved, select, orderBy: { createdAt: 'asc' } });
     console.log('NOTE: Listing.openingLine is not in the database yet, so this is a preview.');
     console.log('      Merge the migration to main (Vercel runs prisma migrate deploy), then re-run.\n');
   }
 
-  console.log(`${listings.length} approved listings have no teaser and no opening line yet\n`);
+  console.log(`${listings.length} approved listings have no opening line yet\n`);
   const stats = { filled: 0, noText: 0, noCandidate: 0, failed: 0, nameRejected: 0, duplicateSkipped: 0 };
   const nameHits = new Set();
   const results = [];
@@ -433,7 +470,7 @@ async function main() {
   }
 
   console.log('\n');
-  if (!QUIET) results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. ${r.line}`));
+  if (!QUIET) results.forEach((r, i) => console.log(`${String(i + 1).padStart(3)}. [${r.school}] ${r.line}`));
   console.log('\n', stats);
   if (nameHits.size) {
     console.log(`\n${stats.nameRejected} block(s) across ${nameHits.size} listing(s) were skipped for`);
@@ -456,7 +493,10 @@ async function main() {
   }
 
   for (const result of results) {
-    await prisma.listing.update({ where: { id: result.id }, data: { openingLine: result.line } });
+    await prisma.listing.updateMany({
+      where: { id: result.id, openingLine: null },
+      data: { openingLine: result.line },
+    });
   }
   console.log(`\nwrote ${results.length} opening lines`);
   await prisma.$disconnect();

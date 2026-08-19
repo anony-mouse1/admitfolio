@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { junkReason, openingKey } from './extract-opening-lines.mjs';
+import { directIdentifierReason, junkReason, openingKey, stripResaleNotice } from './extract-opening-lines.mjs';
 
 assert.equal(
   junkReason(
@@ -14,13 +14,40 @@ assert.equal(
   null,
 );
 assert.equal(
+  junkReason('Why are you interested in Rensselaer Polytechnic Institute? (250) The architecture program caught my attention.', ''),
+  'prompt-with-word-limit',
+);
+assert.equal(
+  junkReason('State your reasons for choosing architecture as your profession (500-750 words).', ''),
+  'prompt-with-word-range',
+);
+assert.equal(
+  junkReason("Rensselaer's Principles of Community supports access and inclusion by affirming the dignity of every person.", ''),
+  'institutional-prompt',
+);
+assert.equal(
+  junkReason("Virginia Tech's motto is 'Ut Prosim' which means 'That I May Serve'.", ''),
+  'institutional-prompt',
+);
+assert.equal(
   openingKey('“Why’s it bleeding?” I asked.'),
   openingKey('Why’s it bleeding I asked'),
 );
+assert.equal(
+  stripResaleNotice('Those who carry their heritage DO NOT RESELL OR REDISTRIBUTE within them.'),
+  'Those who carry their heritage within them.',
+);
+assert.equal(directIdentifierReason('Email me at student@example.edu for details.'), 'email');
+assert.equal(directIdentifierReason('The curtains at 123 Main Street were always blue.'), 'street-address');
+assert.equal(directIdentifierReason('My phone screen lights up.'), null);
 
 const decisionSource = await readFile(new URL('../lib/listingDecision.ts', import.meta.url), 'utf8');
 const reviewSource = await readFile(new URL('../lib/reviewRunner.ts', import.meta.url), 'utf8');
+const openingSource = await readFile(new URL('../lib/openingLine.ts', import.meta.url), 'utf8');
+const pageSource = await readFile(new URL('../app/page.tsx', import.meta.url), 'utf8');
 assert.match(decisionSource, /decision === 'approved'[\s\S]+ensureListingOpeningLine\(id\)/);
 assert.match(reviewSource, /ensureListingOpeningLine\(listing\.id\)/);
+assert.doesNotMatch(openingSource, /status: 'seller_teaser'/);
+assert.match(pageSource, /listing\.openingLine \|\| listing\.teaser/);
 
 console.log('opening-line tests passed');

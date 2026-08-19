@@ -83,11 +83,12 @@ pre-launch waitlist. Going live is that environment variable, not a code change.
   anonymous one. Do not publish a seller id or any per-seller join key.
 - **The unit of purchase is a listing**, never an essay. Checkout, the webhook
   and the reading page all assume it.
-- **The card headline and the Stripe product name must agree.** The browse card
-  leads with the admit school (`headlineSchool`), not `Listing.school`, which is
-  the university the seller currently attends. `app/api/checkout/route.ts` builds
-  the Stripe line item independently, so it has to change in lockstep or the
-  buyer sees one school on the card and another on the payment page.
+- **The card headline and the Stripe product name must agree.** An exact
+  `targetSchool` (or the only claimed admit on a legacy listing) leads. A
+  genuinely general or ambiguous package falls back to `Listing.school`, the
+  university the seller currently attends, so the card always has a real
+  college name and logo. `app/api/checkout/route.ts` builds the Stripe line item
+  independently, so it has to change in lockstep.
 - **School names are free text.** Resolve them through `lib/schools.ts`
   (`schoolInfo`, `schoolShortName`, `sameSchool`) rather than matching
   substrings. Loose matching is what once made "Penn State" price as UPenn.

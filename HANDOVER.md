@@ -1,54 +1,43 @@
-# Handover: keep live Browse cards in sync with submitted essay content
+# Handover: accurate essay titles and college logos
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/fix-card-data-parity`
+Branch: `codex/accurate-essay-card-titles`
 
-Base: `origin/main` at `394e335` (`Merge rollout handover update`)
-
-## Root cause
-
-The current card component already matches the approved Browse mock after a
-hard refresh. The screenshots differed for two separate reasons:
-
-1. The live browser tab had kept the pre-deployment JavaScript bundle. Changing
-   only the URL hash does not reload an already-open Next.js application.
-2. `Listing.openingLine` was added by migration, but its required production
-   backfill was never run. Production currently has 68 approved listings with
-   neither a seller teaser nor an opening line, and zero rows with a stored
-   opening line. Their cards therefore fall back to a generic prompt label.
-
-The exact $202 Cornell listing is `cmruelqtk0002zjx1gz0h1fc9`. The shared
-extractor produces the approved mock hook: “Why’s it bleeding?” I asked,
-staring at the red swirl in the sink.
+Base: `origin/main` at `8989351` (`Merge pull request #32 from
+anony-mouse1/codex/fix-card-data-parity`). This branch is intentionally separate
+from the unpushed `codex/seller-university-integrity` migration branch.
 
 ## What changed
 
-- The guarded PDF opening-line extractor is now reusable by application code
-  and the maintenance script, so they cannot apply different safety rules.
-- Both final upload review and human approval idempotently generate an opening
-  line when the seller did not write a teaser. A failed or scanned PDF still
-  falls back safely and never blocks approval.
-- Existing openings from the same seller are excluded to avoid repeated hooks.
-- A numbered school-specific prompt that the dry run exposed is now rejected
-  before it can be published as essay prose.
-- Deployed-build detection checks on focus and every five minutes. An old open
-  tab now shows a clear `Refresh` notice after a new version ships.
-- Regression coverage checks the prompt guard and verifies that both review and
-  approval keep the extractor wired in.
+- The large browse-card title now prefers `Listing.openingLine`, a safe sentence
+  extracted from one of the PDFs in that exact listing. Seller-written teaser
+  copy is only a fallback.
+- The checkout confirmation uses the same title as the card.
+- The detail sheet keeps the essay excerpt primary and labels any different
+  seller-written teaser as `Seller's summary`.
+- Newly submitted listings get an extracted opening even when the seller also
+  supplied a teaser.
+- The backfill now covers every approved listing without an opening, not only
+  listings without teasers, and uses conditional writes so reruns are safe.
+- Extraction now rejects prompt text with word limits, institutional prompt
+  preambles, seller-name leaks, emails, phone numbers, account IDs, SSNs, and
+  street addresses. PDF resale notices are removed before selecting a sentence.
+- The approved real-data mock at `public/browse-mockup.html` was updated to put
+  the essay-derived line before the teaser. That file remains gitignored and is
+  not deployable.
+- A card now sends only a real college to the logo component. An exact
+  `targetSchool` wins. A legacy listing with one claimed admit uses that admit.
+  A genuinely general or ambiguous multi-college package uses the university
+  the seller currently attends. Application labels such as `Common App Essay
+  Package` are never treated as schools or rendered as a meaningless `C` badge.
+- Checkout uses the same college fallback as the card, so its title cannot
+  disagree with Browse.
 
 ## Verification completed
 
-- Production read-only counts: 68 approved listings lack both teaser and
-  opening line; zero listings currently have a stored opening line.
-- Full read-only extraction audit: 64 safe candidates, one with no candidate,
-  three skipped as duplicates, zero download failures, and ten scanned/no-text
-  PDFs encountered while checking multi-essay listings.
-- Every candidate was reviewed. One leaked school prompt was caught, the guard
-  was strengthened, and the audit was rerun successfully.
-- Exact read-only Cornell extraction matched the approved mock hook.
 - `npm run test:opening-lines`
 - `npm run test:listing-schools`
 - `npm run test:commerce`
@@ -56,20 +45,27 @@ staring at the red swirl in the sink.
 - `npm run test:seller-payouts`
 - `npx prisma validate`
 - `npx tsc --noEmit`
-- Direct `npx next build` with temporary build-only environment values. No
-  migration command was run.
-- Visible local Browser QA against production-read data: 144 listings, twelve
-  sampled cards all 415px high, zero overlaps, expected font loaded, and no
-  browser console errors.
-- Stripe checkout was not opened or clicked.
+- Direct `npx next build` with temporary build-only values.
+- Visible Browser comparison of the approved `single-count` mock and the real
+  app on port 3002. No checkout button was clicked.
+- Real-app DOM checks confirmed the generalized Architecture package renders
+  UVA with a loaded University of Virginia logo. The school-specific $202
+  Cornell package still renders Cornell's loaded logo while separately saying
+  that the seller attends UW.
+- Multiple read-only production extraction audits. The first audit caught a
+  pasted college prompt and a resale watermark; later audits drove fixes into
+  the shared extractor rather than editing individual titles.
 
-## Production step still required
+## Production write still requires approval
 
-The code has not yet been deployed and the backfill has not been written.
-After the branch is merged and Vercel succeeds, run:
+No database row has been changed. After the code is merged, run:
 
 `node --env-file=.env scripts/extract-opening-lines.mjs --confirm`
 
-That command writes only empty `Listing.openingLine` values. It requires
-Fatimah's explicit approval because `.env` points to production. Then reload
-Browse and confirm the $202 Cornell card and the catalogue hooks.
+That command fills `Listing.openingLine` only where it is still null. It does
+not change essay files, prices, schools, approvals, seller data, or payments.
+Fatimah must explicitly approve this live backfill before it is run.
+
+The separate `Seller.currentUniversity` migration on
+`codex/seller-university-integrity` also remains unpushed and still needs its
+own explicit production-migration approval.

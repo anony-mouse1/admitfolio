@@ -74,14 +74,16 @@ export async function GET() {
       const usedHooks = usedHooksBySeller.get(l.sellerId) as Set<string>;
       let teaser = l.teaser;
       let openingLine = l.openingLine;
-      if (teaser) {
-        const key = hookKey(teaser);
-        if (usedHooks.has(key)) teaser = null;
-        else usedHooks.add(key);
-      }
-      if (!teaser && openingLine) {
+      // The actual essay excerpt is the card title. De-duplicate that first.
+      // A seller teaser is only the fallback when extraction was impossible.
+      if (openingLine) {
         const key = hookKey(openingLine);
         if (usedHooks.has(key)) openingLine = null;
+        else usedHooks.add(key);
+      }
+      if (!openingLine && teaser) {
+        const key = hookKey(teaser);
+        if (usedHooks.has(key)) teaser = null;
         else usedHooks.add(key);
       }
       const anonymity = normalizeAnonymity(l.anonymity);
@@ -105,8 +107,8 @@ export async function GET() {
         verifiedAdmitTags: admitTags.filter((t) => verifiedKeys.has(schoolKey(t))),
         price: l.packagePrice,
         teaser,
-        // Shown only when the seller wrote no teaser of their own. Their line
-        // wins when they took the trouble to write one.
+        // The title excerpt comes from one of this listing's own PDFs. The
+        // seller teaser remains secondary copy in the opened detail view.
         openingLine,
         // Current major stays private: combined with the school it could help
         // deanonymize an anonymous seller, and no public UI shows it yet.
