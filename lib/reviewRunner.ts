@@ -6,6 +6,7 @@ import {
   runReviewPanel,
 } from '@/lib/review';
 import { applyListingDecision } from '@/lib/listingDecision';
+import { ensureListingOpeningLine } from '@/lib/openingLine';
 
 export type ReviewOutcome = 'accepted' | 'flagged' | 'errored' | 'deferred' | 'skipped';
 
@@ -67,6 +68,13 @@ export async function reviewListing(listingId: string): Promise<ReviewOutcome> {
   }
 
   try {
+    // Generate the public card hook as soon as all essay PDFs are available.
+    // The approval path repeats this idempotently in case review was skipped or
+    // the first download failed transiently.
+    const opening = await ensureListingOpeningLine(listing.id);
+    if (opening.status === 'failed') {
+      console.error(`opening-line extraction failed for listing ${listing.id}:`, opening.error);
+    }
     const pdfs = await fetchEssayPdfsBase64(listing);
     const proofRows = await prisma.admitProof.findMany({
       where: { sellerId: listing.sellerId },

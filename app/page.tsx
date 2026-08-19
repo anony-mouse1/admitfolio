@@ -222,6 +222,43 @@ export default function Page() {
   const [matcherOpen, setMatcherOpen] = useState(false);
   const [matchIds, setMatchIds] = useState<string[] | null>(null);
   const [matchLabel, setMatchLabel] = useState('');
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  // A tab that stays open through a Vercel deployment keeps its old JavaScript
+  // until it reloads. Check the currently deployed commit on focus and surface
+  // that state explicitly instead of letting an old card design look live.
+  useEffect(() => {
+    const loadedVersion = document
+      .querySelector<HTMLMetaElement>('meta[name="admitfolio-build"]')
+      ?.content;
+    if (!loadedVersion || loadedVersion === 'local') return;
+    let stopped = false;
+
+    const checkVersion = async () => {
+      try {
+        const response = await fetch(`/api/version?t=${Date.now()}`, { cache: 'no-store' });
+        const data = (await response.json()) as { version?: string };
+        if (!stopped && data.version && data.version !== 'local' && data.version !== loadedVersion) {
+          setUpdateAvailable(true);
+        }
+      } catch {
+        // An update check must never interrupt browsing or checkout.
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void checkVersion();
+    };
+    void checkVersion();
+    window.addEventListener('focus', checkVersion);
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(checkVersion, 5 * 60 * 1000);
+    return () => {
+      stopped = true;
+      window.removeEventListener('focus', checkVersion);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   /* ---- Paging ----
      24 at a time: a whole number of rows at all three breakpoints (3 columns,
@@ -1361,6 +1398,12 @@ export default function Page() {
   /* ============================ Render ============================ */
   return (
     <>
+      {updateAvailable && (
+        <div className="site-update" role="status">
+          <span>Admitfolio was updated.</span>
+          <button type="button" onClick={() => window.location.reload()}>Refresh</button>
+        </div>
+      )}
       <nav className="nav">
         <a className="logo" href="#home" onClick={() => setPageView('home')}>
           <div className="logo-word">Admitfolio</div>
