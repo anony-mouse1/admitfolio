@@ -36,16 +36,15 @@ export default function EssayReader({ essayId, token, label }: Props) {
     (async () => {
       setState('loading');
       try {
-        // Loaded on demand so pdf.js is not in the page's initial bundle.
-        const pdfjs = await import('pdfjs-dist');
-        // Hand pdf.js a worker webpack bundles for us. `new URL(..., import.meta.url)`
-        // is the form webpack 5 recognises, so the worker is emitted as a local
-        // asset - no CDN, which matters because a CDN worker would be a third
-        // party sitting in the path of every essay read.
-        pdfjs.GlobalWorkerOptions.workerPort = new Worker(
-          new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url),
-          { type: 'module' },
+        // Next 14's webpack runtime corrupts pdf.js 5's ESM module when it is
+        // bundled as a dynamic import. Load the unchanged browser build from
+        // our own public assets instead. It stays on our origin and is still
+        // fetched only after the buyer clicks "Read essay".
+        const moduleUrl = '/vendor/pdfjs/pdf.min.mjs';
+        const pdfjs: typeof import('pdfjs-dist') = await import(
+          /* webpackIgnore: true */ moduleUrl
         );
+        pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.mjs';
 
         const doc = await pdfjs.getDocument({
           url: `/api/essay/${essayId}?t=${encodeURIComponent(token)}`,
