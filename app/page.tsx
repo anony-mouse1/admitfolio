@@ -2943,7 +2943,7 @@ function PublicListingCard({
           shape and the price rules line up straight across a row. */}
       <div className="ecard-lines">
         <div className="ecard-admits">
-          <span className="ecard-admits-label">Attends</span>
+          <span className="ecard-admits-label">Seller attends</span>
           <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
         </div>
         <div className="ecard-admits">
