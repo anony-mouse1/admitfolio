@@ -37,6 +37,54 @@ assert.equal(
   listingSchool.needsTargetSchoolReview({ school: 'Stanford University', admitTags: ['Stanford', 'Harvard'] }),
   true,
 );
+assert.equal(
+  listingSchool.listingHeadline({
+    school: 'Stanford University',
+    admitTags: ['Stanford', 'Harvard'],
+    essays: [
+      { prompt: 'UC · Personal Insight Question' },
+      { prompt: 'UC · Personal Insight Question' },
+      { prompt: 'UC · Personal Insight Question' },
+      { prompt: 'UC · Personal Insight Question' },
+    ],
+  }),
+  'UC Application',
+  'a legacy UC package must use the application title instead of inventing one campus',
+);
+assert.equal(
+  listingSchool.listingHeadline({
+    school: 'University of Washington',
+    admitTags: ['Stanford', 'University of Washington'],
+    essays: [
+      { prompt: 'Common App · Personal Statement' },
+      { prompt: 'Community essay' },
+    ],
+  }),
+  'Common App Essay Package',
+  'a legacy Common App package must remain publishable without a false school title',
+);
+assert.equal(
+  listingSchool.listingHeadline({
+    school: 'Stanford University',
+    admitTags: ['Stanford', 'UCLA'],
+    essays: [
+      { prompt: 'Common App · Personal Statement' },
+      { prompt: 'UC · Personal Insight Question' },
+    ],
+  }),
+  'College Application Essay Package',
+  'a mixed legacy package must not be mislabeled as only Common App or only UC',
+);
+assert.equal(
+  listingSchool.listingHeadline({
+    school: 'University of Washington',
+    targetSchool: 'Stanford University',
+    admitTags: ['Stanford University', 'University of Washington'],
+    essays: [{ prompt: 'Common App · Personal Statement' }],
+  }),
+  'Stanford University',
+  'an exact listing college must still win everywhere',
+);
 
 // Live regression case, 2026-08-16: Deepesh attends Georgia Tech but submitted
 // three separate school packages. The seller dashboard used Listing.school for

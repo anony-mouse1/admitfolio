@@ -4,12 +4,12 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type React from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import MatchFinder from '@/components/MatchFinder';
-import { TIER, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
+import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
-import { catalogSchool } from '@/lib/listingSchool';
+import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
 
 /* ============================================================================
    Types & static data
@@ -47,6 +47,7 @@ type PublicListing = {
   id: string;
   school: string;
   targetSchool?: string | null;
+  headlineSchool?: string;
   applicationSystem?: string | null;
   admitTags: string[];
   // The subset of admitTags backed by an acceptance letter a human checked.
@@ -185,8 +186,7 @@ const listingPrice = (l: SellerListing) =>
   l.packagePrice ?? l.essays.reduce((sum, e) => sum + (e.price || 0), 0);
 const sellerListingSchool = (l: SellerListing) => catalogSchool(l);
 const listingTitle = (l: SellerListing) => {
-  const titleSchool = sellerListingSchool(l);
-  if (!titleSchool) return 'School confirmation needed';
+  const titleSchool = resolveListingHeadline({ ...l, essays: l.essays });
   return l.essays.length === 1
     ? `${l.essays[0].question || l.essays[0].prompt} · ${titleSchool}`
     : `${titleSchool} · ${l.essays.length} essays`;
@@ -293,7 +293,9 @@ export default function Page() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // "Most competitive" uses the same tier the pricing floors use
+  // "Most competitive" uses the exact listing school when known. Legacy
+  // application packages keep their accurate generic title but can still rank
+  // by their strongest claimed admit.
   // (lib/pricing.ts), so the order a buyer sees and the price a seller may
   // charge come from one definition of how selective a school is. Stable sort
   // keeps the API's newest-reviewed order within each tier.
@@ -321,12 +323,12 @@ export default function Page() {
   }, [pubListings, searchQuery, matchIds]);
 
   const sortedListings = useMemo(
-    () => [...matchingListings].sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b))),
+    () => [...matchingListings].sort((a, b) => listingRankTier(a) - listingRankTier(b)),
     [matchingListings],
   );
   const featuredListings = useMemo(() => {
     const priorityDomains = ['harvard.edu', 'stanford.edu', 'yale.edu', 'columbia.edu', 'upenn.edu', 'uchicago.edu'];
-    const ranked = [...pubListings].sort((a, b) => schoolTier(headlineSchool(a)) - schoolTier(headlineSchool(b)));
+    const ranked = [...pubListings].sort((a, b) => listingRankTier(a) - listingRankTier(b));
     const picked: PublicListing[] = [];
     const usedSchools = new Set<string>();
     const add = (listing: PublicListing | undefined) => {
@@ -1235,7 +1237,7 @@ export default function Page() {
     }
   }
 
-  const publishedListings = listings.filter((l) => l.status === 'approved' && sellerListingSchool(l));
+  const publishedListings = listings.filter((l) => l.status === 'approved');
   const publishedCount = publishedListings.length;
 
   async function listingAction(id: string, action: 'takedown' | 'resubmit') {
@@ -2574,7 +2576,7 @@ export default function Page() {
                       <div className="dash-table-row" key={e.id}>
                         <div>
                           <div className="dash-table-essay">{e.question || e.prompt}</div>
-                          <div className="dash-table-school">{sellerListingSchool(l)}{e.price == null && l.packagePrice != null ? ' · package' : ''}</div>
+                          <div className="dash-table-school">{resolveListingHeadline({ ...l, essays: l.essays })}{e.price == null && l.packagePrice != null ? ' · package' : ''}</div>
                         </div>
                         <div className="dash-table-num">{e.sales}</div>
                         <div className="dash-table-num">{fmt(e.price ?? l.packagePrice ?? 0)}</div>
@@ -2597,15 +2599,11 @@ export default function Page() {
             </div>
             <div>
               {([
-                { key: 'school', label: 'School confirmation needed', dot: 'pending', statuses: ['approved', 'pending', 'rejected', 'removed'], needsSchool: true },
-                { key: 'approved', label: 'Published', dot: 'published', statuses: ['approved'], needsSchool: false },
-                { key: 'pending', label: 'Pending review', dot: 'pending', statuses: ['pending'], needsSchool: false },
-                { key: 'draft', label: 'Rejected / Removed', dot: 'draft', statuses: ['rejected', 'removed'], needsSchool: false },
+                { key: 'approved', label: 'Published', dot: 'published', statuses: ['approved'] },
+                { key: 'pending', label: 'Pending review', dot: 'pending', statuses: ['pending'] },
+                { key: 'draft', label: 'Rejected / Removed', dot: 'draft', statuses: ['rejected', 'removed'] },
               ] as const).map((g) => {
-                const items = listings.filter((l) =>
-                  (g.statuses as readonly string[]).includes(l.status) &&
-                  (g.needsSchool ? !sellerListingSchool(l) : !!sellerListingSchool(l)),
-                );
+                const items = listings.filter((l) => (g.statuses as readonly string[]).includes(l.status));
                 return (
                   <div className="dash-status-group" key={g.key}>
                     <div className="dash-status-label">
@@ -2658,14 +2656,19 @@ function AltValue({ v }: { v: string }) {
 // 88 of 144 cards belong to a seller with more than one listing, and every one
 // of those sellers had an identical headline on all of their cards.
 //
-// New listings store this explicitly. Legacy listings fall back to the first
-// admit because the upload form historically discarded its application-school
-// field; using the seller's current university recreates the original bug.
+// New listings store this explicitly. Older multi-admit listings use the
+// application name because the old form saved accepted schools, not a single
+// listing college. Never guess from the first admit or current university.
 function headlineSchool(l: PublicListing): string {
-  // /api/listings excludes unresolved legacy records, so public data always
-  // has a real target. Keep the guard neutral rather than ever using the
-  // seller's current university as a title.
-  return catalogSchool(l) || 'College essay listing';
+  return l.headlineSchool || resolveListingHeadline({ ...l, essays: l.essays });
+}
+
+function listingRankTier(l: PublicListing): number {
+  const exactSchool = catalogSchool(l);
+  if (exactSchool) return schoolTier(exactSchool);
+  return l.admitTags.length > 0
+    ? Math.min(...l.admitTags.map((school) => schoolTier(school)))
+    : 3;
 }
 
 // The package pill already shows the essay count. Keep this line for the
@@ -3175,19 +3178,17 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
   const [saving, setSaving] = useState(false);
 
   const isPackage = l.pricingMode === 'package';
-  const titleSchool = sellerListingSchool(l);
-  const tier = titleSchool ? schoolTier(titleSchool) : null;
-  const floor = tier ? (isPackage ? packageFloor(tier, l.essays.length) : perEssayFloor(tier)) : 1;
+  const exactSchool = sellerListingSchool(l);
+  const tier = exactSchool
+    ? schoolTier(exactSchool)
+    : admitsTier(l.admitTags) ?? 3;
+  const floor = isPackage ? packageFloor(tier, l.essays.length) : perEssayFloor(tier);
 
   const metaParts = [`${fmt(listingPrice(l))}/sale`];
   if (l.sales) metaParts.push(`${l.sales} sale${l.sales > 1 ? 's' : ''}`);
   metaParts.push(`Added ${new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
-  const statusLabel = !titleSchool
-    ? 'School confirmation needed'
-    : ({ approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status);
-  const statusClass = !titleSchool
-    ? 'pending'
-    : ({ approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft');
+  const statusLabel = ({ approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status);
+  const statusClass = ({ approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft');
 
   function startEdit() {
     setPkgInput(l.packagePrice != null ? String(l.packagePrice) : '');
@@ -3240,7 +3241,6 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
       <div className="dash-listing-info">
         <div className="dash-listing-title">{listingTitle(l)}</div>
         <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
-        {!titleSchool && <div className="dash-listing-meta" style={{ color: '#b45309' }}>This older listing is hidden from Browse until Admitfolio confirms which college the essays are for.</div>}
         {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
         {editing && (
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -3269,7 +3269,7 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
       </div>
       <div className="dash-listing-actions">
         <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
-        {!editing && titleSchool && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
+        {!editing && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
         {l.status === 'approved' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
         {(l.status === 'removed' || l.status === 'rejected') && <button className="dash-action-btn" onClick={() => onAction(l.id, 'resubmit')}>Resubmit for review</button>}
       </div>

@@ -127,12 +127,14 @@ export async function GET() {
     sellerName: l.seller.name,
     sellerBio: l.seller.bio,
     sellerTags: safeParse(l.seller.backgroundTags),
-    // Review priority follows what buyers are shopping for, not the university
-    // the seller currently attends. An unresolved legacy listing has no target
-    // tier until an admin confirms it.
+    // Review priority follows the exact target when available. For a legacy
+    // application package, use the strongest claimed admit only for queue
+    // ordering, never as the public card title.
     isT20: (() => {
       const target = catalogSchool({ school: l.school, targetSchool: l.targetSchool, admitTags: claimed });
-      return target ? schoolTier(target) === 1 : false;
+      return target
+        ? schoolTier(target) === 1
+        : claimed.some((school) => schoolTier(school) === 1);
     })(),
     // Submissions from admin/test accounts are dummy data, not real students -
     // the console badges them so they're never mistaken for the real thing.

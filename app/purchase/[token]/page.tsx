@@ -3,7 +3,7 @@ import { verifyAccessToken } from '@/lib/accessToken';
 import { prisma } from '@/lib/prisma';
 import EssayReader from '@/components/EssayReader';
 import { ANONYMOUS_LABEL, buyerDisplayName } from '@/lib/anonymity';
-import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
+import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
 import { makePurchaseFingerprint } from '@/lib/purchaseFingerprint';
 import { SESSION_SECRET } from '@/lib/config';
 
@@ -60,14 +60,14 @@ export default async function PurchasePage({ params }: { params: { token: string
   }
 
   const essays = purchase.listing.essays;
-  const targetSchool = catalogSchool({
+  const listingTitle = listingHeadline({
     school: purchase.listing.school,
     targetSchool: purchase.listing.targetSchool,
     admitTags: parseAdmitTags(purchase.listing.admitTags),
+    applicationSystem: purchase.listing.applicationSystem,
+    essays,
   });
-  const listingLabel = targetSchool
-    ? `${targetSchool} · ${essays.length} essay${essays.length === 1 ? '' : 's'}`
-    : 'Admitfolio essay listing';
+  const listingLabel = `${listingTitle} · ${essays.length} essay${essays.length === 1 ? '' : 's'}`;
   // Named only if this seller's choice allows it after a sale. A seller who
   // picked "always anonymous" stays anonymous here too.
   const writtenBy = buyerDisplayName(purchase.listing.anonymity, purchase.listing.seller.name);
