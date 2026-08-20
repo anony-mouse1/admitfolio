@@ -2329,15 +2329,24 @@ export default function Page() {
           <section className="buy-payment">
             <div className="modal-eyebrow">Secure checkout</div>
             <h4>Pay without leaving Admitfolio</h4>
-            <p>Your payment details are securely handled by Stripe.</p>
+            <p>Stripe shows Link, Apple Pay, or card when each option is available on your device.</p>
             <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-            {buyOpen && curItem.listingId && (
-              <EmbeddedListingCheckout
-                key={curItem.listingId}
-                listingId={curItem.listingId}
-                onError={setBuyErr}
-              />
-            )}
+            <div className="buy-stripe-card">
+              <div className="buy-stripe-head">
+                <div className="buy-stripe-head-main">
+                  <span className="buy-stripe-shield" aria-hidden="true">✓</span>
+                  <span><strong>Secure payment</strong><small>Encrypted from end to end</small></span>
+                </div>
+                <span className="buy-stripe-brand">Powered by Stripe</span>
+              </div>
+              {buyOpen && curItem.listingId && (
+                <EmbeddedListingCheckout
+                  key={curItem.listingId}
+                  listingId={curItem.listingId}
+                  onError={setBuyErr}
+                />
+              )}
+            </div>
             <div className="buy-secure">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
               Payments handled by Stripe · Card details never touch our servers
