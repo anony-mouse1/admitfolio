@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import LogoBadge from '@/components/LogoBadge';
+import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
 import MatchFinder from '@/components/MatchFinder';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
@@ -1507,7 +1507,7 @@ export default function Page() {
                 ].map(([name, domain]) => (
                   <span key={domain} className="trust-school">
                     <img
-                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                      src={universityLogoSrc(domain)}
                       alt={`${name} logo`}
                       loading="lazy"
                       onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
@@ -3086,6 +3086,21 @@ function ListingDetail({
           <div className="d-teaser">Seller&apos;s summary: {listing.teaser}</div>
         )}
 
+        <div className="d-foot d-foot-top">
+          <div className="d-price">
+            {listing.price != null ? `$${listing.price}` : 'Free'}
+            <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
+          </div>
+          <button className="d-unlock-btn" type="button" onClick={onUnlock}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+            {count > 1 ? `Unlock ${count} essays` : 'Unlock full essay'}
+            <span className="d-unlock-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+
         <div className="d-sec">
           <h4>What you get</h4>
           <ul className="d-essays">
@@ -3150,12 +3165,12 @@ function ListingDetail({
           </div>
         </div>
 
-        <div className="d-foot">
+        <div className="d-foot d-foot-bottom">
           <div className="d-price">
             {listing.price != null ? `$${listing.price}` : 'Free'}
             <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
           </div>
-          <button className="btn-primary" type="button" onClick={onUnlock}>
+          <button className="btn-primary d-bottom-unlock" type="button" onClick={onUnlock}>
             Unlock and read
           </button>
         </div>

@@ -160,6 +160,8 @@ export default function MatchFinder({
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [bandVisible, setBandVisible] = useState(false);
+  const [nudgeReady, setNudgeReady] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const bandRef = useRef<HTMLElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -170,6 +172,21 @@ export default function MatchFinder({
     const observer = new IntersectionObserver(([entry]) => setBandVisible(entry.isIntersecting), { threshold: 0.2 });
     observer.observe(bandRef.current);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const checkBrowseIntent = () => {
+      const hasBrowsedLongEnough = Date.now() - startedAt >= 8000;
+      const hasSeenEnoughCards = window.scrollY > Math.max(560, window.innerHeight * 0.75);
+      if (hasBrowsedLongEnough && hasSeenEnoughCards) setNudgeReady(true);
+    };
+    const timer = window.setInterval(checkBrowseIntent, 1000);
+    window.addEventListener('scroll', checkBrowseIntent, { passive: true });
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('scroll', checkBrowseIntent);
+    };
   }, []);
 
   useEffect(() => {
@@ -224,12 +241,29 @@ export default function MatchFinder({
         <button className="btn-primary" type="button" onClick={() => onOpenChange(true)}>Find my matches</button>
       </section>
 
-      {!open && !bandVisible && (
-        <button className="mf-fab" type="button" aria-label="Find essays matched to you" onClick={() => onOpenChange(true)}>
-          <span className="mf-fab-pulse"></span>
-          <span className="mf-fab-copy"><b>Find my matches</b><small>Get personalized essay picks</small></span>
-          <span className="mf-fab-arrow" aria-hidden="true">→</span>
-        </button>
+      {!open && !bandVisible && nudgeReady && !nudgeDismissed && (
+        <aside className="mf-nudge" aria-label="Need help choosing an essay?">
+          <span className="mf-nudge-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+              <path d="m5.6 5.6 2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+              <circle cx="12" cy="12" r="3.2" />
+            </svg>
+          </span>
+          <button
+            className="mf-nudge-main"
+            type="button"
+            onClick={() => {
+              setNudgeDismissed(true);
+              onOpenChange(true);
+            }}
+          >
+            <strong>Still deciding?</strong>
+            <span>Get a short list based on your school, essay type and budget.</span>
+            <b>Find my matches →</b>
+          </button>
+          <button className="mf-nudge-x" type="button" aria-label="Dismiss" onClick={() => setNudgeDismissed(true)}>&times;</button>
+        </aside>
       )}
 
       {open && (
