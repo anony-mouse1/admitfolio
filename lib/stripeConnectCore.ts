@@ -52,6 +52,8 @@ export function sellerFacingConnectError(error: unknown): {
   const details = stripeConnectErrorDetails(error);
   const normalized = `${details.code || ''} ${details.message}`.toLowerCase();
   if (
+    details.code === 'account_create_activation_required' ||
+    normalized.includes('must be activated') ||
     normalized.includes('signed up for connect') ||
     normalized.includes('sign up for connect') ||
     normalized.includes('platform profile')
