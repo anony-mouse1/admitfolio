@@ -102,6 +102,15 @@ assert.deepEqual(connectMod.sellerFacingConnectError(
   status: 503,
 });
 assert.deepEqual(connectMod.sellerFacingConnectError({
+  code: 'account_create_activation_required',
+  message: 'Your account must be activated in order to create accounts.',
+  statusCode: 400,
+}), {
+  code: 'platform_not_ready',
+  message: 'Payout setup is temporarily unavailable while Admitfolio finishes Stripe activation. Your earnings are safe. Please try again shortly.',
+  status: 503,
+});
+assert.deepEqual(connectMod.sellerFacingConnectError({
   message: 'Temporary upstream failure',
   statusCode: 500,
 }), {
