@@ -72,5 +72,9 @@ assert.equal(
   `admitfolio-payout-sandbox-transfer-${sessionId}`,
 );
 assert.throws(() => mod.sandboxIdempotencyKey('unsafe', 'sale'), /Invalid payout sandbox session/);
+assert.equal(mod.isSandboxStripeKey('sk_test_example'), true);
+assert.equal(mod.isSandboxStripeKey('rk_test_example'), true);
+assert.equal(mod.isSandboxStripeKey('sk_live_example'), false);
+assert.equal(mod.isSandboxStripeKey('rk_live_example'), false);
 
 console.log('payout sandbox core tests passed');

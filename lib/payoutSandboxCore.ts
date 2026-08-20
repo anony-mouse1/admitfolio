@@ -49,3 +49,7 @@ export function sandboxIdempotencyKey(sessionId: string, action: 'account' | 'sa
   if (!/^[a-f0-9-]{36}$/i.test(sessionId)) throw new Error('Invalid payout sandbox session.');
   return `admitfolio-payout-sandbox-${action}-${sessionId}`;
 }
+
+export function isSandboxStripeKey(key: string): boolean {
+  return key.startsWith('sk_test_') || key.startsWith('rk_test_');
+}

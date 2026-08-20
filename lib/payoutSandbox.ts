@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import Stripe from 'stripe';
 import { SESSION_SECRET } from './config';
+import { isSandboxStripeKey } from './payoutSandboxCore';
 
 export const PAYOUT_SANDBOX_COOKIE = 'admitfolio_payout_sandbox';
 const SANDBOX_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -84,7 +85,7 @@ export function payoutSandboxCookie(state: PayoutSandboxState) {
 export function payoutSandboxStripe(): Stripe | null {
   const key = process.env.STRIPE_SANDBOX_SECRET_KEY?.trim();
   if (!key) return null;
-  if (!key.startsWith('sk_test_') && !key.startsWith('rk_test_')) {
+  if (!isSandboxStripeKey(key)) {
     throw new Error('STRIPE_SANDBOX_SECRET_KEY must be a Stripe test-mode key.');
   }
   return new Stripe(key);
