@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type React from 'react';
 import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
 import MatchFinder from '@/components/MatchFinder';
+import EmbeddedListingCheckout from '@/components/EmbeddedListingCheckout';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
@@ -858,11 +859,10 @@ export default function Page() {
   const successTitle = listingCount <= 1 ? 'Listing submitted!' : `Listing #${listingCount} submitted!`;
 
   /* ============================ Buyer checkout ============================ */
-  // Payment is a Stripe-hosted checkout page; the modal is just a confirm
-  // step. Real listings exist only when the launch flag is on.
+  // Stripe securely renders Checkout inside this modal. Card details never
+  // enter Admitfolio's React state or touch our servers.
   const [curItem, setCurItem] = useState<{ listingId?: string; school?: string; price?: number; summary?: string | null; essayCount?: number }>({});
   const [buyErr, setBuyErr] = useState('');
-  const [paying, setPaying] = useState(false);
 
   const openBuy = useCallback((item: { listingId: string; school: string; price: number; summary?: string | null; essayCount?: number }) => {
     setCurItem(item);
@@ -874,25 +874,6 @@ export default function Page() {
   function handleUnlock(essay: Essay) {
     // Sample cards are teasers - they are not purchasable.
     void essay;
-  }
-
-  async function handleStripeCheckout() {
-    if (!curItem.listingId) return;
-    setBuyErr('');
-    setPaying(true);
-    try {
-      const resp = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: curItem.listingId }),
-      });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; url?: string };
-      if (!resp.ok || !data.url) throw new Error(data.error || 'Could not start checkout. Please try again.');
-      window.location.href = data.url;
-    } catch (err) {
-      setBuyErr(err instanceof Error ? err.message : 'Could not start checkout. Please try again.');
-      setPaying(false);
-    }
   }
 
   /* ============================ Waitlist (notify) ============================ */
@@ -2320,13 +2301,14 @@ export default function Page() {
 
       {/* ===== Buyer checkout modal ===== */}
       <div className={`modal-overlay${buyOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) closeBuy(); }}>
-        <div className="modal">
+        <div className="modal buy-modal">
           <button className="modal-close" aria-label="Close" onClick={closeBuy}>&times;</button>
-          <div className="modal-logo"><span className="w">admitfolio</span><span className="d"></span></div>
-
-          <div className="step-pane active">
+          <section className="buy-order">
+            <div className="buy-order-logo"><span>admitfolio</span><i /></div>
+            <button className="buy-back" type="button" onClick={closeBuy}>← Back to listing</button>
             <div className="modal-eyebrow">Checkout · No account needed</div>
             <h3 id="buyTitle">Unlock this listing</h3>
+            <p className="buy-intro">Read the full listing immediately after checkout.</p>
             <div className="buy-summary">
               <div className="buy-summary-essay">
                 <div className="buy-summary-school">{curItem.school || 'This listing'}</div>
@@ -2336,21 +2318,31 @@ export default function Page() {
               </div>
               <div className="buy-summary-price">{curItem.price != null ? `$${curItem.price}` : ''}</div>
             </div>
+            <div className="buy-total"><span>Total</span><i /><strong>{curItem.price != null ? `$${curItem.price}` : ''}</strong></div>
+            <div className="buy-delivery">
+              <div><b>✓</b><span>Instant private access after payment</span></div>
+              <div><b>✓</b><span>Secure reading link sent to your email</span></div>
+              <div><b>✓</b><span>For inspiration only, never for copying</span></div>
+            </div>
+          </section>
 
-            <p className="sub" style={{ textAlign: 'left', marginTop: 14 }}>
-              You&apos;ll pay securely on Stripe&apos;s checkout page, then get an email with a private
-              link to read every essay in this listing. Essays are for inspiration only, never for copying.
-            </p>
-
+          <section className="buy-payment">
+            <div className="modal-eyebrow">Secure checkout</div>
+            <h4>Pay without leaving Admitfolio</h4>
+            <p>Your payment details are securely handled by Stripe.</p>
             <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-            <button className="modal-btn" onClick={handleStripeCheckout} disabled={paying}>
-              {paying ? 'Opening Stripe…' : <>Pay ${curItem.price ?? ''} with Stripe</>}
-            </button>
+            {buyOpen && curItem.listingId && (
+              <EmbeddedListingCheckout
+                key={curItem.listingId}
+                listingId={curItem.listingId}
+                onError={setBuyErr}
+              />
+            )}
             <div className="buy-secure">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
               Payments handled by Stripe · Card details never touch our servers
             </div>
-          </div>
+          </section>
         </div>
       </div>
 

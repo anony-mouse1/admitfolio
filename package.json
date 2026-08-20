@@ -9,6 +9,7 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "test:commerce": "node scripts/commerce.test.mjs",
+    "test:embedded-checkout": "node scripts/embedded-checkout.test.mjs",
     "test:listing-schools": "node scripts/listing-school.test.mjs",
     "test:university-ranks": "node scripts/university-rank.test.mjs",
     "test:purchase-fulfillment": "node scripts/purchase-fulfillment.test.mjs",
@@ -24,6 +25,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
     "@prisma/client": "5.18.0",
+    "@stripe/react-stripe-js": "^6.8.1",
+    "@stripe/stripe-js": "^9.13.0",
     "@supabase/supabase-js": "^2.109.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/functions": "^3.9.3",

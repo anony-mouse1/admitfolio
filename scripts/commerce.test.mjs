@@ -129,6 +129,8 @@ try {
     checkoutSessionParams(quotedListing.quote, '203.0.113.8', 'https://admitfolio.com/'),
     {
       mode: 'payment',
+      ui_mode: 'embedded_page',
+      redirect_on_completion: 'always',
       integration_identifier: 'admitfolio_nqvzkjhf',
       managed_payments: { enabled: false },
       client_reference_id: 'listing_1',
@@ -157,8 +159,7 @@ try {
           listingId: 'listing_1',
         },
       },
-      success_url: 'https://admitfolio.com/purchase/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://admitfolio.com/?checkout=canceled',
+      return_url: 'https://admitfolio.com/purchase/success?session_id={CHECKOUT_SESSION_ID}',
     },
   );
   assert.equal(quoteListing({ ...baseListing, status: 'pending' }, false).ok, false);

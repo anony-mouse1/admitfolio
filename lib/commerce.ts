@@ -138,6 +138,8 @@ export function checkoutSessionParams(
   const origin = siteUrl.replace(/\/$/, '');
   return {
     mode: 'payment' as const,
+    ui_mode: 'embedded_page' as const,
+    redirect_on_completion: 'always' as const,
     integration_identifier: 'admitfolio_nqvzkjhf',
     managed_payments: { enabled: false },
     client_reference_id: quote.listingId,
@@ -168,8 +170,7 @@ export function checkoutSessionParams(
         listingId: quote.listingId,
       },
     },
-    success_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/?checkout=canceled`,
+    return_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
   };
 }
 
