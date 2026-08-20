@@ -1696,7 +1696,7 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 .public-grid:not(.rows) .catalog-card .ecard-head { align-items: center; }
 .public-grid:not(.rows) .catalog-card .ecard-prompt { margin-top: 18px; line-height: 1.45; }
-.public-grid:not(.rows) .catalog-card .ecard-prompt.is-empty { display: none; }
+.public-grid .catalog-card .ecard-prompt.is-empty { display: none; }
 .public-grid:not(.rows) .catalog-card .ecard-tags {
   gap: 4px; overflow: hidden; flex-wrap: nowrap;
 }
@@ -1731,8 +1731,10 @@ body { -webkit-tap-highlight-color: transparent; }
 .public-grid.rows .ecard-hook { grid-column: 2; grid-row: 1; margin-top: 0; -webkit-line-clamp: 3; }
 .public-grid.rows .ecard-tags { grid-column: 2; grid-row: 2; margin-top: 2px; }
 .public-grid.rows .ecard-lines { grid-column: 3; grid-row: 1 / span 3; margin-top: 0; }
+.public-grid.rows .ecard-admits { display: block; }
 .public-grid.rows .ecard-admits:first-child { margin-top: 0; }
-.public-grid.rows .admit-names.multi { min-height: auto; -webkit-line-clamp: 2; }
+.public-grid.rows .ecard-admits-label { display: block; width: auto; margin-bottom: 3px; }
+.public-grid.rows .admit-names.multi { min-height: auto; -webkit-line-clamp: 3; }
 .public-grid.rows .ecard-foot {
   grid-column: 4; grid-row: 1 / span 3; align-self: stretch; flex-direction: column;
   align-items: stretch; justify-content: center; gap: 12px; margin-top: 0;

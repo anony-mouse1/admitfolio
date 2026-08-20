@@ -110,9 +110,10 @@ export async function GET() {
         // The title excerpt comes from one of this listing's own PDFs. The
         // seller teaser remains secondary copy in the opened detail view.
         openingLine,
-        // Current major stays private: combined with the school it could help
-        // deanonymize an anonymous seller, and no public UI shows it yet.
+        // Applied majors are listing-specific. The current major is a safe
+        // fallback only when the seller already chose to show their name.
         appliedMajors: l.appliedMajors,
+        major: anonymity === 'full' ? l.major : null,
         createdAt: l.createdAt,
         essays: l.essays.map((e) => ({ prompt: e.prompt, question: e.question, wordCount: e.wordCount })),
         seller: {
