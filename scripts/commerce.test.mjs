@@ -184,8 +184,8 @@ try {
       quote: {
         listingId: 'listing_1',
         headlineSchool: 'University of Washington',
-        itemLabel: 'UW · 2 essays',
-        stripeProductName: 'UW · 2 essays (Admitfolio)',
+        itemLabel: 'University of Washington · 2 essays',
+        stripeProductName: 'University of Washington · 2 essays (Admitfolio)',
         amountCents: 4_500,
         essayCount: 2,
       },

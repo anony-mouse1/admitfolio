@@ -23,6 +23,11 @@ assert.equal(schools.nationalUniversityRank('Columbia University'), 15);
 assert.equal(schools.nationalUniversityRank('UC Berkeley'), 15);
 assert.equal(schools.nationalUniversityRank('Penn State'), null, 'Penn State must not inherit UPenn rank');
 assert.equal(schools.nationalUniversityRank('Binghamton University'), null, 'schools outside the top 50 use the fallback order');
+assert.equal(
+  schools.schoolShortName('University of Washington'),
+  'University of Washington',
+  'Washington must use its full name on every shared school label',
+);
 
 // Keep this fixture comparator in lockstep with the public catalogue's sorting
 // contract: exact national rank, then the broader tier, then canonical school

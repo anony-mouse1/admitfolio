@@ -137,7 +137,7 @@ const SCHOOLS: School[] = [
   { domain: 'wisc.edu', short: 'Wisconsin', keys: ['university of wisconsin', 'wisconsin madison', 'uw madison'], exactKeys: ['wisconsin'] },
   { domain: 'illinois.edu', short: 'UIUC', keys: ['illinois urbana', 'uiuc'] },
   { domain: 'uic.edu', short: 'UI Chicago', keys: ['uic', 'illinois chicago', 'illinois at chicago'] },
-  { domain: 'washington.edu', short: 'UW', keys: ['university of washington', 'uw seattle', 'washington seattle'] },
+  { domain: 'washington.edu', short: 'University of Washington', keys: ['university of washington', 'uw seattle', 'washington seattle'] },
   { domain: 'gatech.edu', short: 'Georgia Tech', keys: ['georgia tech', 'georgia institute'] },
   { domain: 'uga.edu', short: 'UGA', keys: ['university of georgia', 'uga'] },
   { domain: 'purdue.edu', short: 'Purdue', keys: ['purdue'] },
