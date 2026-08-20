@@ -3,6 +3,7 @@ import { currentSeller } from '@/lib/sellerAuth';
 import { prisma } from '@/lib/prisma';
 import { releaseSellerEarnings, syncConnectedAccount } from '@/lib/sellerPayouts';
 import { connectedAccountReady } from '@/lib/sellerPayoutsCore';
+import { stripeConnectErrorDetails } from '@/lib/stripeConnectCore';
 import { stripe, SITE_URL } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
@@ -18,11 +19,23 @@ export async function GET() {
   });
   if (!seller?.stripeAccountId) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
 
-  const account = await stripe.accounts.retrieve(seller.stripeAccountId);
-  await syncConnectedAccount(account);
-  if (connectedAccountReady(account)) {
-    await releaseSellerEarnings(seller.id);
-    return NextResponse.redirect(`${SITE_URL}/?payouts=ready`);
+  try {
+    const account = await stripe.accounts.retrieve(seller.stripeAccountId);
+    if (account.deleted) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
+    await syncConnectedAccount(account);
+    if (connectedAccountReady(account)) {
+      const release = await releaseSellerEarnings(seller.id);
+      return NextResponse.redirect(
+        `${SITE_URL}/?payouts=${release.failed > 0 ? 'transfer-retry' : 'ready'}`,
+      );
+    }
+    return NextResponse.redirect(`${SITE_URL}/?payouts=pending`);
+  } catch (error) {
+    console.error('seller Connect return failed', {
+      sellerId: seller.id,
+      stripeAccountId: seller.stripeAccountId,
+      ...stripeConnectErrorDetails(error),
+    });
+    return NextResponse.redirect(`${SITE_URL}/?payouts=retry`);
   }
-  return NextResponse.redirect(`${SITE_URL}/?payouts=pending`);
 }

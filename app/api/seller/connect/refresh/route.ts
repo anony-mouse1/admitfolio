@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { currentSeller } from '@/lib/sellerAuth';
 import { prisma } from '@/lib/prisma';
+import { stripeConnectErrorDetails } from '@/lib/stripeConnectCore';
 import { stripe, SITE_URL } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
@@ -16,11 +17,20 @@ export async function GET() {
   });
   if (!seller?.stripeAccountId) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
 
-  const link = await stripe.accountLinks.create({
-    account: seller.stripeAccountId,
-    refresh_url: `${SITE_URL}/api/seller/connect/refresh`,
-    return_url: `${SITE_URL}/api/seller/connect/return`,
-    type: 'account_onboarding',
-  });
-  return NextResponse.redirect(link.url);
+  try {
+    const link = await stripe.accountLinks.create({
+      account: seller.stripeAccountId,
+      refresh_url: `${SITE_URL}/api/seller/connect/refresh`,
+      return_url: `${SITE_URL}/api/seller/connect/return`,
+      type: 'account_onboarding',
+      collect: 'eventually_due',
+    });
+    return NextResponse.redirect(link.url);
+  } catch (error) {
+    console.error('seller Connect refresh failed', {
+      stripeAccountId: seller.stripeAccountId,
+      ...stripeConnectErrorDetails(error),
+    });
+    return NextResponse.redirect(`${SITE_URL}/?payouts=retry`);
+  }
 }
