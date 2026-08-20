@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { currentSeller } from '@/lib/sellerAuth';
 import { prisma } from '@/lib/prisma';
 import { sellerPayoutStatus } from '@/lib/sellerPayoutStatus';
+import { releaseSellerEarnings, syncConnectedAccount } from '@/lib/sellerPayouts';
+import { connectedAccountReady } from '@/lib/sellerPayoutsCore';
+import { sellerFacingConnectError, stripeConnectErrorDetails } from '@/lib/stripeConnectCore';
 import { stripe, SITE_URL } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
@@ -24,36 +27,70 @@ export async function POST() {
       { status: 403 },
     );
   }
-  if (status.status === 'ready') {
-    return NextResponse.json({ ok: true, alreadyReady: true });
-  }
-
   let accountId = seller.stripeAccountId;
-  if (!accountId) {
-    const account = await stripe.accounts.create(
-      {
-        type: 'express',
-        email: seller.email,
-        capabilities: { transfers: { requested: true } },
-        metadata: { sellerId: seller.id, platform: 'admitfolio' },
-      },
-      { idempotencyKey: `admitfolio-connect-account-${seller.id}` },
-    );
-    accountId = account.id;
-    await prisma.seller.update({
-      where: { id: seller.id },
-      data: {
-        stripeAccountId: account.id,
-        stripeOnboardingStartedAt: new Date(),
-      },
-    });
-  }
+  try {
+    if (status.status === 'ready') {
+      const release = await releaseSellerEarnings(seller.id);
+      return NextResponse.json({ ok: true, alreadyReady: true, release });
+    }
+    if (accountId) {
+      const account = await stripe.accounts.retrieve(accountId);
+      if (!account.deleted) {
+        await syncConnectedAccount(account);
+        if (connectedAccountReady(account)) {
+          const release = await releaseSellerEarnings(seller.id);
+          return NextResponse.json({ ok: true, alreadyReady: true, release });
+        }
+      } else {
+        accountId = null;
+      }
+    }
 
-  const link = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: `${SITE_URL}/api/seller/connect/refresh`,
-    return_url: `${SITE_URL}/api/seller/connect/return`,
-    type: 'account_onboarding',
-  });
-  return NextResponse.json({ ok: true, url: link.url });
+    if (!accountId) {
+      const account = await stripe.accounts.create(
+        {
+          type: 'express',
+          email: seller.email,
+          capabilities: { transfers: { requested: true } },
+          metadata: { sellerId: seller.id, platform: 'admitfolio' },
+        },
+        {
+          idempotencyKey: seller.stripeAccountId
+            ? `admitfolio-connect-account-${seller.id}-after-${seller.stripeAccountId}`
+            : `admitfolio-connect-account-${seller.id}`,
+        },
+      );
+      accountId = account.id;
+      await prisma.seller.update({
+        where: { id: seller.id },
+        data: {
+          stripeAccountId: account.id,
+          stripeOnboardingStartedAt: new Date(),
+          stripeOnboardingCompleteAt: null,
+          stripePayoutsEnabled: false,
+        },
+      });
+    }
+
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${SITE_URL}/api/seller/connect/refresh`,
+      return_url: `${SITE_URL}/api/seller/connect/return`,
+      type: 'account_onboarding',
+      collect: 'eventually_due',
+    });
+    return NextResponse.json({ ok: true, url: link.url });
+  } catch (error) {
+    const details = stripeConnectErrorDetails(error);
+    console.error('seller Connect setup failed', {
+      sellerId: seller.id,
+      stripeAccountId: accountId,
+      ...details,
+    });
+    const response = sellerFacingConnectError(error);
+    return NextResponse.json(
+      { error: response.message, code: response.code },
+      { status: response.status },
+    );
+  }
 }
