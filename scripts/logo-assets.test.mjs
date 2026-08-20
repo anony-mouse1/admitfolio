@@ -11,6 +11,14 @@ assert.ok(mapBody, 'HIGH_RES_LOGOS map must remain readable by this regression t
 const sources = [...mapBody.matchAll(/:\s*'([^']+)'/g)].map((match) => match[1]);
 assert.ok(sources.length > 0, 'HIGH_RES_LOGOS must contain logo sources');
 
+const sourcesByDomain = new Map(
+  [...mapBody.matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)].map((match) => [match[1], match[2]]),
+);
+assert.equal(sourcesByDomain.get('duke.edu'), '/mockup-assets/university-logos/duke.webp');
+assert.equal(sourcesByDomain.get('indiana.edu'), '/mockup-assets/university-logos/indiana.webp');
+assert.equal(sourcesByDomain.get('ufl.edu'), '/mockup-assets/university-logos/florida.webp');
+assert.equal(sourcesByDomain.get('washington.edu'), '/mockup-assets/university-logos/washington.webp');
+
 for (const source of sources) {
   assert.match(source, /\.(?:webp|svg)$/i, `${source} must be WebP or SVG`);
 

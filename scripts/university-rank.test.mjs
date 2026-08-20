@@ -28,6 +28,21 @@ assert.equal(
   'University of Washington',
   'Washington must use its full name on every shared school label',
 );
+assert.deepEqual(
+  schools.schoolInfo('UW'),
+  { domain: 'washington.edu', short: 'University of Washington' },
+  'the live UW alias must resolve to University of Washington',
+);
+assert.deepEqual(
+  schools.schoolInfo('IU Kelley'),
+  { domain: 'indiana.edu', short: 'Indiana' },
+  'the live IU Kelley alias must resolve to Indiana University',
+);
+assert.deepEqual(
+  schools.schoolInfo('UFlorida'),
+  { domain: 'ufl.edu', short: 'Florida' },
+  'the live UFlorida alias must resolve to University of Florida',
+);
 
 // Keep this fixture comparator in lockstep with the public catalogue's sorting
 // contract: exact national rank, then the broader tier, then canonical school
