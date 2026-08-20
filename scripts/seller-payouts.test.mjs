@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import Stripe from 'stripe';
 import ts from 'typescript';
 
 const source = fs.readFileSync(new URL('../lib/sellerPayoutsCore.ts', import.meta.url), 'utf8');
@@ -45,15 +46,29 @@ assert.equal(mod.connectedAccountStatus({
 
 assert.equal(mod.connectedAccountReady({
   id: 'acct_123',
-  details_submitted: true,
-  payouts_enabled: true,
-  capabilities: { transfers: 'active' },
+  configuration: {
+    recipient: {
+      capabilities: {
+        stripe_balance: {
+          payouts: { status: 'active' },
+          stripe_transfers: { status: 'active' },
+        },
+      },
+    },
+  },
 }), true);
 assert.equal(mod.connectedAccountReady({
   id: 'acct_123',
-  details_submitted: true,
-  payouts_enabled: false,
-  capabilities: { transfers: 'active' },
+  configuration: {
+    recipient: {
+      capabilities: {
+        stripe_balance: {
+          payouts: { status: 'pending' },
+          stripe_transfers: { status: 'active' },
+        },
+      },
+    },
+  },
 }), false);
 assert.equal(mod.transferIdempotencyKey('purchase_1'), 'admitfolio-seller-transfer-purchase_1');
 assert.equal(
@@ -109,5 +124,33 @@ assert.deepEqual(connectMod.stripeConnectErrorDetails({
   requestId: 'req_123',
   statusCode: 400,
 });
+
+const stripe = new Stripe('sk_test_webhook_verification_only', {
+  apiVersion: '2026-06-24.dahlia',
+});
+const webhookSecret = 'whsec_seller_payout_test';
+const v2Payload = JSON.stringify({
+  id: 'evt_test_v2',
+  object: 'v2.core.event',
+  type: 'v2.core.account[configuration.recipient].capability_status_updated',
+  created: '2026-08-19T00:00:00.000Z',
+  livemode: false,
+  related_object: {
+    id: 'acct_test_v2',
+    type: 'v2.core.account',
+    url: '/v2/core/accounts/acct_test_v2',
+  },
+});
+const v2Header = stripe.webhooks.generateTestHeaderString({
+  payload: v2Payload,
+  secret: webhookSecret,
+});
+const notification = stripe.parseEventNotification(v2Payload, v2Header, webhookSecret);
+assert.equal(notification.type, 'v2.core.account[configuration.recipient].capability_status_updated');
+assert.equal('related_object' in notification && notification.related_object?.id, 'acct_test_v2');
+assert.throws(
+  () => stripe.parseEventNotification(`${v2Payload} `, v2Header, webhookSecret),
+  /signature/i,
+);
 
 console.log('seller payout core tests passed');

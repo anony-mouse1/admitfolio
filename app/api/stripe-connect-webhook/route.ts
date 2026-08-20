@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import type Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
-import { releaseSellerEarnings, syncConnectedAccount } from '@/lib/sellerPayouts';
+import { releaseSellerEarnings, retrieveConnectedAccount, syncConnectedAccount } from '@/lib/sellerPayouts';
 import { connectedAccountReady } from '@/lib/sellerPayoutsCore';
 import { stripe, STRIPE_CONNECT_WEBHOOK_SECRET } from '@/lib/stripe';
 
@@ -14,23 +13,39 @@ export async function POST(req: Request) {
 
   const raw = await req.text();
   const signature = req.headers.get('stripe-signature') || '';
-  let event: Stripe.Event;
+  let accountId: string | null = null;
   try {
-    event = stripe.webhooks.constructEvent(raw, signature, STRIPE_CONNECT_WEBHOOK_SECRET);
+    const object = (JSON.parse(raw) as { object?: unknown }).object;
+    if (object === 'v2.core.event') {
+      const notification = stripe.parseEventNotification(
+        raw,
+        signature,
+        STRIPE_CONNECT_WEBHOOK_SECRET,
+      );
+      if (!notification.type.startsWith('v2.core.account')) {
+        return NextResponse.json({ ok: true, ignored: notification.type });
+      }
+      accountId = 'related_object' in notification
+        ? notification.related_object?.id || null
+        : null;
+    } else {
+      const event = stripe.webhooks.constructEvent(raw, signature, STRIPE_CONNECT_WEBHOOK_SECRET);
+      if (event.type !== 'account.updated') {
+        return NextResponse.json({ ok: true, ignored: event.type });
+      }
+      accountId = event.account || (event.data.object as { id?: string }).id || null;
+    }
   } catch {
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
   }
-  if (event.type !== 'account.updated') {
-    return NextResponse.json({ ok: true, ignored: event.type });
-  }
-
-  const account = event.data.object as Stripe.Account;
+  if (!accountId) return NextResponse.json({ ok: true, ignored: 'missing account' });
   const seller = await prisma.seller.findUnique({
-    where: { stripeAccountId: account.id },
+    where: { stripeAccountId: accountId },
     select: { id: true },
   });
   if (!seller) return NextResponse.json({ ok: true, ignored: 'unknown account' });
 
+  const account = await retrieveConnectedAccount(accountId);
   await syncConnectedAccount(account);
   if (connectedAccountReady(account)) await releaseSellerEarnings(seller.id);
   return NextResponse.json({ ok: true });

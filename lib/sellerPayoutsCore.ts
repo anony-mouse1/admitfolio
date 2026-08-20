@@ -2,9 +2,17 @@ export const LIVE_CHECKOUT_PREFIX = 'cs_live_';
 
 export type ConnectedAccountSnapshot = {
   id: string;
-  details_submitted?: boolean;
-  payouts_enabled?: boolean;
-  capabilities?: { transfers?: string | null } | null;
+  closed?: boolean;
+  configuration?: {
+    recipient?: {
+      capabilities?: {
+        stripe_balance?: {
+          payouts?: { status?: string | null } | null;
+          stripe_transfers?: { status?: string | null } | null;
+        } | null;
+      } | null;
+    } | null;
+  } | null;
 };
 
 export function isLivePurchase(sessionId: string | null | undefined): boolean {
@@ -12,10 +20,11 @@ export function isLivePurchase(sessionId: string | null | undefined): boolean {
 }
 
 export function connectedAccountReady(account: ConnectedAccountSnapshot): boolean {
+  const balance = account.configuration?.recipient?.capabilities?.stripe_balance;
   return Boolean(
-    account.details_submitted &&
-      account.payouts_enabled &&
-      account.capabilities?.transfers === 'active',
+    !account.closed &&
+      balance?.stripe_transfers?.status === 'active' &&
+      balance?.payouts?.status === 'active',
   );
 }
 

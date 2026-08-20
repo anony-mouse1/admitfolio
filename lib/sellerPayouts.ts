@@ -23,7 +23,14 @@ function errorText(error: unknown): string {
   return (error instanceof Error ? error.message : 'Stripe transfer failed.').slice(0, 500);
 }
 
-export async function syncConnectedAccount(account: Stripe.Account) {
+export async function retrieveConnectedAccount(accountId: string): Promise<Stripe.V2.Core.Account> {
+  if (!stripe) throw new Error('Stripe is not configured.');
+  return stripe.v2.core.accounts.retrieve(accountId, {
+    include: ['configuration.recipient', 'requirements', 'future_requirements'],
+  });
+}
+
+export async function syncConnectedAccount(account: Stripe.V2.Core.Account) {
   const ready = connectedAccountReady(account);
   return prisma.seller.updateMany({
     where: { stripeAccountId: account.id },
@@ -47,7 +54,7 @@ export async function releaseSellerEarnings(sellerId: string): Promise<{
   });
   if (!seller?.stripeAccountId) return { ready: false, transferred: 0, failed: 0 };
 
-  const account = await stripe.accounts.retrieve(seller.stripeAccountId);
+  const account = await retrieveConnectedAccount(seller.stripeAccountId);
   const ready = connectedAccountReady(account);
   await syncConnectedAccount(account);
   if (!ready) return { ready: false, transferred: 0, failed: 0 };

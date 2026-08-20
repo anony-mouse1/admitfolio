@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import styles from './admin.module.css';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
+import SellerSupport from './SellerSupport';
 
 type Essay = {
   id: string;
@@ -464,6 +465,7 @@ export default function AdminPage() {
   const [deciding, setDeciding] = useState<string | null>(null);
   const [schoolDrafts, setSchoolDrafts] = useState<Record<string, string>>({});
   const [confirmingSchool, setConfirmingSchool] = useState<string | null>(null);
+  const [consoleView, setConsoleView] = useState<'review' | 'sellers'>('review');
 
   const loadListings = useCallback(async (): Promise<boolean> => {
     const r = await fetch('/api/admin/listings', { credentials: 'same-origin' });
@@ -678,6 +680,27 @@ export default function AdminPage() {
     return { key: s.key, label: s.label, items, groups: groupBySeller(items) };
   });
 
+  if (stage === 'console' && consoleView === 'sellers') {
+    return (
+      <div className={styles.page}>
+        <header className={styles.header}>
+          <div className={styles.logo}>
+            admitfolio<b>.</b>
+            <span className={`${styles.sub} ${styles.serif}`}>admin console</span>
+          </div>
+          <button className={`${styles.btn} ${styles.btnGhost}`} onClick={logout}>Log out</button>
+        </header>
+        <div className={styles.wrap}>
+          <nav className={styles.consoleNav} aria-label="Admin sections">
+            <button type="button" onClick={() => setConsoleView('review')}>Review queue</button>
+            <button type="button" className={styles.consoleNavActive}>Sellers</button>
+          </nav>
+          <SellerSupport previewMode={previewOn()} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       {stage === 'console' ? (
@@ -692,6 +715,10 @@ export default function AdminPage() {
             </button>
           </header>
           <div className={styles.wrap}>
+            <nav className={styles.consoleNav} aria-label="Admin sections">
+              <button type="button" className={styles.consoleNavActive}>Review queue</button>
+              <button type="button" onClick={() => setConsoleView('sellers')}>Sellers</button>
+            </nav>
             <div className={styles.toolbar}>
               <div className={styles.filters}>
                 {TABS.map((t) => {

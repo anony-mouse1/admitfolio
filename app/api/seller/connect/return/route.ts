@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { currentSeller } from '@/lib/sellerAuth';
 import { prisma } from '@/lib/prisma';
-import { releaseSellerEarnings, syncConnectedAccount } from '@/lib/sellerPayouts';
+import { releaseSellerEarnings, retrieveConnectedAccount, syncConnectedAccount } from '@/lib/sellerPayouts';
 import { connectedAccountReady } from '@/lib/sellerPayoutsCore';
 import { stripeConnectErrorDetails } from '@/lib/stripeConnectCore';
 import { stripe, SITE_URL } from '@/lib/stripe';
@@ -20,8 +20,8 @@ export async function GET() {
   if (!seller?.stripeAccountId) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
 
   try {
-    const account = await stripe.accounts.retrieve(seller.stripeAccountId);
-    if (account.deleted) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
+    const account = await retrieveConnectedAccount(seller.stripeAccountId);
+    if (account.closed) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
     await syncConnectedAccount(account);
     if (connectedAccountReady(account)) {
       const release = await releaseSellerEarnings(seller.id);

@@ -669,6 +669,404 @@
   white-space: pre-wrap;
 }
 
+/* Admin seller support. The approved mock uses the same calm paper surface as
+   the review queue, with a dark bar that makes support mode unmistakable. */
+.consoleNav {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 24px;
+}
+.consoleNav button {
+  padding: 8px 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.consoleNav .consoleNavActive {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.supportHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 34px 0 24px;
+}
+.supportHead p {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.supportEyebrow {
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.supportTitle {
+  margin: 6px 0 0;
+  font-family: 'Spectral', ui-serif, Georgia, serif;
+  font-size: 38px;
+  line-height: 1.05;
+  letter-spacing: -.035em;
+}
+.safePill,
+.readOnlyPill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid #bedfcb;
+  border-radius: 999px;
+  background: #eaf7f0;
+  color: #17724c;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.sellerSearchCard {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(20, 18, 15, .03);
+}
+.sellerSearchCard label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.sellerSearchCard > span {
+  display: block;
+  margin-top: 7px;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+.sellerSearch {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d9d4ca;
+  border-radius: 13px;
+  background: #fdfcf9;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.sellerSearch:focus {
+  outline: 3px solid rgba(125, 29, 45, .12);
+  border-color: var(--accent);
+}
+.sellerDirectory {
+  margin-top: 28px;
+}
+.directoryHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.directoryHead h2 {
+  margin: 0;
+  font-family: 'Spectral', ui-serif, Georgia, serif;
+  font-size: 20px;
+}
+.directoryHead span {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.supportSellerCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 14px 42px rgba(28, 22, 18, .06);
+}
+.supportAvatar {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: #172956;
+  color: #fff;
+  font-family: 'Spectral', ui-serif, Georgia, serif;
+  font-size: 16px;
+  font-weight: 800;
+}
+.supportSellerMain { min-width: 0; }
+.supportSellerName { font-size: 15px; font-weight: 800; }
+.supportSellerDetail {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.supportMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.supportMeta span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f5f2ed;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+.supportMeta .payout_setup_required,
+.supportMeta .payout_in_review {
+  background: #fff4dd;
+  color: #9a5700;
+}
+.supportMeta .payout_ready { background: #eaf7f0; color: #17724c; }
+.supportNotice,
+.supportError {
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 1px solid #efddb9;
+  border-radius: 14px;
+  background: #fff4dd;
+  color: #9a5700;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.supportError {
+  border-color: #f0c4bf;
+  background: #fbe0dd;
+  color: #a5281f;
+}
+.supportModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(25, 23, 20, .44);
+  backdrop-filter: blur(4px);
+}
+.supportModal {
+  width: min(460px, 100%);
+  padding: 25px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .2);
+}
+.supportModal h2 {
+  margin: 16px 0 0;
+  font-family: 'Spectral', ui-serif, Georgia, serif;
+  font-size: 27px;
+}
+.supportModal p,
+.supportModal li { color: var(--muted); font-size: 13px; line-height: 1.55; }
+.supportModal ul { margin: 16px 0 0; padding-left: 20px; }
+.supportModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+}
+.previewOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #faf8f4;
+}
+.previewSupportBar {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 58px;
+  padding: 10px 18px;
+  background: #191714;
+  color: #fff;
+}
+.previewSupportBar > div { min-width: 0; }
+.previewSupportBar b { display: block; font-size: 12.5px; }
+.previewSupportBar span:not(.readOnlyPill) { display: block; margin-top: 2px; color: #bbb5ad; font-size: 10.5px; }
+.previewSupportBar .readOnlyPill {
+  border-color: #4f4a43;
+  background: transparent;
+  color: #ddd7cf;
+}
+.previewSupportBar button {
+  margin-left: auto;
+  padding: 9px 14px;
+  border: 1px solid #6a6259;
+  border-radius: 999px;
+  background: #fff;
+  color: #1b1a17;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.previewScroll { min-height: 0; overflow: auto; }
+.adminPayoutSummary {
+  width: min(1180px, calc(100% - 40px));
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 18px auto 0;
+  padding: 14px;
+  border: 1px solid #efddb9;
+  border-radius: 15px;
+  background: #fff9ec;
+}
+.adminPayoutSummary div { display: grid; gap: 3px; }
+.adminPayoutSummary span { color: #8a6d3b; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.adminPayoutSummary b { font-size: 13px; }
+.adminPayoutSummary p { grid-column: 1 / -1; margin: 0; color: #a5281f; font-size: 12px; }
+.previewDashboard {
+  width: min(1180px, calc(100% - 40px));
+  margin: 18px auto 70px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #faf8f4;
+  box-shadow: 0 18px 54px rgba(25, 23, 20, .08);
+}
+.previewNav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.85);
+}
+.previewNav > strong { font-size: 13px; }
+.previewNav > span { justify-self: end; color: var(--muted); font-size: 12px; }
+.previewBody { padding: 34px; }
+.previewBody > section + section { margin-top: 38px; }
+.previewHeading {
+  margin: 0 0 18px;
+  font-family: 'Spectral', ui-serif, Georgia, serif;
+  font-size: 30px;
+}
+.previewStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.previewStat {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.previewStat > span { color: var(--faint); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.previewStat > b { font-family: 'Spectral', ui-serif, Georgia, serif; font-size: 29px; line-height: 1; }
+.previewStat > small { color: var(--faint); font-size: 11px; }
+.previewPayoutCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid #d8d0ff;
+  border-radius: 16px;
+  background: #fbfaff;
+}
+.previewPayoutCallout > div > span { color: #6256d9; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.previewPayoutCallout h3 { margin: 5px 0 6px; font-family: 'Spectral', ui-serif, Georgia, serif; font-size: 24px; }
+.previewPayoutCallout p { margin: 0; color: var(--muted); font-size: 13px; }
+.previewPayoutCallout small { display: block; margin-top: 8px; color: var(--faint); }
+.previewPayoutCallout button {
+  flex: none;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  opacity: .48;
+}
+.revenueBreakdown,
+.previewProfile,
+.previewListings article {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.revenueBreakdown h3 { margin: 0 0 10px; color: var(--faint); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.revenueBreakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.revenueBreakdown .revenueNet { color: var(--accent); font-size: 15px; }
+.previewProfile { display: flex; align-items: flex-start; gap: 14px; }
+.previewProfile p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+.previewListings { display: grid; gap: 12px; }
+.previewListings article { margin: 0; }
+.previewListings article > div:first-child { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.previewListings h3 { margin: 0; font-family: 'Spectral', ui-serif, Georgia, serif; font-size: 18px; }
+.previewListings article > div:first-child span { padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.listing_approved { background: #dcf5e6; color: #1c7c43; }
+.listing_pending { background: #fff3d0; color: #8a6d00; }
+.listing_rejected, .listing_removed { background: #fbe0dd; color: #a5281f; }
+.previewListings article > p { margin: 6px 0 12px; color: var(--muted); font-size: 12px; }
+.listingMoney { display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+.listingMoney b { color: var(--ink); }
+.previewListings small { display: block; margin-top: 10px; color: var(--faint); }
+
+@media (max-width: 800px) {
+  .supportHead { display: block; }
+  .safePill { margin-top: 14px; }
+  .supportSellerCard { grid-template-columns: auto minmax(0, 1fr); }
+  .supportSellerCard > button { grid-column: 1 / -1; }
+  .adminPayoutSummary, .previewStats { grid-template-columns: repeat(2, 1fr); }
+  .previewNav { grid-template-columns: 1fr auto; }
+  .previewNav > strong { display: none; }
+  .previewPayoutCallout { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 520px) {
+  .supportTitle { font-size: 32px; }
+  .adminPayoutSummary, .previewStats { grid-template-columns: 1fr; }
+  .previewSupportBar .readOnlyPill, .previewSupportBar span:not(.readOnlyPill) { display: none; }
+  .previewDashboard, .adminPayoutSummary { width: min(100% - 20px, 1180px); }
+  .previewBody { padding: 22px 16px; }
+  .previewNav > span { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+}
+
 /* ── Proof of admission ──────────────────────────────────────
    One row per school the listing claims. `missing` is its own state, distinct
    from `pending`: those listings were submitted before proof-of-admission

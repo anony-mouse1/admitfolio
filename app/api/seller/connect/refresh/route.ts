@@ -18,12 +18,20 @@ export async function GET() {
   if (!seller?.stripeAccountId) return NextResponse.redirect(`${SITE_URL}/?payouts=setup`);
 
   try {
-    const link = await stripe.accountLinks.create({
+    const link = await stripe.v2.core.accountLinks.create({
       account: seller.stripeAccountId,
-      refresh_url: `${SITE_URL}/api/seller/connect/refresh`,
-      return_url: `${SITE_URL}/api/seller/connect/return`,
-      type: 'account_onboarding',
-      collect: 'eventually_due',
+      use_case: {
+        type: 'account_onboarding',
+        account_onboarding: {
+          configurations: ['recipient'],
+          refresh_url: `${SITE_URL}/api/seller/connect/refresh`,
+          return_url: `${SITE_URL}/api/seller/connect/return`,
+          collection_options: {
+            fields: 'eventually_due',
+            future_requirements: 'include',
+          },
+        },
+      },
     });
     return NextResponse.redirect(link.url);
   } catch (error) {
