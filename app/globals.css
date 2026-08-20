@@ -1749,6 +1749,8 @@ body { -webkit-tap-highlight-color: transparent; }
   .public-grid.rows .ecard-admits { margin-top: 9px; }
   .public-grid.rows .ecard-foot { grid-column: 2; grid-row: 1 / span 4; padding-left: 14px; }
   .public-grid.rows .ecard-price { flex-direction: column; align-items: center; gap: 0; text-align: center; }
+  .public-grid .catalog-card .ecard-admits { display: block; }
+  .public-grid .catalog-card .ecard-admits-label { display: block; width: auto; margin-bottom: 3px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .public-grid .catalog-card { animation: none; }
