@@ -133,6 +133,7 @@ try {
       redirect_on_completion: 'always',
       integration_identifier: 'admitfolio_nqvzkjhf',
       managed_payments: { enabled: false },
+      excluded_payment_method_types: ['amazon_pay'],
       client_reference_id: 'listing_1',
       line_items: [
         {
