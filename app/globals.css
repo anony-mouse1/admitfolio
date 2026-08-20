@@ -1748,7 +1748,7 @@ body { -webkit-tap-highlight-color: transparent; }
   .public-grid.rows .ecard-lines { grid-column: 1 / span 2; grid-row: 5; display: block; }
   .public-grid.rows .ecard-admits { margin-top: 9px; }
   .public-grid.rows .ecard-foot { grid-column: 2; grid-row: 1 / span 4; padding-left: 14px; }
-  .public-grid.rows .ecard-price { flex-direction: column; align-items: flex-end; gap: 0; }
+  .public-grid.rows .ecard-price { flex-direction: column; align-items: center; gap: 0; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .public-grid .catalog-card { animation: none; }
