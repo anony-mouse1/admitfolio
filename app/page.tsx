@@ -10,6 +10,7 @@ import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, sc
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
+import { spreadRepeatedKeys } from '@/lib/listingOrder';
 
 /* ============================================================================
    Types & static data
@@ -60,6 +61,7 @@ type PublicListing = {
   // card title; teaser is only a fallback/secondary seller summary.
   openingLine?: string | null;
   appliedMajors: string | null;
+  major?: string | null;
   createdAt: string;
   essays: { prompt: string; question: string | null; wordCount: number | null }[];
   seller: { displayName: string; backgroundTags: string[]; anonymity?: Anonymity };
@@ -330,10 +332,10 @@ export default function Page() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Browse follows the exact 2026 National Universities rank when available.
-  // Schools outside that published top 50 retain the broader pricing tier as a
-  // fallback, then sort alphabetically. A stable final tie keeps the API order
-  // within one university.
+  // Browse starts with the exact 2026 National Universities rank when
+  // available. Schools outside that top 50 retain the broader pricing tier as
+  // a fallback. The ranked results are then spread so one university cannot
+  // monopolize the opening rows; order within one university stays stable.
   const matchingListings = useMemo(() => {
     const candidates = matchIds ? pubListings.filter((listing) => matchIds.includes(listing.id)) : pubListings;
     const query = searchQuery.trim().toLocaleLowerCase();
@@ -344,6 +346,7 @@ export default function Page() {
         listing.school,
         listing.applicationSystem,
         listing.appliedMajors,
+        listing.major,
         listing.teaser,
         listing.openingLine,
         ...listing.admitTags,
@@ -357,10 +360,10 @@ export default function Page() {
     });
   }, [pubListings, searchQuery, matchIds]);
 
-  const sortedListings = useMemo(
-    () => [...matchingListings].sort(compareListingRank),
-    [matchingListings],
-  );
+  const sortedListings = useMemo(() => {
+    const ranked = [...matchingListings].sort(compareListingRank);
+    return spreadRepeatedKeys(ranked, listingSchoolKey);
+  }, [matchingListings]);
   const featuredListings = useMemo(() => {
     const priorityDomains = ['harvard.edu', 'stanford.edu', 'yale.edu', 'columbia.edu', 'upenn.edu', 'uchicago.edu'];
     const ranked = [...pubListings].sort(compareListingRank);
@@ -2727,6 +2730,11 @@ function compareListingRank(a: PublicListing, b: PublicListing): number {
   return schoolShortName(schoolA).localeCompare(schoolShortName(schoolB));
 }
 
+function listingSchoolKey(listing: PublicListing): string {
+  const school = headlineSchool(listing);
+  return schoolInfo(school)?.domain || schoolShortName(school).toLocaleLowerCase();
+}
+
 // The package pill already shows the essay count. Keep this line for the
 // contents only, matching the approved browse mockup without repeating the
 // same number twice on one card.
@@ -2748,7 +2756,7 @@ function contentsLine(l: PublicListing): string {
 }
 
 function majorsOf(l: PublicListing): string[] {
-  return (l.appliedMajors || '').split(',').map((m) => m.trim()).filter(Boolean);
+  return (l.appliedMajors || l.major || '').split(',').map((m) => m.trim()).filter(Boolean);
 }
 
 // The first five schools, then a count. Five is a fixed number rather than a
@@ -2926,7 +2934,7 @@ function PublicListingCard({
         </div>
       </div>
       <div className={`ecard-prompt${majors.length ? '' : ' is-empty'}`} title={majors.join(', ')}>
-        {majors.length ? `${majors[0]}${majors.length > 1 ? ` +${majors.length - 1}` : ''}` : 'Essay focus'}
+        {majors.length ? `${majors[0]}${majors.length > 1 ? ` +${majors.length - 1}` : ''}` : ''}
       </div>
       <div className="ecard-hook" title={title}>{title}</div>
       <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>

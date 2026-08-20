@@ -11,6 +11,7 @@ async function importTypeScript(path) {
 }
 
 const schools = await importTypeScript(new URL('../lib/schools.ts', import.meta.url));
+const listingOrder = await importTypeScript(new URL('../lib/listingOrder.ts', import.meta.url));
 
 assert.equal(schools.nationalUniversityRank('Princeton University'), 1);
 assert.equal(schools.nationalUniversityRank('MIT'), 2);
@@ -98,6 +99,30 @@ assert.deepEqual(
   fallbackFixtures.map((listing) => listing.id),
   ['better-tier', 'alphabetically-earlier', 'alphabetically-later'],
   'unranked schools use the broader tier before alphabetic school order',
+);
+
+const repeatedSchoolFixtures = [
+  { id: 'harvard', school: 'Harvard' },
+  { id: 'stanford-1', school: 'Stanford' },
+  { id: 'stanford-2', school: 'Stanford' },
+  { id: 'stanford-3', school: 'Stanford' },
+  { id: 'yale', school: 'Yale' },
+  { id: 'cornell', school: 'Cornell' },
+  { id: 'upenn', school: 'UPenn' },
+];
+const spreadFixtures = listingOrder.spreadRepeatedKeys(
+  repeatedSchoolFixtures,
+  (listing) => schools.schoolInfo(listing.school)?.domain || listing.school.toLowerCase(),
+);
+assert.deepEqual(
+  spreadFixtures.slice(0, 5).map((listing) => listing.school),
+  ['Harvard', 'Stanford', 'Yale', 'Cornell', 'UPenn'],
+  'Browse should mix top schools before repeating Stanford listings',
+);
+assert.deepEqual(
+  spreadFixtures.filter((listing) => listing.school === 'Stanford').map((listing) => listing.id),
+  ['stanford-1', 'stanford-2', 'stanford-3'],
+  'diversifying schools must preserve the original ranking within one school',
 );
 
 console.log('university rank tests passed');
