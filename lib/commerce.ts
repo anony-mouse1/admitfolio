@@ -142,6 +142,7 @@ export function checkoutSessionParams(
     redirect_on_completion: 'always' as const,
     integration_identifier: 'admitfolio_nqvzkjhf',
     managed_payments: { enabled: false },
+    excluded_payment_method_types: ['amazon_pay' as const],
     // Keep payment_method_types omitted. Stripe's dynamic payment methods then
     // show real Link, Apple Pay and card options when the buyer is eligible.
     client_reference_id: quote.listingId,
