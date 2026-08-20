@@ -61,7 +61,10 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create(
       checkoutSessionParams(quote, buyerIp, SITE_URL),
     );
-    return NextResponse.json({ ok: true, url: session.url });
+    if (!session.client_secret) {
+      throw new Error('Stripe did not return an embedded Checkout client secret.');
+    }
+    return NextResponse.json({ ok: true, clientSecret: session.client_secret });
   } catch (e) {
     console.error('stripe checkout create failed:', e instanceof Error ? e.message : e);
     return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 502 });

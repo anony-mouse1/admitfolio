@@ -138,8 +138,12 @@ export function checkoutSessionParams(
   const origin = siteUrl.replace(/\/$/, '');
   return {
     mode: 'payment' as const,
+    ui_mode: 'embedded_page' as const,
+    redirect_on_completion: 'always' as const,
     integration_identifier: 'admitfolio_nqvzkjhf',
     managed_payments: { enabled: false },
+    // Keep payment_method_types omitted. Stripe's dynamic payment methods then
+    // show real Link, Apple Pay and card options when the buyer is eligible.
     client_reference_id: quote.listingId,
     line_items: [
       {
@@ -168,8 +172,7 @@ export function checkoutSessionParams(
         listingId: quote.listingId,
       },
     },
-    success_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/?checkout=canceled`,
+    return_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
   };
 }
 
