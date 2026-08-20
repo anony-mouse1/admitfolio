@@ -2931,7 +2931,7 @@ function PublicListingCard({
       <div className="ecard-hook" title={title}>{title}</div>
       <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>
         {displayTags.slice(0, 2).map((t) => (
-          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`} title={t}>{t}</span>
+          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`} title={t}>{cardTagLabel(t)}</span>
         ))}
         {displayTags.length > 2 && (
           <span className="etag etag-more" title={displayTags.slice(2).join(', ')}>
@@ -2972,6 +2972,12 @@ function PublicListingCard({
       </div>
     </div>
   );
+}
+
+function cardTagLabel(tag: string): string {
+  if (tag === 'First-generation' || tag === 'First generation') return 'First gen';
+  if (tag === 'Low-income background') return 'Low-income';
+  return tag;
 }
 
 /* One school as a chip: logo plus short name. Used for both admit lists and the
@@ -3152,7 +3158,7 @@ function ListingDetail({
             {sellerTags.length > 0 && (
               <div className="ecard-tags">
                 {sellerTags.map((t) => (
-                  <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{t}</span>
+                  <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{cardTagLabel(t)}</span>
                 ))}
               </div>
             )}
@@ -3229,7 +3235,7 @@ function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) 
       {essay.sellerTags.length > 0 && (
         <div className="ecard-tags">
           {essay.sellerTags.map((t) => (
-            <span key={t} className="etag">{t}</span>
+            <span key={t} className="etag">{cardTagLabel(t)}</span>
           ))}
         </div>
       )}
