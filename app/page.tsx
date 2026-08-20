@@ -3173,16 +3173,6 @@ function ListingDetail({
           </div>
         </div>
 
-        <div className="d-foot d-foot-bottom">
-          <div className="d-price">
-            {listing.price != null ? `$${listing.price}` : 'Free'}
-            <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
-          </div>
-          <button className="btn-primary d-bottom-unlock" type="button" onClick={onUnlock}>
-            Unlock and read
-          </button>
-        </div>
-
         {otherListings.length > 0 && (
           <div className="d-more-seller">
             <h3>Browse more essays from this seller</h3>

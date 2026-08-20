@@ -283,13 +283,11 @@ a { color: inherit; }
   display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
   border-radius: 50%; color: var(--accent); background: #fff; font-size: 18px; font-weight: 500;
 }
-.d-bottom-unlock { border-radius: 999px; padding: 13px 22px; white-space: nowrap; }
 @media (max-width: 640px) {
   .ov { padding: 0; align-items: flex-end; }
   .sheet { border-radius: 24px 24px 0 0; max-height: 92vh; padding: 26px 20px 28px; }
   .d-foot { align-items: stretch; flex-direction: column; }
   .d-unlock-btn { width: 100%; justify-content: space-between; }
-  .d-bottom-unlock { width: 100%; }
 }
 
 /* Count on the left, sort on the right, above the grid. */
