@@ -49,11 +49,11 @@ Admitfolio.
 - The mock includes Stripe-style Link and Apple Pay express options plus card.
 - `npm run test:embedded-checkout`
 - `npm run test:commerce`
+- `npm run test:purchase-fulfillment`
+- `npm run test:seller-payouts`
 - `npx tsc --noEmit`
-
-After the final rebase, rerun the focused checkout, commerce, fulfillment,
-seller-payout and TypeScript checks. Run direct `npx next build` with harmless
-build-only placeholder values. Do not run migrations.
+- Direct `next build` with Node 20 and harmless build-only placeholder values.
+  No migration or production write ran.
 
 ## Vercel configuration completed
 
@@ -65,7 +65,7 @@ never printed, saved locally, added to source control or written into this file.
 
 ## What is left
 
-1. Push this branch, then verify the Vercel Preview with test-mode Stripe.
+1. Verify the Vercel Preview with test-mode Stripe.
 2. Confirm Stripe renders eligible Link, Apple Pay and card options. Create an
    unpaid Checkout Session only. Never complete a payment during QA.
 3. Merge only after the preview and phone experience are approved.
