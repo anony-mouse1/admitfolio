@@ -13,6 +13,7 @@
     "test:university-ranks": "node scripts/university-rank.test.mjs",
     "test:purchase-fulfillment": "node scripts/purchase-fulfillment.test.mjs",
     "test:seller-payouts": "node scripts/seller-payouts.test.mjs",
+    "test:seller-dashboard": "node scripts/seller-dashboard.test.mjs",
     "test:opening-lines": "node scripts/opening-line.test.mjs",
     "test:logo-assets": "node scripts/logo-assets.test.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",

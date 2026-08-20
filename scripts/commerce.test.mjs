@@ -129,6 +129,7 @@ try {
     checkoutSessionParams(quotedListing.quote, '203.0.113.8', 'https://admitfolio.com/'),
     {
       mode: 'payment',
+      integration_identifier: 'admitfolio_nqvzkjhf',
       managed_payments: { enabled: false },
       client_reference_id: 'listing_1',
       line_items: [

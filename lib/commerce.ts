@@ -138,6 +138,7 @@ export function checkoutSessionParams(
   const origin = siteUrl.replace(/\/$/, '');
   return {
     mode: 'payment' as const,
+    integration_identifier: 'admitfolio_nqvzkjhf',
     managed_payments: { enabled: false },
     client_reference_id: quote.listingId,
     line_items: [
