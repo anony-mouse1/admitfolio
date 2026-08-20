@@ -1,6 +1,39 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { directIdentifierReason, junkReason, openingKey, stripResaleNotice } from './extract-opening-lines.mjs';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+import {
+  directIdentifierReason,
+  junkReason,
+  loadPdfjsForTextExtraction,
+  openingKey,
+  stripResaleNotice,
+} from './extract-opening-lines.mjs';
+
+// Reproduce the Vercel server-bundle condition: pdfjs cannot reach its optional
+// native canvas shim, so it has no DOMMatrix to install for itself. Our lazy
+// loader must make importing pdfjs safe before any production route uses it.
+const originalGetBuiltinModule = process.getBuiltinModule;
+process.getBuiltinModule = undefined;
+delete globalThis.DOMMatrix;
+const pdfjs = await loadPdfjsForTextExtraction();
+assert.equal(typeof globalThis.DOMMatrix, 'function');
+assert.equal(typeof pdfjs.getDocument, 'function');
+const samplePdf = await PDFDocument.create();
+const samplePage = samplePdf.addPage([300, 200]);
+const sampleFont = await samplePdf.embedFont(StandardFonts.Helvetica);
+samplePage.drawText('Admitfolio review route works', { x: 30, y: 120, size: 14, font: sampleFont });
+const sampleBytes = await samplePdf.save();
+const parsedPdf = await pdfjs.getDocument({
+  data: new Uint8Array(sampleBytes),
+  isEvalSupported: false,
+  useSystemFonts: false,
+}).promise;
+const sampleText = (await (await parsedPdf.getPage(1)).getTextContent()).items
+  .map((item) => item.str || '')
+  .join(' ');
+assert.match(sampleText, /Admitfolio review route works/);
+await parsedPdf.destroy();
+process.getBuiltinModule = originalGetBuiltinModule;
 
 assert.equal(
   junkReason(

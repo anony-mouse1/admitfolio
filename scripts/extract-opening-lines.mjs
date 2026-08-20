@@ -38,7 +38,6 @@ if (!Promise.withResolvers) {
 }
 
 import { PrismaClient } from '@prisma/client';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 // Rejects a candidate line containing the seller's own name. Lives in its own
@@ -46,7 +45,43 @@ import { pathToFileURL } from 'node:url';
 import { nameLeak } from './name-leak.mjs';
 
 const require = createRequire(import.meta.url);
-pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+
+// `extract-opening-lines.mjs` is imported by production server routes through
+// lib/openingLine.ts. A static pdfjs import runs before this module's top-level
+// polyfills, and Next's server bundle cannot load pdfjs's optional native canvas
+// shim. pdfjs then constructs a DOMMatrix while the route module is loading and
+// the whole endpoint fails before its handler can run.
+//
+// Opening-line extraction only asks pdfjs for text. It never renders a page, so
+// this small 2D value object is sufficient. Load pdfjs lazily after installing
+// it so importing the cron and upload routes is safe in Vercel's Node runtime.
+class TextExtractionDOMMatrix {
+  constructor(init = [1, 0, 0, 1, 0, 0]) {
+    const values = Array.isArray(init) || ArrayBuffer.isView(init)
+      ? Array.from(init)
+      : [1, 0, 0, 1, 0, 0];
+    [this.a, this.b, this.c, this.d, this.e, this.f] = [
+      values[0] ?? 1,
+      values[1] ?? 0,
+      values[2] ?? 0,
+      values[3] ?? 1,
+      values[4] ?? 0,
+      values[5] ?? 0,
+    ];
+  }
+}
+
+let pdfjsPromise;
+export function loadPdfjsForTextExtraction() {
+  if (!pdfjsPromise) {
+    if (!globalThis.DOMMatrix) globalThis.DOMMatrix = TextExtractionDOMMatrix;
+    pdfjsPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+      return pdfjs;
+    });
+  }
+  return pdfjsPromise;
+}
 
 const CONFIRM = process.argv.includes('--confirm');
 const QUIET = process.env.QUIET === '1';
@@ -362,6 +397,7 @@ export async function extractOpeningLineForListing(l, used = new Set(), clipMax 
     if (!essay.pdfPath) continue;
     let blocks, chars;
     try {
+      const pdfjs = await loadPdfjsForTextExtraction();
       const doc = await pdfjs.getDocument({
         data: new Uint8Array(await download(essay.pdfPath)),
         isEvalSupported: false,
