@@ -1150,6 +1150,39 @@ footer { background: #1b1a17; color: #cfccc4; }
 }
 .dash-payout-review strong { color: #5b3f0d; }
 .dash-payout-review span { flex: 1; line-height: 1.45; }
+.dash-bank-payout {
+  margin-top: 18px; padding: 20px 22px; border: 1px solid #bfe2cf;
+  border-radius: 16px; background: #edf8f2; color: #176f4b;
+  box-shadow: 0 1px 3px rgba(20,18,15,.04);
+}
+.dash-bank-payout.failed { border-color: #efc2c2; background: #fff5f4; color: #a5281f; }
+.dash-bank-payout-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.dash-bank-payout .dash-payout-kicker { color: currentColor; }
+.dash-bank-payout-pill {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border: 1px solid currentColor; border-radius: 999px; font-size: 10px; font-weight: 800;
+}
+.dash-bank-payout-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dash-bank-payout-track { margin-top: 15px; padding: 10px 13px; border-radius: 13px; background: rgba(255,255,255,.82); color: var(--ink); }
+.dash-bank-payout-step {
+  position: relative; display: grid; grid-template-columns: 20px minmax(0,1fr) auto;
+  gap: 9px; align-items: center; padding: 8px 0;
+}
+.dash-bank-payout-step + .dash-bank-payout-step::before {
+  content: ""; position: absolute; left: 8px; bottom: calc(50% + 8px);
+  width: 2px; height: 18px; background: #b9dfcb;
+}
+.dash-bank-payout-dot {
+  position: relative; z-index: 1; width: 18px; height: 18px; display: grid; place-items: center;
+  border-radius: 50%; background: #17724c; color: white; font-size: 10px; font-weight: 900;
+}
+.dash-bank-payout-step.current .dash-bank-payout-dot { background: white; border: 4px solid #17724c; }
+.dash-bank-payout-step.failed .dash-bank-payout-dot { background: #b3261e; }
+.dash-bank-payout-step > div { min-width: 0; }
+.dash-bank-payout-step strong { display: block; font-size: 12px; }
+.dash-bank-payout-step small { display: block; margin-top: 2px; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
+.dash-bank-payout-step > b { color: #17724c; font-size: 10.5px; white-space: nowrap; }
+.dash-bank-payout-step.failed > b { color: #b3261e; }
 .secondary-btn {
   border: 1px solid var(--card-line); border-radius: 999px; padding: 10px 15px;
   background: white; color: var(--muted); font-size: 12px; font-weight: 700;
@@ -1161,6 +1194,10 @@ footer { background: #1b1a17; color: #cfccc4; }
   .dash-payout-button { width: 100%; }
   .dash-payout-review { align-items: stretch; flex-direction: column; }
   .dash-payout-review .secondary-btn { width: 100%; }
+  .dash-bank-payout-head { align-items: stretch; flex-direction: column; }
+  .dash-bank-payout-pill { width: fit-content; }
+  .dash-bank-payout-step { align-items: start; }
+  .dash-bank-payout-step > b { grid-column: 2 / -1; }
 }
 
 /* ---- Revenue breakdown card ---- */

@@ -14,6 +14,7 @@
     "test:university-ranks": "node scripts/university-rank.test.mjs",
     "test:purchase-fulfillment": "node scripts/purchase-fulfillment.test.mjs",
     "test:seller-payouts": "node scripts/seller-payouts.test.mjs",
+    "test:seller-bank-payouts": "node scripts/seller-bank-payouts.test.mjs",
     "test:seller-dashboard": "node scripts/seller-dashboard.test.mjs",
     "test:stripe-fees": "node scripts/stripe-fee.test.mjs",
     "test:payout-sandbox": "node scripts/payout-sandbox.test.mjs",

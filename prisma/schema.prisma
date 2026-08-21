@@ -16,24 +16,25 @@ datasource db {
 
 // A verified seller — identity is a .edu email, proven via the OTP flow.
 model Seller {
-  id                         String       @id @default(cuid())
-  email                      String       @unique
+  id                         String             @id @default(cuid())
+  email                      String             @unique
   passwordHash               String? // scrypt "salt:hash", set at signup
-  failedLogins               Int          @default(0) // consecutive bad passwords; reset on success
+  failedLogins               Int                @default(0) // consecutive bad passwords; reset on success
   lockedUntil                DateTime? // brute-force lockout expiry
   name                       String? // full name; display follows the listing's anonymity choice
   paypalEmail                String? // where biweekly payouts go once buying launches
   // Stripe Connect is deliberately created only after this seller's first
   // settled live sale. Until onboarding finishes, the 60% entitlement stays
   // attached to its Purchase row instead of being sent anywhere.
-  stripeAccountId            String?      @unique
+  stripeAccountId            String?            @unique
   stripeOnboardingStartedAt  DateTime?
   stripeOnboardingCompleteAt DateTime?
-  stripePayoutsEnabled       Boolean      @default(false)
+  stripePayoutsEnabled       Boolean            @default(false)
+  stripeBankPayouts          SellerBankPayout[]
   bio                        String? // short "about me" shown on the seller profile
   photoPath                  String? // Supabase Storage path for the profile photo
-  backgroundTags             String       @default("[]") // JSON array of profile tags (e.g. First-generation)
-  createdAt                  DateTime     @default(now())
+  backgroundTags             String             @default("[]") // JSON array of profile tags (e.g. First-generation)
+  createdAt                  DateTime           @default(now())
   listings                   Listing[]
   admitProofs                AdmitProof[]
 }
@@ -215,6 +216,34 @@ model Purchase {
   @@index([listingId])
   @@index([sellerNotifiedAt])
   @@index([sellerTransferredAt])
+}
+
+// A Stripe payout from a seller's connected balance to their bank account.
+// Transfers into Stripe and payouts to a bank are separate money movements,
+// so this record lets the dashboard distinguish "sent to Stripe" from
+// "deposited in your bank" without storing any bank details.
+model SellerBankPayout {
+  id                   String    @id // Stripe payout id (po_...)
+  seller               Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId             String
+  stripeAccountId      String
+  amountCents          Int
+  currency             String
+  status               String // pending | in_transit | paid | failed | canceled
+  automatic            Boolean
+  arrivalDate          DateTime?
+  failureCode          String?
+  stripeCreatedAt      DateTime
+  stripeEventCreatedAt DateTime
+  stripeEventId        String
+  paidAt               DateTime?
+  failedAt             DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([sellerId, status])
+  @@index([stripeAccountId])
+  @@index([stripeCreatedAt])
 }
 
 // One row per essay read. Buyers have no account, so a view is attributed via

@@ -29,7 +29,13 @@ export type AdminPayoutSummary = {
   connectedAccount: string | null;
   pendingCents: number;
   transferredCents: number;
+  stripeBalanceCents: number;
+  bankInTransitCents: number;
+  bankPaidCents: number;
+  latestBankPayoutStatus: string | null;
+  latestBankPayoutArrivalDate: Date | null;
   latestSafeError: string | null;
+  latestBankPayoutError: string | null;
 };
 
 export function payoutAccountState(status: SellerPayoutState): AdminPayoutSummary['accountState'] {
@@ -72,6 +78,16 @@ export function buildAdminPayoutSummary(input: {
   stripeAccountId: string | null;
   pendingCents: number;
   paidCents: number;
+  bankPayouts?: {
+    stripeBalanceCents: number;
+    inTransitCents: number;
+    paidCents: number;
+    latest: {
+      status: string;
+      arrivalDate: Date | null;
+      failureMessage: string | null;
+    } | null;
+  };
   latestTransferError?: string | null;
 }): AdminPayoutSummary {
   return {
@@ -79,6 +95,12 @@ export function buildAdminPayoutSummary(input: {
     connectedAccount: maskedConnectedAccount(input.stripeAccountId),
     pendingCents: input.pendingCents,
     transferredCents: input.paidCents,
+    stripeBalanceCents: input.bankPayouts?.stripeBalanceCents || 0,
+    bankInTransitCents: input.bankPayouts?.inTransitCents || 0,
+    bankPaidCents: input.bankPayouts?.paidCents || 0,
+    latestBankPayoutStatus: input.bankPayouts?.latest?.status || null,
+    latestBankPayoutArrivalDate: input.bankPayouts?.latest?.arrivalDate || null,
     latestSafeError: safePayoutErrorMessage(input.latestTransferError),
+    latestBankPayoutError: input.bankPayouts?.latest?.failureMessage || null,
   };
 }

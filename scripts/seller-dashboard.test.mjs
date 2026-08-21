@@ -31,7 +31,42 @@ assert.deepEqual(dashboard.buildAdminPayoutSummary({
   connectedAccount: null,
   pendingCents: 11_040,
   transferredCents: 0,
+  stripeBalanceCents: 0,
+  bankInTransitCents: 0,
+  bankPaidCents: 0,
+  latestBankPayoutStatus: null,
+  latestBankPayoutArrivalDate: null,
   latestSafeError: null,
+  latestBankPayoutError: null,
+});
+
+assert.deepEqual(dashboard.buildAdminPayoutSummary({
+  status: 'ready',
+  stripeAccountId: 'acct_123456789',
+  pendingCents: 0,
+  paidCents: 10_200,
+  bankPayouts: {
+    stripeBalanceCents: 0,
+    inTransitCents: 10_200,
+    paidCents: 0,
+    latest: {
+      status: 'in_transit',
+      arrivalDate: new Date('2026-08-26T00:00:00.000Z'),
+      failureMessage: null,
+    },
+  },
+}), {
+  accountState: 'ready',
+  connectedAccount: 'acct_...6789',
+  pendingCents: 0,
+  transferredCents: 10_200,
+  stripeBalanceCents: 0,
+  bankInTransitCents: 10_200,
+  bankPaidCents: 0,
+  latestBankPayoutStatus: 'in_transit',
+  latestBankPayoutArrivalDate: new Date('2026-08-26T00:00:00.000Z'),
+  latestSafeError: null,
+  latestBankPayoutError: null,
 });
 
 assert.deepEqual(dashboard.summarizeSellerAccounting([

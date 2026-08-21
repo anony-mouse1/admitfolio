@@ -9,7 +9,13 @@ type AdminPayout = {
   connectedAccount: string | null;
   pendingCents: number;
   transferredCents: number;
+  stripeBalanceCents: number;
+  bankInTransitCents: number;
+  bankPaidCents: number;
+  latestBankPayoutStatus: string | null;
+  latestBankPayoutArrivalDate: string | null;
   latestSafeError: string | null;
+  latestBankPayoutError: string | null;
 };
 type SellerRow = {
   id: string;
@@ -65,6 +71,20 @@ type SellerPreview = {
       pendingCents: number;
       paidCents: number;
       accountingPendingCount?: number;
+      bankPayouts: {
+        stripeBalanceCents: number;
+        paidCents: number;
+        inTransitCents: number;
+        failedCents: number;
+        latest: {
+          id: string;
+          amountCents: number;
+          currency: string;
+          status: 'pending' | 'in_transit' | 'paid' | 'failed' | 'canceled';
+          arrivalDate: string | null;
+          failureMessage: string | null;
+        } | null;
+      };
     };
   };
   adminPayout: AdminPayout;
@@ -80,7 +100,12 @@ const PREVIEW_SELLER: SellerRow = {
   publishedListingCount: 9,
   liveSaleCount: 1,
   payoutStatus: 'setup_required',
-  payout: { accountState: 'setup_needed', connectedAccount: null, pendingCents: 11_040, transferredCents: 0, latestSafeError: null },
+  payout: {
+    accountState: 'setup_needed', connectedAccount: null, pendingCents: 11_040,
+    transferredCents: 0, stripeBalanceCents: 0, bankInTransitCents: 0, bankPaidCents: 0,
+    latestBankPayoutStatus: null, latestBankPayoutArrivalDate: null,
+    latestSafeError: null, latestBankPayoutError: null,
+  },
 };
 
 const PREVIEW_DASHBOARD: SellerPreview = {
@@ -111,7 +136,11 @@ const PREVIEW_DASHBOARD: SellerPreview = {
     monthGrossCents: 18_400,
     monthSellerEarningsCents: 11_040,
     monthStripeProcessingFeeCents: 0,
-    payouts: { status: 'setup_required', setupAvailable: true, liveSaleCount: 1, pendingCents: 11_040, paidCents: 0, accountingPendingCount: 0 },
+    payouts: {
+      status: 'setup_required', setupAvailable: true, liveSaleCount: 1,
+      pendingCents: 11_040, paidCents: 0, accountingPendingCount: 0,
+      bankPayouts: { stripeBalanceCents: 0, paidCents: 0, inTransitCents: 0, failedCents: 0, latest: null },
+    },
   },
   adminPayout: PREVIEW_SELLER.payout,
 };
@@ -305,7 +334,12 @@ function SellerDashboardPreview({ preview, onClose }: { preview: SellerPreview; 
           <div><span>Connected account</span><b>{adminPayout.connectedAccount || 'None'}</b></div>
           <div><span>Pending</span><b>{money(adminPayout.pendingCents)}</b></div>
           <div><span>Transferred</span><b>{money(adminPayout.transferredCents)}</b></div>
+          <div><span>At Stripe</span><b>{money(adminPayout.stripeBalanceCents)}</b></div>
+          <div><span>Bank payout</span><b>{adminPayout.latestBankPayoutStatus || 'None'}</b></div>
+          <div><span>In transit</span><b>{money(adminPayout.bankInTransitCents)}</b></div>
+          <div><span>Deposited</span><b>{money(adminPayout.bankPaidCents)}</b></div>
           {adminPayout.latestSafeError && <p role="alert">{adminPayout.latestSafeError}</p>}
+          {adminPayout.latestBankPayoutError && <p role="alert">{adminPayout.latestBankPayoutError}</p>}
         </section>
 
         <div className={styles.previewDashboard}>
@@ -341,6 +375,21 @@ function SellerDashboardPreview({ preview, onClose }: { preview: SellerPreview; 
                 <div className={styles.previewPayoutCallout}>
                   <div><h3>Stripe is reviewing your payout details.</h3><p>Your earnings stay recorded and will be released when Stripe enables payouts.</p></div>
                   <button type="button" disabled title="Disabled in admin support mode">Continue payout setup</button>
+                </div>
+              )}
+              {dashboard.payouts.status === 'ready' && dashboard.payouts.bankPayouts.latest && (
+                <div className={`${styles.previewPayoutCallout} ${dashboard.payouts.bankPayouts.latest.status === 'failed' ? styles.previewPayoutFailed : styles.previewPayoutBank}`}>
+                  <div>
+                    <span>Bank payout</span>
+                    <h3>{dashboard.payouts.bankPayouts.latest.status === 'paid'
+                      ? 'Deposited in the seller bank'
+                      : dashboard.payouts.bankPayouts.latest.status === 'failed'
+                        ? 'Bank payout needs attention'
+                        : 'On the way to the seller bank'}</h3>
+                    <p>{money(dashboard.payouts.bankPayouts.latest.amountCents)}. {dashboard.payouts.bankPayouts.latest.failureMessage || (dashboard.payouts.bankPayouts.latest.arrivalDate
+                      ? `Expected ${new Date(dashboard.payouts.bankPayouts.latest.arrivalDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`
+                      : 'Stripe has not provided an arrival date yet.')}</p>
+                  </div>
                 </div>
               )}
 

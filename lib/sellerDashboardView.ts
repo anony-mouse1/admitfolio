@@ -5,6 +5,7 @@ import { SELLER_SHARE_BPS } from './pricing';
 import { sellerPayoutStatus } from './sellerPayoutStatus';
 import { connectedAccountStatus } from './sellerPayoutsCore';
 import { buildAdminPayoutSummary, summarizeSellerAccounting } from './sellerDashboardCore';
+import { summarizeBankPayouts } from './sellerBankPayoutCore';
 
 function safeParse(s: string): string[] {
   try {
@@ -146,6 +147,7 @@ export async function getSellerDashboardView(sellerId: string) {
       stripeAccountId: seller.stripeAccountId,
       pendingCents: payouts.pendingCents,
       paidCents: payouts.paidCents,
+      bankPayouts: payouts.bankPayouts,
       latestTransferError: latestError,
     }),
   };
@@ -162,6 +164,18 @@ export async function getSellerDirectory() {
       stripeAccountId: true,
       stripeOnboardingCompleteAt: true,
       stripePayoutsEnabled: true,
+      stripeBankPayouts: {
+        orderBy: [{ stripeCreatedAt: 'desc' as const }, { updatedAt: 'desc' as const }],
+        select: {
+          id: true,
+          amountCents: true,
+          currency: true,
+          status: true,
+          arrivalDate: true,
+          failureCode: true,
+          stripeCreatedAt: true,
+        },
+      },
       listings: {
         orderBy: { createdAt: 'desc' },
         select: {
@@ -208,6 +222,11 @@ export async function getSellerDirectory() {
       (total, purchase) => total + (!purchase.sellerTransferredAt ? purchase.accounting.sellerEarningsCents : 0),
       0,
     );
+    const bankPayouts = summarizeBankPayouts(seller.stripeBankPayouts);
+    const bankPayoutSummary = {
+      ...bankPayouts,
+      stripeBalanceCents: Math.max(0, paidCents - bankPayouts.paidCents - bankPayouts.inTransitCents),
+    };
     const status = connectedAccountStatus({
       liveSaleCount: allPurchases.length,
       stripeAccountId: seller.stripeAccountId,
@@ -234,6 +253,7 @@ export async function getSellerDirectory() {
         stripeAccountId: seller.stripeAccountId,
         pendingCents,
         paidCents,
+        bankPayouts: bankPayoutSummary,
         latestTransferError: latestError,
       }),
     };
