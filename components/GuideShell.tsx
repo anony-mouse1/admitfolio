@@ -10,7 +10,7 @@ export function GuideHeader() {
         </Link>
         <div className="nav-links">
           <Link href="/#browse">Browse essays</Link>
-          <Link href="/#featured">Featured</Link>
+          <Link href="/guides">Blog</Link>
           <Link href="/#sell">Sell your essays</Link>
         </div>
         <div className="nav-cta">

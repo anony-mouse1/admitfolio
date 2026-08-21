@@ -20,137 +20,127 @@ export const metadata: Metadata = {
 const guides = [
   {
     href: '/guides/how-to-take-inspiration-from-college-essays',
-    category: 'Essay examples',
-    readTime: '7 min',
+    cover: 'inspiration',
+    coverTitle: 'Study the choice, not the story',
+    readTime: '7 min read',
     title: 'The best way to take inspiration from other college student essays',
-    description: 'Study voice, structure, and reflection without copying someone else\'s words or story.',
+    description:
+      'A practical method for studying voice, structure, and reflection without copying another student\'s words or story.',
+  },
+  {
+    href: '/guides/common-app-essay-examples',
+    cover: 'common',
+    coverTitle: 'Read for craft, then write your story',
+    readTime: '8 min read',
+    title: 'Common App essay examples: how to learn from essays that worked',
+    description:
+      'Use real examples to study structure, reflection, and voice without copying someone else\'s story.',
   },
   {
     href: '/guides/uc-piq-examples',
-    category: 'UC applications',
-    readTime: '10 min',
+    cover: 'uc',
+    coverTitle: 'Personal Insight Questions',
+    readTime: '10 min read',
     title: 'UC PIQ examples and what makes each response work',
-    description: 'A question-by-question guide to reading strong Personal Insight Questions with purpose.',
+    description: 'A question-by-question guide to choosing four prompts and writing direct, specific responses.',
   },
   {
     href: '/guides/how-to-start-a-college-essay',
-    category: 'Writing basics',
-    readTime: '6 min',
+    cover: 'start',
+    coverTitle: 'Five ways into your story',
+    readTime: '6 min read',
     title: 'How to start a college essay without forcing the hook',
-    description: 'Five practical ways into your story when the first sentence will not come.',
+    description: 'Five practical openings to try when the first sentence will not come.',
   },
   {
     href: '/guides/why-this-college-essay-examples',
-    category: 'Supplements',
-    readTime: '8 min',
+    cover: 'why',
+    coverTitle: 'Research with a reason',
+    readTime: '8 min read',
     title: 'Why this college essay examples: a better research method',
     description: 'Turn school research into a specific answer about fit, contribution, and curiosity.',
   },
   {
     href: '/guides/college-essay-format',
-    category: 'Writing basics',
-    readTime: '5 min',
+    cover: 'format',
+    coverTitle: 'Simple, readable structure',
+    readTime: '5 min read',
     title: 'College essay format: a simple, readable structure',
     description: 'Paragraphs, dialogue, titles, spacing, and submission details explained clearly.',
   },
   {
     href: '/guides/common-app-essay-word-count',
-    category: 'Common App',
-    readTime: '4 min',
+    cover: 'count',
+    coverTitle: 'Every sentence earns its place',
+    readTime: '4 min read',
     title: 'Common App essay word count: what to cut and what to keep',
-    description: 'A revision checklist for making every sentence earn its place.',
+    description: 'A focused revision checklist for cutting repetition without losing voice or reflection.',
   },
-];
+] as const;
+
+const coverClasses = {
+  inspiration: styles.coverInspiration,
+  common: styles.coverCommon,
+  uc: styles.coverUc,
+  start: styles.coverStart,
+  why: styles.coverWhy,
+  format: styles.coverFormat,
+  count: styles.coverCount,
+} as const;
+
+function GuideCover({ cover, title }: { cover: keyof typeof coverClasses; title: string }) {
+  return (
+    <div className={`${styles.blogCover} ${coverClasses[cover]}`} aria-hidden="true">
+      {cover === 'inspiration' && <span className={styles.coverMark}>⌕</span>}
+      {cover === 'common' && (
+        <>
+          <span className={styles.coverMark}>“</span>
+          <div className={styles.paperPreview}>
+            {Array.from({ length: 6 }, (_, index) => <span key={index} />)}
+          </div>
+        </>
+      )}
+      {cover === 'uc' && <span className={styles.coverMark}>4 of 8</span>}
+      {cover === 'start' && <span className={styles.coverMark}>“</span>}
+      {cover === 'why' && <span className={styles.coverMark}>YOU + SCHOOL</span>}
+      {cover === 'format' && (
+        <div className={styles.formatPreview}>
+          {Array.from({ length: 6 }, (_, index) => <span key={index} />)}
+        </div>
+      )}
+      {cover === 'count' && <div className={styles.countRing}>650</div>}
+      <span className={styles.coverTitle}>{title}</span>
+    </div>
+  );
+}
 
 export default function GuidesPage() {
   return (
     <div className={styles.page}>
       <GuideHeader />
-      <main>
-        <section className={styles.hero}>
-          <div>
-            <span className="pill"><span className="dot" />The Admitfolio blog</span>
-            <h1>College essay advice, grounded in <em>real examples.</em></h1>
-            <p className={styles.heroCopy}>
-              Clear guides for Common App essays, UC PIQs, and school supplements. Learn what to notice in
-              essays that worked, then make your own writing stronger.
-            </p>
-            <div className={styles.heroActions}>
-              <a className="btn-primary" href="#guides">Explore the guides</a>
-              <Link className="btn-ghost" href="/#browse">Browse real essays</Link>
-            </div>
-          </div>
-          <aside className={styles.proofCard} aria-label="Admitfolio catalogue">
-            <span className={styles.cardPrompt}>The essay library</span>
-            <p className={styles.proofNumber}>400+</p>
-            <p className={styles.proofLabel}>real application essays</p>
-            <p className={styles.proofNote}>
-              Our guides are shaped by the verified essay catalogue already on Admitfolio.
-            </p>
-          </aside>
-        </section>
-
-        <section className={styles.trustStrip} aria-label="Our standards">
-          <div className={styles.trustInner}>
-            <div className={styles.trustItem}><span className={styles.check}>✓</span>Based on verified listings</div>
-            <div className={styles.trustItem}><span className={styles.check}>✓</span>No one-size-fits-all formulas</div>
-            <div className={styles.trustItem}><span className={styles.check}>✓</span>Inspiration, never imitation</div>
+      <main className={styles.blogIndexMain}>
+        <section className={styles.blogIndexHero}>
+          <h1>Blog</h1>
+          <p>Practical college essay advice, grounded in real examples from verified students.</p>
+          <div className={styles.topicLinks} aria-label="Blog topics">
+            <span>Common App</span>
+            <span>UC PIQs</span>
+            <span>School supplements</span>
+            <span>Writing basics</span>
           </div>
         </section>
 
-        <section className={styles.library} id="guides">
-          <div className={styles.sectionHead}>
-            <div>
-              <span className="pill"><span className="dot" />Start here</span>
-              <h2 className={styles.sectionHeading}>Essay guides students actually need</h2>
-            </div>
-            <p>Focused answers to the questions students search before, during, and after drafting their college essays.</p>
-          </div>
-          <div className={styles.filters} aria-label="Guide topics">
-            <span className={styles.activeFilter}>All guides</span>
-            <span className={styles.filter}>Common App</span>
-            <span className={styles.filter}>UC PIQs</span>
-            <span className={styles.filter}>Supplements</span>
-            <span className={styles.filter}>Writing basics</span>
-          </div>
-          <div className={styles.guideGrid}>
-            <Link className={`${styles.guideCard} ${styles.featuredCard}`} href="/guides/common-app-essay-examples">
-              <div className={styles.cardTop}>
-                <span className={styles.category}>Common App</span>
-                <span className={styles.readTime}>8 min read</span>
-              </div>
-              <h2>Common App essay examples: how to learn from essays that worked</h2>
-              <p>Use real examples to study structure, reflection, and voice without copying someone else&apos;s story.</p>
-              <div className={styles.dataChip}>Grounded in Admitfolio&apos;s verified essay catalogue</div>
-              <span className={styles.cardLink}>Read the guide →</span>
-            </Link>
-            {guides.map((guide) => (
-              <Link className={styles.guideCard} href={guide.href} key={guide.title}>
-                <div className={styles.cardTop}>
-                  <span className={styles.category}>{guide.category}</span>
-                  <span className={styles.readTime}>{guide.readTime}</span>
-                </div>
+        <section className={styles.blogGrid} aria-label="College essay guides">
+          {guides.map((guide) => (
+            <Link className={styles.blogCard} href={guide.href} key={guide.href}>
+              <GuideCover cover={guide.cover} title={guide.coverTitle} />
+              <div className={styles.blogCardCopy}>
+                <div className={styles.blogCardMeta}>August 20, 2026 · {guide.readTime}</div>
                 <h2>{guide.title}</h2>
                 <p>{guide.description}</p>
-                <span className={styles.cardLink}>Read the guide →</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.principles}>
-          <div className={styles.principlesInner}>
-            <div>
-              <span className={styles.eyebrow}>Our editorial promise</span>
-              <h2>Useful before clever.</h2>
-              <p className={styles.principlesLead}>Every guide should help a student make a real decision or improve a real draft.</p>
-            </div>
-            <div>
-              <div className={styles.principle}><span>01</span><div><h3>Grounded in what students are writing</h3><p>We build from real prompt types and the verified essays already listed on Admitfolio.</p></div></div>
-              <div className={styles.principle}><span>02</span><div><h3>Specific enough to use today</h3><p>Checklists, questions, and examples of the thinking process, without empty admissions clichés.</p></div></div>
-              <div className={styles.principle}><span>03</span><div><h3>Clear about academic integrity</h3><p>Study craft and choices. Never copy a sentence, story, or identity that is not yours.</p></div></div>
-            </div>
-          </div>
+              </div>
+            </Link>
+          ))}
         </section>
       </main>
       <GuideFooter />
