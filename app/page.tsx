@@ -40,6 +40,118 @@ type CmpRow = { feature: string; mineText?: string; diy: string; agency: string;
 
 type Msg = { text: string; kind: '' | 'ok' | 'err' };
 
+const HERO_ESSAY_SLIDES = [
+  {
+    school: 'Harvard',
+    domain: 'harvard.edu',
+    letter: 'H',
+    color: '#A51C30',
+    type: 'Common App · Personal Statement',
+    major: 'Mechanical Engineering',
+    opening: 'A midday nap, nonexistent in 105-degree heat. There was no air conditioner in Nawabganj...',
+    price: '$50',
+    priceLabel: 'full essay',
+    action: 'Unlock essay',
+  },
+  {
+    school: 'Stanford',
+    domain: 'stanford.edu',
+    letter: 'S',
+    color: '#8C1515',
+    type: 'Common App · 9-essay package',
+    major: 'Symbolic Systems',
+    opening: 'I watched people through security cameras, learning how small choices shape a community...',
+    price: '$184',
+    priceLabel: '9-essay set',
+    action: 'Unlock essays',
+  },
+  {
+    school: 'Northwestern',
+    domain: 'northwestern.edu',
+    letter: 'N',
+    color: '#4E2A84',
+    type: 'Common App · 3-essay package',
+    major: 'Economics',
+    opening: '“Because I said so”, the soundtrack of my childhood. As someone who has always...',
+    price: '$112',
+    priceLabel: '3-essay set',
+    action: 'Unlock essays',
+  },
+] as const;
+
+function HeroEssayCarousel({ onBrowse }: { onBrowse: () => void }) {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = window.setInterval(() => {
+      setActive((current) => (current + 1) % HERO_ESSAY_SLIDES.length);
+    }, 4600);
+    return () => window.clearInterval(timer);
+  }, [paused]);
+
+  const show = (index: number) => {
+    setActive((index + HERO_ESSAY_SLIDES.length) % HERO_ESSAY_SLIDES.length);
+  };
+
+  return (
+    <div
+      className="editorial-carousel"
+      aria-roledescription="carousel"
+      aria-label="Featured verified essays"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      <div className="editorial-note editorial-note-one">Specific detail makes the opening feel lived in.</div>
+      <div className="editorial-note editorial-note-two">Structure turns reflection into a clear arc.</div>
+      <div className="editorial-paper-track">
+        {HERO_ESSAY_SLIDES.map((slide, index) => (
+          <article
+            className={`editorial-paper${index === active ? ' is-active' : ''}`}
+            key={slide.school}
+            aria-hidden={index !== active}
+          >
+            <div className="editorial-paper-head">
+              <div className="editorial-paper-school">
+                <LogoBadge domain={slide.domain} letter={slide.letter} color={slide.color} school={slide.school} size={40} fontSize={18} />
+                <div><strong>{slide.school}</strong><span>{slide.type}</span></div>
+              </div>
+              <span className="editorial-verified">Verified admit</span>
+            </div>
+            <div className="editorial-paper-major">{slide.major}</div>
+            <p className="editorial-paper-opening">{slide.opening}</p>
+            <div className="editorial-blur-lines" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <div className="editorial-paper-foot">
+              <div className="editorial-price"><strong>{slide.price}</strong><span>{slide.priceLabel}</span></div>
+              <button className="editorial-unlock" type="button" tabIndex={index === active ? 0 : -1} onClick={onBrowse}>{slide.action}</button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="editorial-carousel-controls" aria-label="Essay carousel controls">
+        <button type="button" className="editorial-carousel-arrow" aria-label="Previous essay" onClick={() => show(active - 1)}>‹</button>
+        <div className="editorial-carousel-dots">
+          {HERO_ESSAY_SLIDES.map((slide, index) => (
+            <button
+              type="button"
+              className="editorial-carousel-dot"
+              key={slide.school}
+              aria-label={`Show ${slide.school} essay`}
+              aria-current={index === active}
+              onClick={() => show(index)}
+            ></button>
+          ))}
+        </div>
+        <button type="button" className="editorial-carousel-arrow" aria-label="Next essay" onClick={() => show(active + 1)}>›</button>
+      </div>
+      <span className="editorial-carousel-status" aria-live="polite">Showing {HERO_ESSAY_SLIDES[active].school} essay</span>
+    </div>
+  );
+}
+
 // Launch switch: "1" turns on the real public catalog + Stripe buying.
 // Unset/off keeps the pre-launch waitlist experience byte-for-byte.
 const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
@@ -1494,56 +1606,20 @@ export default function Page() {
       </nav>
 
       {/* ===== Hero ===== */}
-      <section className="hero" id="home" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
-        <div>
-          <div className="pill"><span className="dot"></span>For inspiration, never to copy</div>
-          <h1>Read the essays that <em>got them in</em>.</h1>
-          <p>
-            <span className="hero-sub-long">Admitfolio is a marketplace of real college admissions essays, written by the students who got accepted. Browse by school and prompt, see why each one worked, and find the angle only you can write.</span>
-            <span className="hero-sub-short">Real admissions essays from the students who got accepted. See why each one worked, and find the angle only you can write.</span>
-          </p>
-          <div className="hero-actions">
-            <a className="btn-primary" href="#browse" onClick={(event) => { if (LAUNCHED) { event.preventDefault(); openBrowse(); } }}>Browse essays</a>
-            <a className="btn-ghost" onClick={openSell}>Sell your essay</a>
-          </div>
-          <div className="hero-stats">
-            <div><div className="stat-num">100%</div><div className="stat-lbl">verified admits</div></div>
-          </div>
-        </div>
-
-        <div className="hero-art">
-          <div className="float-card fc-top">
-            <div className="fc-head">
-              <LogoBadge domain="stanford.edu" letter="S" color="#8C1515" school="Stanford" size={38} fontSize={18} />
-              <div style={{ flex: 1, minWidth: 0 }}><div className="fc-school">Stanford</div><div className="fc-year">Class of &apos;27</div></div>
-              <div className="fc-rating"><span className="star">★</span> 4.9</div>
+      <section className="hero editorial-hero" id="home" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
+        <div className="editorial-hero-inner">
+          <div className="editorial-hero-copy">
+            <p className="editorial-eyebrow">Real essays, thoughtfully explored</p>
+            <h1>See why their essays worked. Then write one <em>only you could.</em></h1>
+            <p className="editorial-description">Read real admissions essays from verified students, organized by school and prompt, so you can find inspiration without losing your own voice.</p>
+            <div className="hero-actions editorial-actions">
+              <a className="btn-primary" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse verified essays</a>
+              <button className="btn-ghost" type="button" onClick={openMatcher}>Find my matches</button>
             </div>
-            <div className="fc-prompt">Common App</div>
-            <div className="fc-hook">The summer I taught my grandfather&apos;s old radio to sing again.</div>
-            <div className="skel"><div style={{ width: '100%' }}></div><div style={{ width: '84%', opacity: 0.6 }}></div></div>
-            <div className="fc-foot"><span className="unlock-pill">Unlock</span></div>
+            <div className="editorial-proof"><span className="editorial-proof-seal">✓</span><span>Admission proof checked before an essay is listed</span></div>
           </div>
-
-          <div className="float-card fc-mid">
-            <div className="fc-head">
-              <LogoBadge domain="harvard.edu" letter="H" color="#A51C30" school="Harvard" size={38} fontSize={18} />
-              <div style={{ flex: 1, minWidth: 0 }}><div className="fc-school">Harvard</div><div className="fc-year">Class of &apos;25</div></div>
-              <div className="fc-rating"><span className="star">★</span> 5.0</div>
-            </div>
-            <div className="fc-prompt">Personal Statement</div>
-            <div className="fc-hook">Translating for my mother at the DMV, one form at a time.</div>
-            <div className="skel"><div style={{ width: '100%' }}></div><div style={{ width: '72%', opacity: 0.6 }}></div></div>
-            <div className="fc-foot"><span className="unlock-pill">Unlock</span></div>
-          </div>
-
-          <div className="float-card fc-bot">
-            <div className="fc-head">
-              <LogoBadge domain="yale.edu" letter="Y" color="#00356B" school="Yale" size={36} fontSize={17} />
-              <div style={{ flex: 1, minWidth: 0 }}><div className="fc-school">Yale</div><div className="fc-year">Class of &apos;26</div></div>
-              <div className="fc-rating"><span className="star">★</span> 4.8</div>
-            </div>
-            <div className="fc-prompt">Why Yale</div>
-            <div className="fc-hook" style={{ fontSize: '15px' }}>I found home in the margins of a 200-year-old library book.</div>
+          <div className="essay-hero-art">
+            <HeroEssayCarousel onBrowse={openBrowse} />
           </div>
         </div>
       </section>
