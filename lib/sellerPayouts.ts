@@ -67,6 +67,9 @@ export async function releaseSellerEarnings(sellerId: string): Promise<{
       // Never pay out a sale before the buyer's protected copy has actually
       // been delivered. A failed email stays retryable in the checkout webhook.
       deliveryEmailSentAt: { not: null },
+      // Checkout v3 purchases stay here with null seller earnings until the
+      // actual Stripe fee is snapshotted. They must never transfer early.
+      sellerEarningsCents: { not: null },
       stripeTransferId: null,
       sellerTransferredAt: null,
       OR: [
@@ -81,7 +84,9 @@ export async function releaseSellerEarnings(sellerId: string): Promise<{
       grossAmountCents: true,
       sellerEarningsCents: true,
       platformFeeCents: true,
+      stripeProcessingFeeCents: true,
       sellerShareBps: true,
+      checkoutVersion: true,
       currency: true,
       stripePaymentIntentId: true,
       stripeChargeId: true,
@@ -207,7 +212,9 @@ export async function reverseSellerTransfer(input: {
       grossAmountCents: true,
       sellerEarningsCents: true,
       platformFeeCents: true,
+      stripeProcessingFeeCents: true,
       sellerShareBps: true,
+      checkoutVersion: true,
       stripeTransferId: true,
       sellerTransferReversedCents: true,
       sellerTransferReversalStartedAt: true,

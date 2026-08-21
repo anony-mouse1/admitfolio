@@ -1,10 +1,10 @@
 import 'server-only';
 import { prisma } from './prisma';
-import { purchaseAccounting } from './commerce';
+import { purchaseAccounting, purchaseAccountingPending } from './commerce';
 import { SELLER_SHARE_BPS } from './pricing';
 import { sellerPayoutStatus } from './sellerPayoutStatus';
 import { connectedAccountStatus } from './sellerPayoutsCore';
-import { buildAdminPayoutSummary } from './sellerDashboardCore';
+import { buildAdminPayoutSummary, summarizeSellerAccounting } from './sellerDashboardCore';
 
 function safeParse(s: string): string[] {
   try {
@@ -48,7 +48,9 @@ export async function getSellerDashboardView(sellerId: string) {
       grossAmountCents: true,
       sellerEarningsCents: true,
       platformFeeCents: true,
+      stripeProcessingFeeCents: true,
       sellerShareBps: true,
+      checkoutVersion: true,
       currency: true,
       createdAt: true,
       sellerTransferredAt: true,
@@ -57,16 +59,21 @@ export async function getSellerDashboardView(sellerId: string) {
     },
   });
 
-  const accountedPurchases = purchases.map((purchase) => ({
-    ...purchase,
-    ...purchaseAccounting(purchase),
-    currency: purchase.currency || 'usd',
-  }));
+  const accountedPurchases = purchases
+    .filter((purchase) => !purchaseAccountingPending(purchase))
+    .map((purchase) => ({
+      ...purchase,
+      ...purchaseAccounting(purchase),
+      currency: purchase.currency || 'usd',
+    }));
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
-  const monthPurchases = accountedPurchases.filter((purchase) => purchase.createdAt >= monthStart);
-  const sum = (items: typeof accountedPurchases, key: 'grossAmountCents' | 'sellerEarningsCents' | 'platformFeeCents') =>
+  const accountingSummary = summarizeSellerAccounting(accountedPurchases, monthStart);
+  const sum = (
+    items: typeof accountedPurchases,
+    key: 'grossAmountCents' | 'sellerEarningsCents' | 'platformFeeCents' | 'stripeProcessingFeeCents',
+  ) =>
     items.reduce((total, item) => total + item[key], 0);
 
   const payouts = await sellerPayoutStatus(seller.id);
@@ -76,10 +83,12 @@ export async function getSellerDashboardView(sellerId: string) {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]?.sellerTransferLastError;
 
   const listings = rows.map((listing) => {
+    const allForListing = purchases.filter((purchase) => purchase.listingId === listing.id);
     const forListing = accountedPurchases.filter((purchase) => purchase.listingId === listing.id);
     const grossCents = sum(forListing, 'grossAmountCents');
     const sellerEarningsCents = sum(forListing, 'sellerEarningsCents');
     const platformFeeCents = sum(forListing, 'platformFeeCents');
+    const stripeProcessingFeeCents = sum(forListing, 'stripeProcessingFeeCents');
     return {
       id: listing.id,
       school: listing.school,
@@ -91,11 +100,12 @@ export async function getSellerDashboardView(sellerId: string) {
       admitTags: safeParse(listing.admitTags),
       adminNote: listing.adminNote,
       createdAt: listing.createdAt,
-      sales: forListing.length,
+      sales: allForListing.length,
       gross: grossCents / 100,
       grossCents,
       sellerEarningsCents,
       platformFeeCents,
+      stripeProcessingFeeCents,
       essays: listing.essays.map((essay) => {
         const forEssay = forListing.filter((purchase) => purchase.essayId === essay.id);
         const essayGrossCents = sum(forEssay, 'grossAmountCents');
@@ -109,6 +119,7 @@ export async function getSellerDashboardView(sellerId: string) {
           grossCents: essayGrossCents,
           sellerEarningsCents: sum(forEssay, 'sellerEarningsCents'),
           platformFeeCents: sum(forEssay, 'platformFeeCents'),
+          stripeProcessingFeeCents: sum(forEssay, 'stripeProcessingFeeCents'),
         };
       }),
     };
@@ -126,13 +137,8 @@ export async function getSellerDashboardView(sellerId: string) {
       listings,
       currency: 'usd',
       sellerShareBps: SELLER_SHARE_BPS,
-      allTimeGrossCents: sum(accountedPurchases, 'grossAmountCents'),
-      allTimeSellerEarningsCents: sum(accountedPurchases, 'sellerEarningsCents'),
-      allTimePlatformFeeCents: sum(accountedPurchases, 'platformFeeCents'),
-      monthGross: sum(monthPurchases, 'grossAmountCents') / 100,
-      monthGrossCents: sum(monthPurchases, 'grossAmountCents'),
-      monthSellerEarningsCents: sum(monthPurchases, 'sellerEarningsCents'),
-      monthPlatformFeeCents: sum(monthPurchases, 'platformFeeCents'),
+      ...accountingSummary,
+      monthGross: accountingSummary.monthGrossCents / 100,
       payouts,
     },
     adminPayout: buildAdminPayoutSummary({
@@ -170,7 +176,9 @@ export async function getSellerDirectory() {
               grossAmountCents: true,
               sellerEarningsCents: true,
               platformFeeCents: true,
+              stripeProcessingFeeCents: true,
               sellerShareBps: true,
+              checkoutVersion: true,
               sellerTransferredAt: true,
               sellerTransferReversedCents: true,
               sellerTransferLastError: true,
@@ -183,10 +191,13 @@ export async function getSellerDirectory() {
   });
 
   return sellers.map((seller) => {
-    const purchases = seller.listings.flatMap((listing) => listing.purchases.map((purchase) => ({
-      ...purchase,
-      accounting: purchaseAccounting(purchase),
-    })));
+    const allPurchases = seller.listings.flatMap((listing) => listing.purchases);
+    const purchases = allPurchases
+      .filter((purchase) => !purchaseAccountingPending(purchase))
+      .map((purchase) => ({
+        ...purchase,
+        accounting: purchaseAccounting(purchase),
+      }));
     const paidCents = purchases.reduce(
       (total, purchase) => total + (purchase.sellerTransferredAt
         ? purchase.accounting.sellerEarningsCents - purchase.sellerTransferReversedCents
@@ -198,7 +209,7 @@ export async function getSellerDirectory() {
       0,
     );
     const status = connectedAccountStatus({
-      liveSaleCount: purchases.length,
+      liveSaleCount: allPurchases.length,
       stripeAccountId: seller.stripeAccountId,
       onboardingComplete: Boolean(seller.stripeOnboardingCompleteAt),
       payoutsEnabled: seller.stripePayoutsEnabled,
@@ -216,7 +227,7 @@ export async function getSellerDirectory() {
       major: newestListing?.major ?? null,
       listingCount: seller.listings.length,
       publishedListingCount: seller.listings.filter((listing) => listing.status === 'approved').length,
-      liveSaleCount: purchases.length,
+      liveSaleCount: allPurchases.length,
       payoutStatus: status,
       payout: buildAdminPayoutSummary({
         status,

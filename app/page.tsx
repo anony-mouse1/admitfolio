@@ -90,6 +90,7 @@ type SellerEssay = {
   grossCents?: number;
   sellerEarningsCents?: number;
   platformFeeCents?: number;
+  stripeProcessingFeeCents?: number;
 };
 type SellerListing = {
   id: string;
@@ -107,6 +108,7 @@ type SellerListing = {
   grossCents?: number;
   sellerEarningsCents?: number;
   platformFeeCents?: number;
+  stripeProcessingFeeCents?: number;
   essays: SellerEssay[];
 };
 
@@ -114,9 +116,11 @@ type SellerAccounting = {
   allTimeGrossCents: number;
   allTimeSellerEarningsCents: number;
   allTimePlatformFeeCents: number;
+  allTimeStripeProcessingFeeCents: number;
   monthGrossCents: number;
   monthSellerEarningsCents: number;
   monthPlatformFeeCents: number;
+  monthStripeProcessingFeeCents: number;
 };
 
 type SellerPayouts = {
@@ -125,6 +129,7 @@ type SellerPayouts = {
   liveSaleCount: number;
   pendingCents: number;
   paidCents: number;
+  accountingPendingCount?: number;
 };
 
 const essays: Essay[] = [
@@ -1053,9 +1058,11 @@ export default function Page() {
           allTimeGrossCents?: number;
           allTimeSellerEarningsCents?: number;
           allTimePlatformFeeCents?: number;
+          allTimeStripeProcessingFeeCents?: number;
           monthGrossCents?: number;
           monthSellerEarningsCents?: number;
           monthPlatformFeeCents?: number;
+          monthStripeProcessingFeeCents?: number;
           payouts?: SellerPayouts | null;
           error?: string;
         };
@@ -1067,17 +1074,21 @@ export default function Page() {
           typeof d.allTimeGrossCents === 'number' &&
           typeof d.allTimeSellerEarningsCents === 'number' &&
           typeof d.allTimePlatformFeeCents === 'number' &&
+          typeof d.allTimeStripeProcessingFeeCents === 'number' &&
           typeof d.monthGrossCents === 'number' &&
           typeof d.monthSellerEarningsCents === 'number' &&
-          typeof d.monthPlatformFeeCents === 'number'
+          typeof d.monthPlatformFeeCents === 'number' &&
+          typeof d.monthStripeProcessingFeeCents === 'number'
         ) {
           setSellerAccounting({
             allTimeGrossCents: d.allTimeGrossCents,
             allTimeSellerEarningsCents: d.allTimeSellerEarningsCents,
             allTimePlatformFeeCents: d.allTimePlatformFeeCents,
+            allTimeStripeProcessingFeeCents: d.allTimeStripeProcessingFeeCents,
             monthGrossCents: d.monthGrossCents,
             monthSellerEarningsCents: d.monthSellerEarningsCents,
             monthPlatformFeeCents: d.monthPlatformFeeCents,
+            monthStripeProcessingFeeCents: d.monthStripeProcessingFeeCents,
           });
         }
       })
@@ -1220,6 +1231,9 @@ export default function Page() {
       totalFee: sellerAccounting
         ? sellerAccounting.allTimePlatformFeeCents / 100
         : round2(totalGross * (1 - SELLER_SHARE)),
+      totalStripeFee: sellerAccounting
+        ? sellerAccounting.allTimeStripeProcessingFeeCents / 100
+        : 0,
       monthGross: sellerAccounting ? sellerAccounting.monthGrossCents / 100 : monthGross,
       monthNet: sellerAccounting
         ? sellerAccounting.monthSellerEarningsCents / 100
@@ -2463,7 +2477,7 @@ export default function Page() {
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total net earnings</div>
                 <div className="dash-stat-value">{fmt(earnings.totalNet)}</div>
-                <div className="dash-stat-sub">After platform fees · all time</div>
+                <div className="dash-stat-sub">After platform and transaction fees · all time</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">This month (net)</div>
@@ -2475,7 +2489,9 @@ export default function Page() {
                 <div className="dash-stat-value">{fmt(earnings.pendingPayout)}</div>
                 <div className="dash-stat-sub">
                   {sellerPayouts?.status === 'setup_required'
-                    ? 'Payout setup needed'
+                    ? sellerPayouts.accountingPendingCount
+                      ? 'Finalizing Stripe transaction fee'
+                      : 'Payout setup needed'
                     : sellerPayouts?.status === 'in_review'
                       ? 'Stripe verification in progress'
                       : sellerPayouts?.status === 'ready' && earnings.pendingPayout > 0
@@ -2496,10 +2512,14 @@ export default function Page() {
                 <div className="dash-payout-copy">
                   <div className="dash-payout-kicker">Your first sale</div>
                   <div className="dash-payout-title">Congrats, you made your first sale!</div>
-                  <p>
-                    You have <strong>{fmt(sellerPayouts.pendingCents / 100)}</strong> waiting.
-                    Set up your payout once so Stripe can send this and future earnings to your bank.
-                  </p>
+                  {sellerPayouts.accountingPendingCount ? (
+                    <p>Stripe is finalizing the transaction fee for your sale. Your exact payout will appear here shortly.</p>
+                  ) : (
+                    <p>
+                      You have <strong>{fmt(sellerPayouts.pendingCents / 100)}</strong> waiting.
+                      Set up your payout once so Stripe can send this and future earnings to your bank.
+                    </p>
+                  )}
                   <div className="dash-payout-privacy">Identity and bank details go directly to Stripe. Admitfolio never stores them.</div>
                   {payoutSetupError && <div className="dash-payout-error" role="alert">{payoutSetupError}</div>}
                 </div>
@@ -2524,11 +2544,15 @@ export default function Page() {
                 <span className="dash-rev-value">{fmt(earnings.totalGross)}</span>
               </div>
               <div className="dash-rev-row fee">
-                <span className="dash-rev-label">Platform fees</span>
+                <span className="dash-rev-label">Admitfolio fee (40%)</span>
                 <span className="dash-rev-value">− {fmt(earnings.totalFee)}</span>
               </div>
+              <div className="dash-rev-row fee">
+                <span className="dash-rev-label">Stripe transaction fee</span>
+                <span className="dash-rev-value">− {fmt(earnings.totalStripeFee)}</span>
+              </div>
               <div className="dash-rev-row net">
-                <span className="dash-rev-label">Your earnings</span>
+                <span className="dash-rev-label">Your payout</span>
                 <span className="dash-rev-value">{fmt(earnings.totalNet)}</span>
               </div>
             </div>
@@ -2614,7 +2638,7 @@ export default function Page() {
               ) : (
                 <>
                   <div className="dash-table-head">
-                    <div>Essay</div><div>Sales</div><div>Price</div><div>Your rev.</div>
+                    <div>Essay</div><div>Sales</div><div>Price</div><div>Your payout</div>
                   </div>
                   {publishedListings.flatMap((l) =>
                     l.essays.map((e) => (
@@ -3263,6 +3287,9 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
 
   const isPackage = l.pricingMode === 'package';
   const exactSchool = sellerListingSchool(l);
+  const logoSchool = resolveListingHeadline({ ...l, essays: l.essays });
+  const logoInfo = schoolInfo(logoSchool);
+  const logoLabel = logoInfo?.short || schoolShortName(logoSchool);
   const tier = exactSchool
     ? schoolTier(exactSchool)
     : admitsTier(l.admitTags) ?? 3;
@@ -3322,34 +3349,46 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
 
   return (
     <div className="dash-listing-card">
-      <div className="dash-listing-info">
-        <div className="dash-listing-title">{listingTitle(l)}</div>
-        <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
-        {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
-        {editing && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {isPackage ? (
-              <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                Package price ($)
-                <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                <span>min ${floor}</span>
-              </label>
-            ) : (
-              l.essays.map((e) => (
-                <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {(e.question || e.prompt).slice(0, 40)} ($)
-                  <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+      <div className="dash-listing-summary">
+        <div className="dash-listing-logo">
+          <LogoBadge
+            domain={logoInfo?.domain}
+            letter={(logoLabel[0] || '?').toUpperCase()}
+            color={schoolColor(logoSchool)}
+            school={logoSchool}
+            size={44}
+            fontSize={16}
+          />
+        </div>
+        <div className="dash-listing-info">
+          <div className="dash-listing-title">{listingTitle(l)}</div>
+          <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
+          {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
+          {editing && (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {isPackage ? (
+                <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Package price ($)
+                  <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
                   <span>min ${floor}</span>
                 </label>
-              ))
-            )}
-            {saveErr && <div className="dash-listing-meta" style={{ color: '#b3261e' }}>{saveErr}</div>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="dash-action-btn" onClick={savePrice} disabled={saving}>{saving ? 'Saving…' : 'Save price'}</button>
-              <button className="dash-action-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+              ) : (
+                l.essays.map((e) => (
+                  <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {(e.question || e.prompt).slice(0, 40)} ($)
+                    <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                    <span>min ${floor}</span>
+                  </label>
+                ))
+              )}
+              {saveErr && <div className="dash-listing-meta" style={{ color: '#b3261e' }}>{saveErr}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="dash-action-btn" onClick={savePrice} disabled={saving}>{saving ? 'Saving…' : 'Save price'}</button>
+                <button className="dash-action-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="dash-listing-actions">
         <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>

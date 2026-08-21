@@ -4,11 +4,51 @@ import { prisma } from '@/lib/prisma';
 import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe';
 import { sendSaleNotification } from '@/lib/email';
 import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
-import { paidListingSession, splitForCheckoutVersion } from '@/lib/commerce';
+import {
+  finalizeRevenueWithStripeFeeCents,
+  paidListingSession,
+  purchaseAccounting,
+  purchaseAccountingPending,
+  splitForCheckoutVersion,
+  STRIPE_FEE_CHECKOUT_VERSION,
+} from '@/lib/commerce';
 import { fulfillPurchase } from '@/lib/purchaseFulfillment';
 import { releaseSellerEarnings, reverseSellerTransfer } from '@/lib/sellerPayouts';
+import { stripeFeeSnapshotFromCharge, type StripeFeeSnapshot } from '@/lib/stripeFeeCore';
 
 export const runtime = 'nodejs';
+
+async function retrieveStripeFeeSnapshot(
+  paymentIntentId: string,
+  grossAmountCents: number,
+  currency: string,
+): Promise<StripeFeeSnapshot> {
+  if (!stripe) return { status: 'pending', chargeId: null, reason: 'Stripe is not configured.' };
+  const intent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    expand: ['latest_charge.balance_transaction'],
+  });
+  let charge = intent.latest_charge;
+  if (typeof charge === 'string') {
+    charge = await stripe.charges.retrieve(charge, { expand: ['balance_transaction'] });
+  }
+  if (charge && typeof charge !== 'string' && typeof charge.balance_transaction === 'string') {
+    try {
+      const balanceTransaction = await stripe.balanceTransactions.retrieve(charge.balance_transaction);
+      charge = { ...charge, balance_transaction: balanceTransaction } as Stripe.Charge;
+    } catch {
+      return {
+        status: 'pending',
+        chargeId: charge.id,
+        reason: 'Stripe balance transaction fee is not available yet.',
+      };
+    }
+  }
+  return stripeFeeSnapshotFromCharge(
+    charge && typeof charge !== 'string' ? charge : null,
+    grossAmountCents,
+    currency,
+  );
+}
 
 // Stripe calls this after checkout. The signature check (against the raw
 // body) is the only authentication - never parse the JSON before verifying.
@@ -112,8 +152,10 @@ export async function POST(req: Request) {
   const label = paid.itemLabel ||
     `${listingTitle} · ${listing.essays.length} essay${listing.essays.length === 1 ? '' : 's'}`;
   // The session version snapshots the commercial promise. All Admitfolio sales
-  // use 60/40 because no live purchase predates this release.
+  // use a 40% platform fee. Only v3 also subtracts Stripe's actual fee from the
+  // seller share; v2 and older purchases preserve the original 60% promise.
   const split = splitForCheckoutVersion(paid.amountCents, paid.checkoutVersion);
+  const needsStripeFee = paid.checkoutVersion === STRIPE_FEE_CHECKOUT_VERSION;
 
   // Idempotent on the Checkout Session, not on the webhook Event. Stripe may
   // send both completed and async_payment_succeeded, and retries use new Event
@@ -129,9 +171,11 @@ export async function POST(req: Request) {
           itemLabel: label,
           amount: paid.amountCents / 100,
           grossAmountCents: split.grossAmountCents,
-          sellerEarningsCents: split.sellerEarningsCents,
+          sellerEarningsCents: needsStripeFee ? null : split.sellerEarningsCents,
           platformFeeCents: split.platformFeeCents,
+          stripeProcessingFeeCents: null,
           sellerShareBps: split.sellerShareBps,
+          checkoutVersion: paid.checkoutVersion,
           currency: paid.currency,
           stripeSessionId: paid.stripeSessionId,
           stripePaymentIntentId: paid.stripePaymentIntentId,
@@ -158,6 +202,7 @@ export async function POST(req: Request) {
     purchase.listingId !== listing.id ||
     purchase.buyerEmail.trim().toLowerCase() !== paid.buyerEmail ||
     storedGrossCents !== paid.amountCents ||
+    (purchase.checkoutVersion && purchase.checkoutVersion !== paid.checkoutVersion) ||
     (purchase.stripePaymentIntentId && paid.stripePaymentIntentId &&
       purchase.stripePaymentIntentId !== paid.stripePaymentIntentId)
   ) {
@@ -168,28 +213,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Purchase reconciliation failed.' }, { status: 500 });
   }
 
-  const accountingValues = [
+  const legacyAccountingValues = [
     purchase.grossAmountCents,
     purchase.sellerEarningsCents,
     purchase.platformFeeCents,
     purchase.sellerShareBps,
     purchase.currency,
   ];
-  const accountingIsMissing = accountingValues.every((value) => value == null);
-  const accountingIsComplete = accountingValues.every((value) => value != null);
-  if (!accountingIsMissing && !accountingIsComplete) {
-    console.error('stripe webhook: partial accounting snapshot', { purchaseId: purchase.id });
-    return NextResponse.json({ error: 'Purchase accounting needs review.' }, { status: 500 });
-  }
-  if (
-    accountingIsComplete &&
-    ((purchase.sellerEarningsCents as number) + (purchase.platformFeeCents as number) !==
-      purchase.grossAmountCents ||
-      purchase.grossAmountCents !== paid.amountCents)
-  ) {
-    console.error('stripe webhook: inconsistent accounting snapshot', { purchaseId: purchase.id });
-    return NextResponse.json({ error: 'Purchase accounting needs review.' }, { status: 500 });
-  }
+  const accountingIsMissing =
+    legacyAccountingValues.every((value) => value == null) &&
+    purchase.stripeProcessingFeeCents == null &&
+    purchase.checkoutVersion == null;
 
   // A Purchase written by the old handler just before deployment may be seen
   // again on a Stripe retry. Fill only missing accounting snapshots; never
@@ -202,13 +236,32 @@ export async function POST(req: Request) {
       where: { id: purchase.id },
       data: {
         grossAmountCents: accountingIsMissing ? split.grossAmountCents : purchase.grossAmountCents,
-        sellerEarningsCents: accountingIsMissing ? split.sellerEarningsCents : purchase.sellerEarningsCents,
+        sellerEarningsCents: accountingIsMissing
+          ? (needsStripeFee ? null : split.sellerEarningsCents)
+          : purchase.sellerEarningsCents,
         platformFeeCents: accountingIsMissing ? split.platformFeeCents : purchase.platformFeeCents,
+        stripeProcessingFeeCents: accountingIsMissing ? null : purchase.stripeProcessingFeeCents,
         sellerShareBps: accountingIsMissing ? split.sellerShareBps : purchase.sellerShareBps,
+        checkoutVersion: accountingIsMissing ? paid.checkoutVersion : purchase.checkoutVersion,
         currency: accountingIsMissing ? paid.currency : purchase.currency,
         stripePaymentIntentId: purchase.stripePaymentIntentId ?? paid.stripePaymentIntentId,
       },
     });
+  }
+
+  if (!purchaseAccountingPending(purchase)) {
+    try {
+      const accounting = purchaseAccounting(purchase);
+      if (accounting.grossAmountCents !== paid.amountCents) {
+        throw new Error('Paid amount does not match the purchase accounting snapshot.');
+      }
+    } catch (error) {
+      console.error('stripe webhook: inconsistent accounting snapshot', {
+        purchaseId: purchase.id,
+        error: error instanceof Error ? error.message : error,
+      });
+      return NextResponse.json({ error: 'Purchase accounting needs review.' }, { status: 500 });
+    }
   }
 
   const deliveryLabel = purchase.itemLabel?.trim() || label;
@@ -236,23 +289,100 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ error: 'Purchase delivery failed.' }, { status: 500 });
   }
+
+  // Buyer delivery must not wait on Stripe's balance transaction. If the fee
+  // is not ready yet, acknowledge nothing after delivery so Stripe retries the
+  // signed event. The Purchase remains in an explicit non-transferable state.
+  if (purchaseAccountingPending(purchase)) {
+    if (!purchase.stripePaymentIntentId) {
+      console.error('stripe webhook: fee-pending purchase is missing its PaymentIntent', {
+        purchaseId: purchase.id,
+      });
+      return NextResponse.json({ error: 'Stripe fee snapshot is pending.' }, { status: 500 });
+    }
+    let feeSnapshot: StripeFeeSnapshot;
+    try {
+      feeSnapshot = await retrieveStripeFeeSnapshot(
+        purchase.stripePaymentIntentId,
+        paid.amountCents,
+        paid.currency,
+      );
+    } catch (error) {
+      console.error('stripe webhook: could not retrieve Stripe transaction fee', {
+        purchaseId: purchase.id,
+        error: error instanceof Error ? error.message : error,
+      });
+      return NextResponse.json({ error: 'Stripe fee snapshot is pending.' }, { status: 500 });
+    }
+    if (feeSnapshot.status === 'pending') {
+      if (feeSnapshot.chargeId && !purchase.stripeChargeId) {
+        await prisma.purchase.updateMany({
+          where: { id: purchase.id, stripeChargeId: null },
+          data: { stripeChargeId: feeSnapshot.chargeId },
+        });
+      }
+      console.error('stripe webhook: transaction fee is not available yet', {
+        purchaseId: purchase.id,
+        reason: feeSnapshot.reason,
+      });
+      return NextResponse.json({ error: 'Stripe fee snapshot is pending.' }, { status: 500 });
+    }
+
+    const finalized = finalizeRevenueWithStripeFeeCents(
+      paid.amountCents,
+      feeSnapshot.feeCents,
+      split.sellerShareBps,
+    );
+    await prisma.purchase.updateMany({
+      where: {
+        id: purchase.id,
+        checkoutVersion: STRIPE_FEE_CHECKOUT_VERSION,
+        sellerEarningsCents: null,
+        stripeProcessingFeeCents: null,
+      },
+      data: {
+        sellerEarningsCents: finalized.sellerEarningsCents,
+        stripeProcessingFeeCents: finalized.stripeProcessingFeeCents,
+        stripeChargeId: feeSnapshot.chargeId,
+      },
+    });
+    const refreshed = await prisma.purchase.findUnique({ where: { id: purchase.id } });
+    if (!refreshed || purchaseAccountingPending(refreshed)) {
+      return NextResponse.json({ error: 'Stripe fee snapshot is pending.' }, { status: 500 });
+    }
+    purchase = refreshed;
+  }
+
+  let accounting: ReturnType<typeof purchaseAccounting>;
+  try {
+    accounting = purchaseAccounting(purchase);
+  } catch (error) {
+    console.error('stripe webhook: finalized accounting is invalid', {
+      purchaseId: purchase.id,
+      error: error instanceof Error ? error.message : error,
+    });
+    return NextResponse.json({ error: 'Purchase accounting needs review.' }, { status: 500 });
+  }
+
   // Buyer delivery above is retryable and idempotent. Seller notification is a
   // secondary alert; the cents snapshot remains the source of truth for payout.
   if (!purchase.sellerNotifiedAt) {
     try {
-      const sellerEarningsCents = purchase.sellerEarningsCents ?? split.sellerEarningsCents;
-      const grossAmountCents = purchase.grossAmountCents ?? split.grossAmountCents;
-      const sellerSales = await prisma.purchase.count({
+      const firstSellerPurchase = await prisma.purchase.findFirst({
         where: {
           listing: { sellerId: listing.seller.id },
           stripeSessionId: { startsWith: 'cs_live_' },
         },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true },
       });
       const note = await sendSaleNotification(listing.seller.email, {
         itemLabel: deliveryLabel,
-        amount: grossAmountCents / 100,
-        net: sellerEarningsCents / 100,
-        firstSale: sellerSales === 1,
+        grossAmountCents: accounting.grossAmountCents,
+        platformFeeCents: accounting.platformFeeCents,
+        stripeProcessingFeeCents: accounting.stripeProcessingFeeCents,
+        sellerPayoutCents: accounting.sellerEarningsCents,
+        firstSale: firstSellerPurchase?.id === purchase.id,
       });
       if (note.ok) {
         await prisma.purchase.update({
