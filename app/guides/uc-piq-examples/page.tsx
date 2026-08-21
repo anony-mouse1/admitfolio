@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'UC PIQ Examples and What Makes Each Response Work';
@@ -133,6 +134,12 @@ export default function UcPiqExamplesPage() {
               metaphor, or identity. Close the example before drafting, and write the version only you can own.
             </p>
           </div>
+
+          <RelatedGuides guides={[
+            'how-to-take-inspiration-from-college-essays',
+            'how-to-start-a-college-essay',
+            'college-essay-format',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>Compare real approaches to the UC PIQs</h2>

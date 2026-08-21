@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'Why This College Essay Examples: A Better Research Method';
@@ -142,6 +143,12 @@ export default function WhyThisCollegeEssayExamplesPage() {
               <li>No other college name could replace this one without rewriting the paragraph.</li>
             </ul>
           </div>
+
+          <RelatedGuides guides={[
+            'how-to-take-inspiration-from-college-essays',
+            'how-to-start-a-college-essay',
+            'college-essay-format',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>See how students made school-specific choices</h2>

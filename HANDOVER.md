@@ -32,6 +32,8 @@ other students' essays without copying them.
 - Linked each Blog card to its finished article and replaced “Coming next” with
   “Read the guide.”
 - Linked time-sensitive UC and Common App requirements to their official pages.
+- Added three relevant internal guide links to every article so readers and
+  search crawlers can move between related topics.
 - Kept all writing original. Hypothetical examples teach structure without
   inventing accepted-student outcomes or reproducing seller essay text.
 
@@ -45,6 +47,8 @@ other students' essays without copying them.
   statically generated.
 - Each article was opened locally and checked for its title, H1, canonical URL,
   Article structured data, and horizontal overflow.
+- Related-guide cards were verified at desktop and 390px mobile widths. Every
+  article has three internal recommendations and the cards stack on phones.
 - The Blog index and UC guide were visually checked at desktop and 390px mobile
   widths. No horizontal overflow or browser console errors were found.
 - The local review is open at `http://127.0.0.1:3005/guides`.

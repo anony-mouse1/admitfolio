@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'College Essay Format: A Simple, Readable Structure';
@@ -139,6 +140,12 @@ export default function CollegeEssayFormatPage() {
               <li>The essay starts and ends cleanly, with no drafting notes left behind.</li>
             </ul>
           </div>
+
+          <RelatedGuides guides={[
+            'common-app-essay-word-count',
+            'how-to-start-a-college-essay',
+            'common-app-essay-examples',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>See how different essay structures read</h2>

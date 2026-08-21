@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'Common App Essay Examples: How to Learn From Essays That Worked';
@@ -119,6 +120,12 @@ export default function CommonAppEssayExamplesPage() {
               return later to compare clarity, pacing, and reflection.
             </p>
           </div>
+
+          <RelatedGuides guides={[
+            'how-to-take-inspiration-from-college-essays',
+            'how-to-start-a-college-essay',
+            'common-app-essay-word-count',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>See how real students approached the Common App</h2>

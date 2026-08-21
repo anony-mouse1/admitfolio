@@ -482,6 +482,58 @@ a.guideCard:hover {
   font-size: 14px;
 }
 
+.relatedGuides {
+  margin-top: 54px;
+  padding-top: 44px;
+  border-top: 1px solid var(--line);
+}
+
+.relatedGuides h2 {
+  margin: 14px 0 22px;
+  font-family: var(--serif);
+  font-size: 32px;
+  line-height: 1.2;
+}
+
+.relatedGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.relatedCard {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid var(--card-line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: #fff;
+  text-decoration: none;
+  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.relatedCard:hover {
+  transform: translateY(-4px);
+  border-color: #e4e0d7;
+  box-shadow: 0 14px 32px rgba(20, 18, 15, 0.1);
+}
+
+.relatedCard h3 {
+  margin: 14px 0 18px;
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.relatedLink {
+  margin-top: auto;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .articleCta {
   margin-top: 52px;
   padding: 34px;
@@ -618,6 +670,14 @@ a.guideCard:hover {
 
   .articleBody h2 {
     font-size: 28px;
+  }
+
+  .relatedGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .relatedCard {
+    min-height: 0;
   }
 
   .articleCta {

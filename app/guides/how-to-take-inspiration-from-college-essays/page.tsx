@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'The Best Way to Take Inspiration From Other College Student Essays';
@@ -163,6 +164,12 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               <Link href="/guides/common-app-essay-examples">guide to structure, reflection, and voice</Link>.
             </p>
           </div>
+
+          <RelatedGuides guides={[
+            'common-app-essay-examples',
+            'how-to-start-a-college-essay',
+            'why-this-college-essay-examples',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>Learn from real essays without losing your voice</h2>

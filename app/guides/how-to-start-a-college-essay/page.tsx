@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'How to Start a College Essay Without Forcing the Hook';
@@ -139,6 +140,12 @@ export default function HowToStartACollegeEssayPage() {
               <li>Could you remove a sentence and arrive at the story faster?</li>
             </ul>
           </div>
+
+          <RelatedGuides guides={[
+            'common-app-essay-examples',
+            'how-to-take-inspiration-from-college-essays',
+            'college-essay-format',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>Study how real essays begin</h2>

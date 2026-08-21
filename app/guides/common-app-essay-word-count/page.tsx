@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
 
 const title = 'Common App Essay Word Count: What to Cut and What to Keep';
@@ -120,6 +121,12 @@ export default function CommonAppEssayWordCountPage() {
               <li>The ending adds meaning instead of summarizing the entire essay again.</li>
             </ul>
           </div>
+
+          <RelatedGuides guides={[
+            'college-essay-format',
+            'common-app-essay-examples',
+            'how-to-start-a-college-essay',
+          ]} />
 
           <aside className={styles.articleCta}>
             <h2>Compare how real essays use limited space</h2>
