@@ -1013,6 +1013,10 @@
   font-weight: 800;
   opacity: .48;
 }
+.previewPayoutBank { border-color: #bfe2cf; background: #edf8f2; }
+.previewPayoutBank > div > span, .previewPayoutBank h3 { color: #176f4b; }
+.previewPayoutFailed { border-color: #efc2c2; background: #fff5f4; }
+.previewPayoutFailed > div > span, .previewPayoutFailed h3 { color: #a5281f; }
 .revenueBreakdown,
 .previewProfile,
 .previewListings article {
