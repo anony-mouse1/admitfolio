@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -53,6 +54,23 @@ export default function UcPiqExamplesPage() {
             Questions. You choose four, and each response can be up to 350 words.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'direct-answers', label: 'PIQs are direct answers, not miniature movie scripts' },
+              { id: 'choose-four', label: 'Choose four prompts that work together' },
+              { id: 'eight-topics', label: 'What to show for each of the eight PIQ topics' },
+              { id: 'stronger-focus', label: 'A short UC PIQ example of stronger focus' },
+              { id: 'revise-as-set', label: 'Revise each response as part of a set' },
+              { id: 'learn-without-borrowing', label: 'Learn from examples without borrowing a life' },
+            ]}
+            summary={[
+              'Choose four PIQs that reveal different parts of you.',
+              'Answer the prompt early, then show action, effect, and reflection.',
+              'Use specific evidence instead of only naming traits.',
+              'Review all four together for repetition, coverage, and voice.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               The UC application does not ask you to find the four most impressive prompts. It asks you to
@@ -67,7 +85,7 @@ export default function UcPiqExamplesPage() {
               </a>. Requirements can change, and the application itself is always the final source.
             </p>
 
-            <h2>PIQs are direct answers, not miniature movie scripts</h2>
+            <h2 id="direct-answers">PIQs are direct answers, not miniature movie scripts</h2>
             <p>
               You have 350 words, so do not spend 100 of them setting a scene. Give the reader the answer,
               then show the evidence. A clear response can still have personality, but clarity comes first.
@@ -78,7 +96,7 @@ export default function UcPiqExamplesPage() {
               reveals about you now.
             </div>
 
-            <h2>Choose four prompts that work together</h2>
+            <h2 id="choose-four">Choose four prompts that work together</h2>
             <p>
               Make a simple list of the qualities and contexts already visible elsewhere in your application.
               Then list what is still missing. Your four PIQs should add new information, not repeat the same
@@ -91,7 +109,7 @@ export default function UcPiqExamplesPage() {
               <li><strong>Context:</strong> Does the reader understand the opportunities or limits you were working within?</li>
             </ul>
 
-            <h2>What to show for each of the eight PIQ topics</h2>
+            <h2 id="eight-topics">What to show for each of the eight PIQ topics</h2>
             <ol>
               <li><strong>Leadership.</strong> Focus on whom you helped, the problem you noticed, and the change you made. A title is not required.</li>
               <li><strong>Creativity.</strong> Show how you make, adapt, or solve. Creativity can appear in art, code, community work, or everyday decisions.</li>
@@ -103,7 +121,7 @@ export default function UcPiqExamplesPage() {
               <li><strong>What makes you stand out.</strong> Use this open prompt when an important part of you does not fit cleanly elsewhere.</li>
             </ol>
 
-            <h2>A short UC PIQ example of stronger focus</h2>
+            <h2 id="stronger-focus">A short UC PIQ example of stronger focus</h2>
             <p>
               A general leadership response might say, “I learned that a good leader listens to everyone.”
               The idea is fine, but it gives the reader no proof.
@@ -118,7 +136,7 @@ export default function UcPiqExamplesPage() {
               and conclusion should come from your own experience.
             </p>
 
-            <h2>Revise each response as part of a set</h2>
+            <h2 id="revise-as-set">Revise each response as part of a set</h2>
             <ul>
               <li>Underline the sentence that directly answers the prompt. Move it earlier if needed.</li>
               <li>Circle every action you took. Add one specific action if the response is mostly summary.</li>
@@ -127,7 +145,7 @@ export default function UcPiqExamplesPage() {
               <li>Read all four in one sitting and write down the person they reveal together.</li>
             </ul>
 
-            <h2>Learn from examples without borrowing a life</h2>
+            <h2 id="learn-without-borrowing">Learn from examples without borrowing a life</h2>
             <p>
               A real PIQ can teach you how quickly another student establishes context, where they place
               reflection, or how they make a small action meaningful. It should never supply your sentence,

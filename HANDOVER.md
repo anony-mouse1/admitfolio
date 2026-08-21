@@ -15,7 +15,8 @@ Worktree: `/private/tmp/admitfolio-all-guides`
 The Blog index displayed five useful guide topics as “Coming next.” Fatimah
 asked for complete guides for every card while keeping the approved Admitfolio
 Blog design. She then asked for one more guide about taking inspiration from
-other students' essays without copying them.
+other students' essays without copying them. After reviewing Studley's Blog,
+she asked for its useful answer-first article structure on Admitfolio too.
 
 ## What changed
 
@@ -34,6 +35,10 @@ other students' essays without copying them.
 - Linked time-sensitive UC and Common App requirements to their official pages.
 - Added three relevant internal guide links to every article so readers and
   search crawlers can move between related topics.
+- Added a reusable article overview to all seven guides with a linked table of
+  contents and a four-point summary before the main article.
+- Added stable anchor IDs to every main section so the table of contents moves
+  readers directly to the matching heading.
 - Kept all writing original. Hypothetical examples teach structure without
   inventing accepted-student outcomes or reproducing seller essay text.
 
@@ -49,15 +54,20 @@ other students' essays without copying them.
   Article structured data, and horizontal overflow.
 - Related-guide cards were verified at desktop and 390px mobile widths. Every
   article has three internal recommendations and the cards stack on phones.
+- Every article's table-of-contents link count matches its anchored section
+  count. Every article has four summary points.
+- A table-of-contents link was clicked in the local browser and correctly
+  changed the URL hash and moved to its matching heading.
 - The Blog index and UC guide were visually checked at desktop and 390px mobile
   widths. No horizontal overflow or browser console errors were found.
+- The inspiration guide's table of contents and summary were visually checked
+  at 390px. Both are readable and the page has no horizontal overflow.
 - The local review is open at `http://127.0.0.1:3005/guides`.
 
 ## What is left
 
-1. Get Fatimah's visual and editorial approval.
-2. Push the branch and merge only after she asks.
-3. Verify the six live article routes after Vercel deploys `main`.
+1. Push the branch and merge only after Fatimah asks.
+2. Verify the seven live article routes after Vercel deploys `main`.
 
 No migration or backfill is needed.
 

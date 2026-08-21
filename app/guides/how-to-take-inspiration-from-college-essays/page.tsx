@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -53,6 +54,25 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
             to ask a new question about your own experience.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'study-decisions', label: 'Study the writing decision, not the surface detail' },
+              { id: 'inspiration-loop', label: 'Use a three-step inspiration loop' },
+              { id: 'what-to-study', label: 'Five things worth taking inspiration from' },
+              { id: 'what-not-to-borrow', label: 'What not to borrow' },
+              { id: 'right-time', label: 'Read examples at the right time' },
+              { id: 'evidence-list', label: 'Make a personal evidence list before you write' },
+              { id: 'originality-check', label: 'Run an originality check' },
+              { id: 'inspiration-worked', label: 'The sign that inspiration worked' },
+            ]}
+            summary={[
+              'Study decisions such as detail, pacing, reflection, movement, and focus.',
+              'Turn each useful observation into a question about your own life.',
+              'Close examples before drafting and keep them away during writing.',
+              'Run an originality check for borrowed language, images, or structure.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               Reading another student&apos;s college essay can be reassuring. You see that an essay can begin with
@@ -65,7 +85,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               that fit your own life.
             </p>
 
-            <h2>Study the writing decision, not the surface detail</h2>
+            <h2 id="study-decisions">Study the writing decision, not the surface detail</h2>
             <p>
               Imagine an essay uses a family recipe to explore responsibility. The useful lesson is not “write
               about food.” The useful lesson might be that a repeated activity can show how a relationship
@@ -81,7 +101,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               Take inspiration from what the writer decided to reveal. Do not take the thing they used to reveal it.
             </div>
 
-            <h2>Use a three-step inspiration loop</h2>
+            <h2 id="inspiration-loop">Use a three-step inspiration loop</h2>
             <ol>
               <li>
                 <strong>Name the choice.</strong> Write one sentence about what the author did. For example,
@@ -101,7 +121,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               may become so attached to its shape that your own draft starts echoing it.
             </p>
 
-            <h2>Five things worth taking inspiration from</h2>
+            <h2 id="what-to-study">Five things worth taking inspiration from</h2>
             <ul>
               <li><strong>Level of detail.</strong> Notice how a concrete action makes a value believable.</li>
               <li><strong>Balance.</strong> See how much space goes to story and how much goes to reflection.</li>
@@ -110,7 +130,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               <li><strong>Focus.</strong> Study how one small experience can carry a larger idea without covering an entire life.</li>
             </ul>
 
-            <h2>What not to borrow</h2>
+            <h2 id="what-not-to-borrow">What not to borrow</h2>
             <p>
               Do not reuse an opening sentence, central metaphor, sequence of scenes, punch line, or ending.
               Changing a few nouns does not make another student&apos;s idea yours. Do not exaggerate your
@@ -122,7 +142,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               reproduce its architecture.
             </p>
 
-            <h2>Read examples at the right time</h2>
+            <h2 id="right-time">Read examples at the right time</h2>
             <p>
               Examples can help before drafting when you feel unsure about what a college essay can be. Read a
               small, varied set, then stop and brainstorm from your own memories. During revision, return to
@@ -133,7 +153,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               easier it is to absorb its language or rhythm without realizing it.
             </p>
 
-            <h2>Make a personal evidence list before you write</h2>
+            <h2 id="evidence-list">Make a personal evidence list before you write</h2>
             <p>
               For every possible topic, list details no other applicant could supply: a phrase someone always
               says, the step in a routine you never skip, the mistake that changed your method, or the private
@@ -144,7 +164,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               how you notice, decide, relate, recover, build, or change.
             </p>
 
-            <h2>Run an originality check</h2>
+            <h2 id="originality-check">Run an originality check</h2>
             <ul>
               <li>Close every example and read your draft aloud.</li>
               <li>Highlight any phrase you remember seeing elsewhere and rewrite it from scratch.</li>
@@ -153,7 +173,7 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
               <li>Have someone who knows you mark the lines that sound most and least like you.</li>
             </ul>
 
-            <h2>The sign that inspiration worked</h2>
+            <h2 id="inspiration-worked">The sign that inspiration worked</h2>
             <p>
               After reading examples, you should have more ways to understand your own material. You should
               not have a template to fill in. The final essay may look nothing like the pieces that helped you,

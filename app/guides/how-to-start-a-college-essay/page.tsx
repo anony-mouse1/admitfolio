@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -53,6 +54,22 @@ export default function HowToStartACollegeEssayPage() {
             in the middle first. Write the first paragraph after you know what the essay is really about.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'start-clearly', label: 'Start with the part you can see clearly' },
+              { id: 'five-openings', label: 'Five college essay openings you can try' },
+              { id: 'forced-hooks', label: 'What forced hooks usually look like' },
+              { id: 'five-versions', label: 'Write five versions after the full draft' },
+              { id: 'opening-checklist', label: 'A final opening checklist' },
+            ]}
+            summary={[
+              'Draft the clearest scene first and return to the opening later.',
+              'Choose a first line that leads naturally into the essay.',
+              'Test several opening types instead of polishing one sentence forever.',
+              'Avoid hooks that create drama the essay cannot support.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               Students often treat the first sentence like an audition. It has to be surprising, poetic, and
@@ -64,7 +81,7 @@ export default function HowToStartACollegeEssayPage() {
               continue, and points toward the essay that follows. It can do all three quietly.
             </p>
 
-            <h2>Start with the part you can see clearly</h2>
+            <h2 id="start-clearly">Start with the part you can see clearly</h2>
             <p>
               Skip the introduction and write the moment you remember best. What were you doing? What choice
               did you face? What small detail still stays with you? Once that scene exists, ask what the reader
@@ -76,7 +93,7 @@ export default function HowToStartACollegeEssayPage() {
               to prove you are a great writer in ten words.
             </div>
 
-            <h2>Five college essay openings you can try</h2>
+            <h2 id="five-openings">Five college essay openings you can try</h2>
             <ol>
               <li>
                 <strong>Enter a moment already in motion.</strong> Begin with a decision or action: tightening
@@ -105,7 +122,7 @@ export default function HowToStartACollegeEssayPage() {
               </li>
             </ol>
 
-            <h2>What forced hooks usually look like</h2>
+            <h2 id="forced-hooks">What forced hooks usually look like</h2>
             <ul>
               <li>A dictionary definition that could introduce thousands of essays.</li>
               <li>A famous quote that gives someone else the first and most memorable words.</li>
@@ -118,7 +135,7 @@ export default function HowToStartACollegeEssayPage() {
               excitement the rest of the essay cannot support.
             </p>
 
-            <h2>Write five versions after the full draft</h2>
+            <h2 id="five-versions">Write five versions after the full draft</h2>
             <p>
               Once you know the ending, return to the top and write five different openings. Make one direct,
               one scene-based, one centered on an object, one built around a contradiction, and one that starts
@@ -131,7 +148,7 @@ export default function HowToStartACollegeEssayPage() {
               closer to the real center.
             </p>
 
-            <h2>A final opening checklist</h2>
+            <h2 id="opening-checklist">A final opening checklist</h2>
             <ul>
               <li>Does the first paragraph sound natural when read aloud?</li>
               <li>Does it lead into the next paragraph without a hard reset?</li>

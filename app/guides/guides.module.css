@@ -431,6 +431,61 @@ a.guideCard:hover {
   font-size: 14px;
 }
 
+.articleOverview {
+  margin: 32px 0 50px;
+}
+
+.articleToc {
+  padding: 26px 28px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.articleToc h2,
+.articleSummary h2 {
+  margin: 0 0 18px;
+  font-family: var(--sans);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.articleToc ol,
+.articleSummary ul {
+  margin: 0;
+  padding-left: 24px;
+}
+
+.articleToc li,
+.articleSummary li {
+  margin: 10px 0;
+  padding-left: 5px;
+}
+
+.articleToc a {
+  color: var(--ink);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.articleToc a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+
+.articleSummary {
+  margin-top: 26px;
+  padding: 26px 28px;
+  border-left: 4px solid var(--accent);
+  border-radius: 0 14px 14px 0;
+  background: #f4e8e8;
+}
+
+.articleSummary li::marker {
+  color: var(--accent);
+}
+
 .articleBody {
   font-family: 'Spectral', Georgia, serif;
   font-size: 19px;
@@ -441,6 +496,10 @@ a.guideCard:hover {
   margin: 46px 0 16px;
   font-size: 32px;
   line-height: 1.2;
+}
+
+.articleBody h2[id] {
+  scroll-margin-top: 100px;
 }
 
 .articleBody p {
@@ -670,6 +729,16 @@ a.guideCard:hover {
 
   .articleBody h2 {
     font-size: 28px;
+  }
+
+  .articleToc,
+  .articleSummary {
+    padding: 22px 20px;
+  }
+
+  .articleToc h2,
+  .articleSummary h2 {
+    font-size: 22px;
   }
 
   .relatedGrid {

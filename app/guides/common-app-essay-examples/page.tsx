@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -55,6 +56,22 @@ export default function CommonAppEssayExamplesPage() {
             own voice.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'study-decisions', label: 'Use examples to study decisions, not stories' },
+              { id: 'three-passes', label: 'Read every example in three passes' },
+              { id: 'specific-details', label: 'Specific is more memorable than impressive' },
+              { id: 'before-you-draft', label: 'Questions to ask before you draft' },
+              { id: 'what-not-to-take', label: 'What not to take from an example' },
+            ]}
+            summary={[
+              'Learn from another writer’s choices, not their story or sentences.',
+              'Read for story, person, and movement in separate passes.',
+              'Close examples before drafting so your own details and voice lead.',
+              'Never reuse an opening, metaphor, scene sequence, or identity.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               Reading a strong Common App essay can make the process feel possible. It can also make you
@@ -67,7 +84,7 @@ export default function CommonAppEssayExamplesPage() {
               decisions that are true to you.
             </p>
 
-            <h2>Use examples to study decisions, not stories</h2>
+            <h2 id="study-decisions">Use examples to study decisions, not stories</h2>
             <p>
               Two students can write about the same ordinary subject and reveal completely different people.
               The subject is only the container. What matters is what the writer notices, how they interpret
@@ -78,7 +95,7 @@ export default function CommonAppEssayExamplesPage() {
               Borrow the question an essay makes you ask about yourself. Do not borrow the answer.
             </div>
 
-            <h2>Read every example in three passes</h2>
+            <h2 id="three-passes">Read every example in three passes</h2>
             <ol>
               <li><strong>Read for the story.</strong> What happens, and what concrete details make the moment feel real?</li>
               <li><strong>Read for the person.</strong> What values, habits, contradictions, or ways of thinking become visible?</li>
@@ -89,7 +106,7 @@ export default function CommonAppEssayExamplesPage() {
               without deciding there is one correct structure.
             </p>
 
-            <h2>Specific is more memorable than impressive</h2>
+            <h2 id="specific-details">Specific is more memorable than impressive</h2>
             <p>
               Students often reach for their largest accomplishment because it feels safest. But specificity
               usually comes from smaller moments: a repeated Saturday routine, a private mistake, an object
@@ -100,7 +117,7 @@ export default function CommonAppEssayExamplesPage() {
               If the details could belong to anyone, keep going.
             </p>
 
-            <h2>Questions to ask before you draft</h2>
+            <h2 id="before-you-draft">Questions to ask before you draft</h2>
             <ul>
               <li>What does this story reveal that the rest of my application does not?</li>
               <li>Where am I making a choice, not just describing an event?</li>
@@ -109,7 +126,7 @@ export default function CommonAppEssayExamplesPage() {
               <li>Could another student replace my name with theirs? If so, what is missing?</li>
             </ul>
 
-            <h2>What not to take from an example</h2>
+            <h2 id="what-not-to-take">What not to take from an example</h2>
             <p>
               Do not reuse a striking opening, mirror someone else&apos;s sequence of scenes, or swap your details
               into their central metaphor. Even when the words change, the architecture can still belong to

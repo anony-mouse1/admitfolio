@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -53,6 +54,22 @@ export default function CommonAppEssayWordCountPage() {
             App also reminds students that 650 is a limit, not a target.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'deserves-space', label: 'What usually deserves space' },
+              { id: 'cut-first', label: 'What to cut first' },
+              { id: 'word-budget', label: 'A flexible 650-word budget' },
+              { id: 'three-passes', label: 'Revise in three passes' },
+              { id: 'word-count-checklist', label: 'Final word-count checklist' },
+            ]}
+            summary={[
+              'The Common App personal essay accepts 250 to 650 words.',
+              'Keep concrete moments, choices, necessary context, reflection, and voice.',
+              'Cut throat-clearing, repeated context, and duplicate lessons first.',
+              'Check the final count inside the application itself.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               Common App&apos;s{' '}
@@ -66,7 +83,7 @@ export default function CommonAppEssayWordCountPage() {
               meaningful about you.
             </p>
 
-            <h2>What usually deserves space</h2>
+            <h2 id="deserves-space">What usually deserves space</h2>
             <ul>
               <li><strong>A concrete moment:</strong> Give the reader something they can picture.</li>
               <li><strong>Your choices:</strong> Show what you did, said, made, noticed, or changed.</li>
@@ -75,7 +92,7 @@ export default function CommonAppEssayWordCountPage() {
               <li><strong>Your voice:</strong> Keep the precise detail or phrasing that makes the essay sound like you.</li>
             </ul>
 
-            <h2>What to cut first</h2>
+            <h2 id="cut-first">What to cut first</h2>
             <ol>
               <li><strong>Throat-clearing.</strong> Delete the sentences that announce what you are about to explain.</li>
               <li><strong>Repeated context.</strong> Keep the clearest version of a fact and remove later reminders.</li>
@@ -90,7 +107,7 @@ export default function CommonAppEssayWordCountPage() {
               essay move faster. Compression should reveal the heart of the story, not remove it.
             </div>
 
-            <h2>A flexible 650-word budget</h2>
+            <h2 id="word-budget">A flexible 650-word budget</h2>
             <p>
               One draft might use about 80 words to enter the story, 250 for the central scene, 170 for the
               shift or complication, and 150 for reflection. That totals 650, but it is not a formula. Another
@@ -101,7 +118,7 @@ export default function CommonAppEssayWordCountPage() {
               did, the problem is not the limit. The story is focused in the wrong place.
             </p>
 
-            <h2>Revise in three passes</h2>
+            <h2 id="three-passes">Revise in three passes</h2>
             <ol>
               <li><strong>Story pass:</strong> Does every scene or detail help reveal the same central idea?</li>
               <li><strong>Sentence pass:</strong> Can you remove repetition or choose a more direct verb?</li>
@@ -112,7 +129,7 @@ export default function CommonAppEssayWordCountPage() {
               the detail you removed.
             </p>
 
-            <h2>Final word-count checklist</h2>
+            <h2 id="word-count-checklist">Final word-count checklist</h2>
             <ul>
               <li>The essay is between 250 and 650 words in the application itself.</li>
               <li>The opening reaches the real story quickly.</li>

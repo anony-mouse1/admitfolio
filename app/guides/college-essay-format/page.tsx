@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -53,6 +54,24 @@ export default function CollegeEssayFormatPage() {
             changes, skip decorative formatting, and always inspect the application preview before submitting.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'readable-structure', label: 'A readable college essay structure' },
+              { id: 'clear-paragraphs', label: 'Keep paragraphs easy to follow' },
+              { id: 'format-dialogue', label: 'Format dialogue simply' },
+              { id: 'need-a-title', label: 'Do you need a title?' },
+              { id: 'visual-styling', label: 'Do not rely on visual styling' },
+              { id: 'submission-process', label: 'A safe drafting and submission process' },
+              { id: 'format-checklist', label: 'Final format checklist' },
+            ]}
+            summary={[
+              'Use readable paragraphs, not an academic paper format.',
+              'Start a new paragraph when time, place, speaker, focus, or idea changes.',
+              'Keep dialogue simple and do not rely on bold, italics, or tabs.',
+              'Always check the final application preview before submitting.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               Most application essays are submitted through a text box, not as a formal paper. Unless a
@@ -66,7 +85,7 @@ export default function CollegeEssayFormatPage() {
               explains where to find them.
             </p>
 
-            <h2>A readable college essay structure</h2>
+            <h2 id="readable-structure">A readable college essay structure</h2>
             <p>
               There is no required number of paragraphs. A simple personal essay often moves through four
               functions, even when the final piece uses more than four paragraphs:
@@ -83,7 +102,7 @@ export default function CollegeEssayFormatPage() {
               paragraphs only to make the page look balanced.
             </div>
 
-            <h2>Keep paragraphs easy to follow</h2>
+            <h2 id="clear-paragraphs">Keep paragraphs easy to follow</h2>
             <p>
               Large blocks of text are tiring on a screen. If a paragraph contains a scene, its explanation,
               a second scene, and a new lesson, it probably needs a break. On the other hand, a page of one-line
@@ -94,7 +113,7 @@ export default function CollegeEssayFormatPage() {
               shift, not interrupt a thought that belongs together.
             </p>
 
-            <h2>Format dialogue simply</h2>
+            <h2 id="format-dialogue">Format dialogue simply</h2>
             <ul>
               <li>Use quotation marks around spoken words.</li>
               <li>Start a new paragraph when the speaker changes.</li>
@@ -107,21 +126,21 @@ export default function CollegeEssayFormatPage() {
               can summarize in fewer words, summary is usually cleaner.
             </p>
 
-            <h2>Do you need a title?</h2>
+            <h2 id="need-a-title">Do you need a title?</h2>
             <p>
               Usually, no. A title can work when it adds meaning and the application gives you room, but it
               should not explain the essay or repeat the prompt. If you are near the word limit, the title may
               count toward it. Check the counter after you paste.
             </p>
 
-            <h2>Do not rely on visual styling</h2>
+            <h2 id="visual-styling">Do not rely on visual styling</h2>
             <p>
               Bold, italics, special spacing, tabs, and unusual symbols may not survive the move from your
               drafting document to the application. Make the meaning clear through the words themselves.
               Decorative formatting should never carry information the reader would miss without it.
             </p>
 
-            <h2>A safe drafting and submission process</h2>
+            <h2 id="submission-process">A safe drafting and submission process</h2>
             <ol>
               <li>Draft and revise in a document where you can keep version history.</li>
               <li>Save a plain-text backup before pasting into the application.</li>
@@ -131,7 +150,7 @@ export default function CollegeEssayFormatPage() {
               <li>Confirm that the correct essay appears under the correct college and prompt.</li>
             </ol>
 
-            <h2>Final format checklist</h2>
+            <h2 id="format-checklist">Final format checklist</h2>
             <ul>
               <li>The response follows the prompt&apos;s current instructions and limit.</li>
               <li>Paragraph breaks mark real changes and appear correctly in preview.</li>

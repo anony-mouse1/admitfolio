@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
 import styles from '../guides.module.css';
@@ -53,6 +54,24 @@ export default function WhyThisCollegeEssayExamplesPage() {
             the research is not specific enough yet.
           </div>
 
+          <GuideArticleOverview
+            sections={[
+              { id: 'connection-formula', label: 'Use the connection formula' },
+              { id: 'research-layers', label: 'Research in layers instead of collecting names' },
+              { id: 'weak-and-stronger', label: 'Weak and stronger Why This College examples' },
+              { id: 'show-contribution', label: 'Show contribution without making promises' },
+              { id: 'word-limit', label: 'Adjust the method to the word limit' },
+              { id: 'details-to-leave-out', label: 'Details to leave out' },
+              { id: 'research-checklist', label: 'Final research checklist' },
+            ]}
+            summary={[
+              'Connect one verified school resource to a real personal reason.',
+              'Show what you will do or contribute, not only what the school offers.',
+              'Choose depth over a long list of campus names.',
+              'Verify every current course, program, professor, and organization.',
+            ]}
+          />
+
           <div className={styles.articleBody}>
             <p>
               A “Why This College” essay is not a brochure summary. Admissions readers already know their
@@ -64,7 +83,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               needs both.
             </p>
 
-            <h2>Use the connection formula</h2>
+            <h2 id="connection-formula">Use the connection formula</h2>
             <div className={styles.callout}>
               <strong>A strong paragraph connects three things</strong>
               A specific school resource + your personal reason for caring + the action or contribution you
@@ -76,7 +95,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               appearing in your answer.
             </p>
 
-            <h2>Research in layers instead of collecting names</h2>
+            <h2 id="research-layers">Research in layers instead of collecting names</h2>
             <ol>
               <li><strong>Start with the prompt.</strong> Note whether it asks about academics, community, values, contribution, or all four.</li>
               <li><strong>Open official school pages.</strong> Read the department, course, program, lab, center, and student organization pages related to your interests.</li>
@@ -85,7 +104,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               <li><strong>Verify every name before submitting.</strong> Programs and courses change. Use current official sources.</li>
             </ol>
 
-            <h2>Weak and stronger Why This College examples</h2>
+            <h2 id="weak-and-stronger">Weak and stronger Why This College examples</h2>
             <p>
               A weak sentence says: “The university&apos;s world-class professors and diverse community will help
               me reach my goals.” It sounds positive, but it could describe almost any college and tells the
@@ -103,7 +122,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               school would let you keep pursuing it.
             </p>
 
-            <h2>Show contribution without making promises</h2>
+            <h2 id="show-contribution">Show contribution without making promises</h2>
             <p>
               Contribution is not a grand claim about transforming the campus. It can be a habit you will
               bring: organizing peers around a shared problem, asking questions across fields, mentoring newer
@@ -114,7 +133,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               feel credible.
             </p>
 
-            <h2>Adjust the method to the word limit</h2>
+            <h2 id="word-limit">Adjust the method to the word limit</h2>
             <ul>
               <li><strong>Around 100 words:</strong> Choose one central connection and explain it cleanly.</li>
               <li><strong>Around 150 words:</strong> Add brief personal context and one contribution.</li>
@@ -125,7 +144,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               than compressed name-dropping.
             </p>
 
-            <h2>Details to leave out</h2>
+            <h2 id="details-to-leave-out">Details to leave out</h2>
             <ul>
               <li>Rankings, prestige, and reputation unless the prompt specifically asks about them.</li>
               <li>Facts from an admissions homepage that every applicant can see.</li>
@@ -134,7 +153,7 @@ export default function WhyThisCollegeEssayExamplesPage() {
               <li>Claims that the school is your dream, perfect fit, or only choice without evidence.</li>
             </ul>
 
-            <h2>Final research checklist</h2>
+            <h2 id="research-checklist">Final research checklist</h2>
             <ul>
               <li>Every school detail is current and comes from an official source.</li>
               <li>Every detail connects to a real experience, question, or goal.</li>
