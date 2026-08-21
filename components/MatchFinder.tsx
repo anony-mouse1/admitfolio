@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { catalogSchool } from '@/lib/listingSchool';
 import { schoolColor, schoolInfo, schoolShortName } from '@/lib/schools';
+import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
 
 type MatchListing = {
   id: string;
@@ -207,6 +208,10 @@ export default function MatchFinder({
     const value = raw.trim();
     if (!value) return;
     const match = runMatch(listings, value);
+    trackConversion(ANALYTICS_EVENTS.matchSearch, {
+      resultCount: match.results.length,
+      budgetSet: match.budget != null,
+    });
     setMessages((current) => [
       ...current,
       { id: ++messageId.current, kind: 'you', text: value },
