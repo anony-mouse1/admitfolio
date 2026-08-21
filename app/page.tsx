@@ -3287,6 +3287,9 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
 
   const isPackage = l.pricingMode === 'package';
   const exactSchool = sellerListingSchool(l);
+  const logoSchool = resolveListingHeadline({ ...l, essays: l.essays });
+  const logoInfo = schoolInfo(logoSchool);
+  const logoLabel = logoInfo?.short || schoolShortName(logoSchool);
   const tier = exactSchool
     ? schoolTier(exactSchool)
     : admitsTier(l.admitTags) ?? 3;
@@ -3346,34 +3349,46 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
 
   return (
     <div className="dash-listing-card">
-      <div className="dash-listing-info">
-        <div className="dash-listing-title">{listingTitle(l)}</div>
-        <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
-        {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
-        {editing && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {isPackage ? (
-              <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                Package price ($)
-                <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                <span>min ${floor}</span>
-              </label>
-            ) : (
-              l.essays.map((e) => (
-                <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {(e.question || e.prompt).slice(0, 40)} ($)
-                  <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+      <div className="dash-listing-summary">
+        <div className="dash-listing-logo">
+          <LogoBadge
+            domain={logoInfo?.domain}
+            letter={(logoLabel[0] || '?').toUpperCase()}
+            color={schoolColor(logoSchool)}
+            school={logoSchool}
+            size={44}
+            fontSize={16}
+          />
+        </div>
+        <div className="dash-listing-info">
+          <div className="dash-listing-title">{listingTitle(l)}</div>
+          <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
+          {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
+          {editing && (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {isPackage ? (
+                <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Package price ($)
+                  <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
                   <span>min ${floor}</span>
                 </label>
-              ))
-            )}
-            {saveErr && <div className="dash-listing-meta" style={{ color: '#b3261e' }}>{saveErr}</div>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="dash-action-btn" onClick={savePrice} disabled={saving}>{saving ? 'Saving…' : 'Save price'}</button>
-              <button className="dash-action-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+              ) : (
+                l.essays.map((e) => (
+                  <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {(e.question || e.prompt).slice(0, 40)} ($)
+                    <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                    <span>min ${floor}</span>
+                  </label>
+                ))
+              )}
+              {saveErr && <div className="dash-listing-meta" style={{ color: '#b3261e' }}>{saveErr}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="dash-action-btn" onClick={savePrice} disabled={saving}>{saving ? 'Saving…' : 'Save price'}</button>
+                <button className="dash-action-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="dash-listing-actions">
         <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
