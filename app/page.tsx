@@ -1954,7 +1954,7 @@ export default function Page() {
             </div>
             <div>
               <div className="foot-col-title">Legal</div>
-              <div className="foot-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+              <div className="foot-links"><a href="/guides">Blog</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
             </div>
           </div>
           <div className="foot-bottom">
