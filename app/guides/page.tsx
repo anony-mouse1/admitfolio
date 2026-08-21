@@ -17,32 +17,37 @@ export const metadata: Metadata = {
   },
 };
 
-const upcomingGuides = [
+const guides = [
   {
+    href: '/guides/uc-piq-examples',
     category: 'UC applications',
     readTime: '10 min',
     title: 'UC PIQ examples and what makes each response work',
     description: 'A question-by-question guide to reading strong Personal Insight Questions with purpose.',
   },
   {
+    href: '/guides/how-to-start-a-college-essay',
     category: 'Writing basics',
     readTime: '6 min',
     title: 'How to start a college essay without forcing the hook',
     description: 'Five practical ways into your story when the first sentence will not come.',
   },
   {
+    href: '/guides/why-this-college-essay-examples',
     category: 'Supplements',
     readTime: '8 min',
     title: 'Why this college essay examples: a better research method',
     description: 'Turn school research into a specific answer about fit, contribution, and curiosity.',
   },
   {
+    href: '/guides/college-essay-format',
     category: 'Writing basics',
     readTime: '5 min',
     title: 'College essay format: a simple, readable structure',
     description: 'Paragraphs, dialogue, titles, spacing, and submission details explained clearly.',
   },
   {
+    href: '/guides/common-app-essay-word-count',
     category: 'Common App',
     readTime: '4 min',
     title: 'Common App essay word count: what to cut and what to keep',
@@ -112,16 +117,16 @@ export default function GuidesPage() {
               <div className={styles.dataChip}>Grounded in Admitfolio&apos;s verified essay catalogue</div>
               <span className={styles.cardLink}>Read the guide →</span>
             </Link>
-            {upcomingGuides.map((guide) => (
-              <article className={styles.guideCard} key={guide.title}>
+            {guides.map((guide) => (
+              <Link className={styles.guideCard} href={guide.href} key={guide.title}>
                 <div className={styles.cardTop}>
                   <span className={styles.category}>{guide.category}</span>
                   <span className={styles.readTime}>{guide.readTime}</span>
                 </div>
                 <h2>{guide.title}</h2>
                 <p>{guide.description}</p>
-                <span className={styles.comingSoon}>Coming next</span>
-              </article>
+                <span className={styles.cardLink}>Read the guide →</span>
+              </Link>
             ))}
           </div>
         </section>

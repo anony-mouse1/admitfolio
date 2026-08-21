@@ -1,81 +1,61 @@
-# Handover: embedded listing checkout
+# Handover: complete essay guide library
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/embedded-listing-checkout`
+Branch: `codex/complete-essay-guides`
 
-Base: `origin/main` at `57c404e` after the final rebase.
+Base: `origin/main` at `9702441`, after the Blog index and first Common App guide were merged.
 
-Worktree: `/private/tmp/admitfolio-embedded-checkout`
+Worktree: `/private/tmp/admitfolio-all-guides`
 
 ## Why this change
 
-Listing unlocks currently send buyers to a Stripe-hosted page. Fatimah approved
-an embedded checkout mock and asked for the real payment form to stay inside the
-Admitfolio listing flow on desktop and phone.
+The Blog index displayed five useful guide topics as “Coming next.” Fatimah
+asked for complete guides for every card while keeping the approved Admitfolio
+Blog design.
 
 ## What changed
 
-- Added Stripe's React and browser SDK packages.
-- Added `EmbeddedListingCheckout`, which mounts Stripe Embedded Checkout and
-  requests one client secret for the selected listing.
-- Kept the unit of purchase as a listing and preserved the existing server-side
-  validation, price quote, metadata, 60/40 accounting and fulfillment.
-- Changed Checkout Session creation from a hosted URL to `embedded_page` mode.
-  The session returns through `/purchase/success` after completion.
-- Kept `payment_method_types` omitted so Stripe's dynamic payment methods can
-  show real Link, Apple Pay and card options when the buyer and device qualify.
-- Changed `/api/checkout` to return the Stripe client secret instead of an
-  external checkout URL.
-- Replaced the confirmation-only modal with a responsive order summary and
-  embedded payment layout. On mobile it becomes a single-column checkout sheet.
-- Added the approved polished Stripe frame with a secure-payment header,
-  rounded container, subtle background treatment and Stripe branding.
-- Documented the required browser-safe Stripe publishable key in `.env.example`.
-- Added a focused embedded-checkout wiring test and extended the commerce test
-  to lock the embedded Session contract.
-
-Card data never enters Admitfolio's React state or servers. Stripe renders the
-payment fields in its own secure embedded frame. Stripe may still temporarily
-send a buyer to a bank or wallet for authentication, then return them to
-Admitfolio.
+- Added a full UC PIQ guide covering prompt selection, all eight topic lenses,
+  response structure, revision, and academic integrity.
+- Added a practical guide to starting a college essay without forcing a hook.
+- Added a research-based Why This College supplement guide.
+- Added a college essay formatting and submission guide.
+- Added a Common App word-count and revision guide.
+- Gave every new page its own title, description, canonical URL, Open Graph
+  article data, and Article structured data.
+- Linked each Blog card to its finished article and replaced “Coming next” with
+  “Read the guide.”
+- Linked time-sensitive UC and Common App requirements to their official pages.
+- Kept all writing original. Hypothetical examples teach structure without
+  inventing accepted-student outcomes or reproducing seller essay text.
 
 ## Verification
 
-- The approved static checkout mock was shown in the visible Codex side browser.
-- The iPhone wrapper was shown and checked without horizontal overflow.
-- The mock includes Stripe-style Link and Apple Pay express options plus card.
-- `npm run test:embedded-checkout`
-- `npm run test:commerce`
-- `npm run test:purchase-fulfillment`
-- `npm run test:seller-payouts`
-- `npx tsc --noEmit`
-- Direct `next build` with Node 20 and harmless build-only placeholder values.
-  No migration or production write ran.
-
-## Vercel configuration completed
-
-With Fatimah's action-time approval, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` was
-added twice in Vercel. The Stripe test publishable key is scoped to Preview and
-the Stripe live publishable key is scoped to Production. Vercel already had
-separate Preview and Production `STRIPE_SECRET_KEY` entries. The key values were
-never printed, saved locally, added to source control or written into this file.
+- Prisma client generation completed locally.
+- `tsc --noEmit` passed.
+- Direct `next build` passed with harmless build-only placeholder values. No
+  migration, database access, or production write ran.
+- All six guide cards have unique routes and all six article routes are
+  statically generated.
+- Each article was opened locally and checked for its title, H1, canonical URL,
+  Article structured data, and horizontal overflow.
+- The Blog index and UC guide were visually checked at desktop and 390px mobile
+  widths. No horizontal overflow or browser console errors were found.
+- The local review is open at `http://127.0.0.1:3005/guides`.
 
 ## What is left
 
-1. Verify the Vercel Preview with test-mode Stripe.
-2. Confirm Stripe renders eligible Link, Apple Pay and card options. Create an
-   unpaid Checkout Session only. Never complete a payment during QA.
-3. Merge only after the preview and phone experience are approved.
-4. After merge, verify the live listing modal and Stripe webhook behavior.
+1. Get Fatimah's visual and editorial approval.
+2. Push the branch and merge only after she asks.
+3. Verify the six live article routes after Vercel deploys `main`.
 
-No database migration or backfill is needed.
+No migration or backfill is needed.
 
 ## Unrelated workspace state
 
-The main workspace has pre-existing edits for browse cards, payout sandbox work,
-reader work, logos and vendor assets. Do not stage, revert or merge those files
-as part of this branch. The static checkout and phone mockups are untracked in
-the main workspace and are not part of the production change.
+The original workspace has pre-existing edits for cards, the essay reader,
+school naming, checkout previews, and other work. They were not touched or
+staged. This guide work is isolated in the clean worktree above.

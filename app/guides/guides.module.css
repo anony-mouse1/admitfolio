@@ -286,17 +286,12 @@ a.guideCard:hover {
   font-size: 14px;
 }
 
-.cardLink,
-.comingSoon {
+.cardLink {
   margin-top: auto;
   padding-top: 30px;
   color: var(--accent);
   font-size: 13px;
   font-weight: 700;
-}
-
-.comingSoon {
-  color: var(--faint);
 }
 
 .dataChip {
@@ -450,6 +445,17 @@ a.guideCard:hover {
 
 .articleBody p {
   margin: 0 0 20px;
+}
+
+.articleBody a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.articleBody a:hover {
+  text-decoration-color: currentColor;
 }
 
 .articleBody ol,
