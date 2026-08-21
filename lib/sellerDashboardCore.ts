@@ -1,5 +1,29 @@
 export type SellerPayoutState = 'not_eligible' | 'setup_required' | 'in_review' | 'ready';
 
+export type SellerAccountingRow = {
+  grossAmountCents: number;
+  sellerEarningsCents: number;
+  platformFeeCents: number;
+  stripeProcessingFeeCents: number;
+  createdAt: Date;
+};
+
+export function summarizeSellerAccounting(rows: SellerAccountingRow[], monthStart: Date) {
+  const monthRows = rows.filter((row) => row.createdAt >= monthStart);
+  const sum = (items: SellerAccountingRow[], key: keyof Omit<SellerAccountingRow, 'createdAt'>) =>
+    items.reduce((total, item) => total + item[key], 0);
+  return {
+    allTimeGrossCents: sum(rows, 'grossAmountCents'),
+    allTimeSellerEarningsCents: sum(rows, 'sellerEarningsCents'),
+    allTimePlatformFeeCents: sum(rows, 'platformFeeCents'),
+    allTimeStripeProcessingFeeCents: sum(rows, 'stripeProcessingFeeCents'),
+    monthGrossCents: sum(monthRows, 'grossAmountCents'),
+    monthSellerEarningsCents: sum(monthRows, 'sellerEarningsCents'),
+    monthPlatformFeeCents: sum(monthRows, 'platformFeeCents'),
+    monthStripeProcessingFeeCents: sum(monthRows, 'stripeProcessingFeeCents'),
+  };
+}
+
 export type AdminPayoutSummary = {
   accountState: 'no_sales' | 'setup_needed' | 'stripe_review' | 'ready';
   connectedAccount: string | null;

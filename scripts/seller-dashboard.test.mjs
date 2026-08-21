@@ -34,4 +34,30 @@ assert.deepEqual(dashboard.buildAdminPayoutSummary({
   latestSafeError: null,
 });
 
+assert.deepEqual(dashboard.summarizeSellerAccounting([
+  {
+    grossAmountCents: 18_400,
+    platformFeeCents: 7_360,
+    stripeProcessingFeeCents: 0,
+    sellerEarningsCents: 11_040,
+    createdAt: new Date('2026-07-01T00:00:00.000Z'),
+  },
+  {
+    grossAmountCents: 18_400,
+    platformFeeCents: 7_360,
+    stripeProcessingFeeCents: 840,
+    sellerEarningsCents: 10_200,
+    createdAt: new Date('2026-08-20T00:00:00.000Z'),
+  },
+], new Date('2026-08-01T00:00:00.000Z')), {
+  allTimeGrossCents: 36_800,
+  allTimeSellerEarningsCents: 21_240,
+  allTimePlatformFeeCents: 14_720,
+  allTimeStripeProcessingFeeCents: 840,
+  monthGrossCents: 18_400,
+  monthSellerEarningsCents: 10_200,
+  monthPlatformFeeCents: 7_360,
+  monthStripeProcessingFeeCents: 840,
+});
+
 console.log('seller dashboard core tests passed');

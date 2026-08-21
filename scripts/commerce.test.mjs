@@ -25,10 +25,13 @@ try {
 
   const {
     CHECKOUT_VERSION,
+    LEGACY_CHECKOUT_VERSION,
     PURCHASE_UNIT,
     checkoutSessionParams,
+    finalizeRevenueWithStripeFeeCents,
     paidListingSession,
     purchaseAccounting,
+    purchaseAccountingPending,
     quoteListing,
     splitForCheckoutVersion,
     splitRevenueCents,
@@ -52,9 +55,25 @@ try {
     platformFeeCents: 1_350,
     sellerShareBps: 7_000,
   });
+  assert.deepEqual(finalizeRevenueWithStripeFeeCents(18_400, 840), {
+    grossAmountCents: 18_400,
+    sellerEarningsCents: 10_200,
+    platformFeeCents: 7_360,
+    sellerShareBps: 6_000,
+    stripeProcessingFeeCents: 840,
+  });
+  assert.deepEqual(finalizeRevenueWithStripeFeeCents(1_000, 50, 7_000), {
+    grossAmountCents: 1_000,
+    sellerEarningsCents: 650,
+    platformFeeCents: 300,
+    sellerShareBps: 7_000,
+    stripeProcessingFeeCents: 50,
+  });
+  assert.throws(() => finalizeRevenueWithStripeFeeCents(100, 61), /cannot exceed/i);
   assert.equal(splitForCheckoutVersion(4_500, CHECKOUT_VERSION).sellerEarningsCents, 2_700);
+  assert.equal(splitForCheckoutVersion(4_500, LEGACY_CHECKOUT_VERSION).sellerEarningsCents, 2_700);
   assert.equal(splitForCheckoutVersion(4_500, null).sellerEarningsCents, 2_700);
-  assert.throws(() => splitForCheckoutVersion(4_500, '3'), /Unsupported checkout version/);
+  assert.throws(() => splitForCheckoutVersion(4_500, '4'), /Unsupported checkout version/);
   assert.deepEqual(
     purchaseAccounting({
       amount: 45,
@@ -68,8 +87,29 @@ try {
       sellerEarningsCents: 2_700,
       platformFeeCents: 1_800,
       sellerShareBps: 6_000,
+      stripeProcessingFeeCents: 0,
     },
   );
+  // Existing live snapshots are contractual. Do not deduct a fee when the new
+  // field is null, including Ritvik's and Joyce's already-recorded sales.
+  assert.equal(purchaseAccounting({
+    amount: 184,
+    grossAmountCents: 18_400,
+    sellerEarningsCents: 11_040,
+    platformFeeCents: 7_360,
+    sellerShareBps: 6_000,
+    stripeProcessingFeeCents: null,
+    checkoutVersion: null,
+  }).sellerEarningsCents, 11_040);
+  assert.equal(purchaseAccounting({
+    amount: 85,
+    grossAmountCents: 8_500,
+    sellerEarningsCents: 5_100,
+    platformFeeCents: 3_400,
+    sellerShareBps: 6_000,
+    stripeProcessingFeeCents: null,
+    checkoutVersion: null,
+  }).sellerEarningsCents, 5_100);
   assert.deepEqual(
     purchaseAccounting({
       amount: 45,
@@ -83,8 +123,36 @@ try {
       sellerEarningsCents: 2_700,
       platformFeeCents: 1_800,
       sellerShareBps: 6_000,
+      stripeProcessingFeeCents: 0,
     },
   );
+  assert.deepEqual(
+    purchaseAccounting({
+      amount: 184,
+      grossAmountCents: 18_400,
+      sellerEarningsCents: 10_200,
+      platformFeeCents: 7_360,
+      stripeProcessingFeeCents: 840,
+      sellerShareBps: 6_000,
+      checkoutVersion: CHECKOUT_VERSION,
+    }),
+    {
+      grossAmountCents: 18_400,
+      sellerEarningsCents: 10_200,
+      platformFeeCents: 7_360,
+      sellerShareBps: 6_000,
+      stripeProcessingFeeCents: 840,
+    },
+  );
+  assert.equal(purchaseAccountingPending({
+    amount: 184,
+    grossAmountCents: 18_400,
+    sellerEarningsCents: null,
+    platformFeeCents: 7_360,
+    stripeProcessingFeeCents: null,
+    sellerShareBps: 6_000,
+    checkoutVersion: CHECKOUT_VERSION,
+  }), true);
   assert.throws(
     () => purchaseAccounting({
       amount: 45,
@@ -254,9 +322,16 @@ try {
   assert.equal(
     paidListingSession({
       ...validSession,
-      metadata: { ...validSession.metadata, checkoutVersion: '3' },
+      metadata: { ...validSession.metadata, checkoutVersion: '4' },
     }).ok,
     false,
+  );
+  assert.equal(
+    paidListingSession({
+      ...validSession,
+      metadata: { ...validSession.metadata, checkoutVersion: LEGACY_CHECKOUT_VERSION },
+    }).ok,
+    true,
   );
   assert.equal(
     paidListingSession({ ...validSession, customer_details: { email: '' }, customer_email: null }).ok,
