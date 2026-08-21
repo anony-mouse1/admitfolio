@@ -1,24 +1,50 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 
 export function GuideHeader() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <header>
-      <nav className="nav" aria-label="Main navigation">
-        <Link className="logo" href="/">
-          <span className="logo-word">Admitfolio</span>
-          <span className="logo-dot" aria-hidden="true" />
-        </Link>
-        <div className="nav-links">
-          <Link href="/#browse">Browse essays</Link>
-          <Link href="/guides">Blog</Link>
-          <Link href="/#sell">Sell your essays</Link>
-        </div>
-        <div className="nav-cta">
-          <Link className="login" href="/?login=1">Seller login</Link>
-          <Link className="btn-primary" href="/#browse">Browse essays</Link>
-        </div>
-      </nav>
-    </header>
+    <nav className="nav" aria-label="Main navigation">
+      <Link className="logo" href="/">
+        <div className="logo-word">Admitfolio</div>
+        <div className="logo-dot" aria-hidden="true" />
+      </Link>
+      <div className="nav-links">
+        <Link href="/#browse">Browse essays</Link>
+        <Link href="/#featured">Featured</Link>
+        <Link href="/#sell">Sell your essays</Link>
+      </div>
+      <div className="nav-cta">
+        <Link className="login" href="/?login=1"><span className="login-prefix">Seller </span>login</Link>
+        <button className="btn-primary" type="button" onClick={() => window.location.assign('/?matches=1')}>
+          Find my matches
+        </button>
+        <button
+          type="button"
+          className={`nav-burger${menuOpen ? ' open' : ''}`}
+          aria-label="Menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span />
+          <span />
+        </button>
+      </div>
+      {menuOpen && (
+        <>
+          <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)} />
+          <div className="nav-menu">
+            <Link href="/#browse" onClick={() => setMenuOpen(false)}>Browse essays</Link>
+            <Link href="/#featured" onClick={() => setMenuOpen(false)}>Featured</Link>
+            <Link href="/?matches=1" onClick={() => setMenuOpen(false)}>Find my matches</Link>
+            <Link href="/?login=1" onClick={() => setMenuOpen(false)}>Seller login</Link>
+          </div>
+        </>
+      )}
+    </nav>
   );
 }
 

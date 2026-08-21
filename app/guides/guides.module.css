@@ -4,65 +4,6 @@
   background: #fff;
 }
 
-.page > :global(header) {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  border-bottom: 1px solid rgba(230, 226, 220, 0.75);
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(14px);
-}
-
-.page > :global(header) :global(.nav) {
-  position: static;
-  width: min(1050px, calc(100% - 40px));
-  min-height: 78px;
-  margin: 0 auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  backdrop-filter: none;
-}
-
-.page > :global(header) :global(.logo-word) {
-  font-size: 28px;
-}
-
-.page > :global(header) :global(.nav-links),
-.page > :global(header) :global(.nav-cta) {
-  gap: 28px;
-}
-
-.page > :global(header) :global(.nav-links a),
-.page > :global(header) :global(.nav-cta a) {
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.page > :global(header) :global(.nav .btn-primary) {
-  min-height: 43px;
-  padding: 0 20px;
-  border-radius: 10px;
-  color: #fff;
-  box-shadow: 0 7px 18px rgba(135, 35, 52, 0.18);
-}
-
-.page > :global(footer) :global(.foot-inner) {
-  max-width: 1050px;
-  padding: 55px 0 27px;
-}
-
-.page > :global(footer) :global(.foot-grid) {
-  grid-template-columns: 1.5fr 0.7fr 0.7fr;
-  gap: 48px;
-}
-
-.page > :global(footer) :global(.foot-bottom) {
-  margin-top: 46px;
-  padding-top: 22px;
-}
-
 .hero {
   width: min(1200px, 100%);
   margin: 0 auto;
@@ -946,22 +887,7 @@ a.guideCard:hover {
   }
 }
 
-@media (min-width: 761px) {
-  .page > :global(header) :global(.nav-links) {
-    display: flex;
-  }
-}
-
 @media (max-width: 760px) {
-  .page > :global(header) :global(.nav) {
-    min-height: 64px;
-  }
-
-  .page > :global(header) :global(.nav-links),
-  .page > :global(header) :global(.login) {
-    display: none;
-  }
-
   .blogIndexMain {
     padding-top: 52px;
   }
@@ -978,13 +904,6 @@ a.guideCard:hover {
     height: 235px;
   }
 
-  .page > :global(footer) :global(.foot-grid) {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .page > :global(footer) :global(.foot-grid > div:first-child) {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 600px) {
@@ -1102,18 +1021,8 @@ a.guideCard:hover {
 }
 
 @media (max-width: 450px) {
-  .page > :global(header) :global(.nav),
-  .blogIndexMain,
-  .page > :global(footer) :global(.foot-inner) {
+  .blogIndexMain {
     width: calc(100% - 28px);
-  }
-
-  .page > :global(header) :global(.nav) {
-    padding: 0;
-  }
-
-  .page > :global(header) :global(.nav .btn-primary) {
-    padding: 0 16px;
   }
 
   .blogIndexHero h1 {
@@ -1142,8 +1051,4 @@ a.guideCard:hover {
     font-size: 21px;
   }
 
-  .page > :global(footer) :global(.foot-bottom) {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }

@@ -1393,7 +1393,9 @@ export default function Page() {
     document.body.classList.add(q.get('layout') === 'backdrop' ? 'layout-backdrop' : 'layout-frame');
     if (q.get('bg') === 'soft') document.body.classList.add('bg-soft');
     let t: ReturnType<typeof setTimeout> | undefined;
-    if (q.get('payouts')) {
+    if (q.get('matches')) {
+      t = setTimeout(() => openMatcher(), 200);
+    } else if (q.get('payouts')) {
       t = setTimeout(() => {
         fetch('/api/seller/session')
           .then(async (response) => {
@@ -1410,7 +1412,7 @@ export default function Page() {
       document.body.classList.remove('layout-frame', 'layout-backdrop', 'bg-soft');
       if (t) clearTimeout(t);
     };
-  }, [openDashboard, openLogin]);
+  }, [openDashboard, openLogin, openMatcher]);
 
   // Escape closes the top-most overlay.
   useEffect(() => {

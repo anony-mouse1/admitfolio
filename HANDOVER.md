@@ -1,4 +1,4 @@
-# Handover: Studley-style Blog index
+# Handover: Shared navbar on guide pages
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
@@ -6,51 +6,49 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 Branch: `codex/complete-essay-guides`
 
-Base: `origin/main` at `00a8d32`, after the full seven-guide library was
-merged and deployed.
+Base: `origin/main` at `62976ef`, after the seven-guide library and redesigned
+Blog index were merged and deployed.
 
 Worktree: `/private/tmp/admitfolio-all-guides`
 
 ## Why this change
 
-Fatimah approved `public/blog-studley-inspired-mockup.html` and asked for the
-real Blog section to match that StudyFetch and Studley-inspired direction.
+The guide pages used a separate `GuideHeader` structure plus guide-only CSS
+overrides. That made their navbar narrower, white, and visually inconsistent
+with the marketplace homepage.
 
 ## What changed
 
-- Rebuilt the real `/guides` index around the approved centered Blog intro,
-  topic chips, and two-column article grid.
-- Added the approved visual cover artwork for all seven guides using CSS, so
-  there are no third-party image requests or licensing dependencies.
-- Kept all seven real guide routes, titles, descriptions, metadata, canonical
-  URL, and article content intact.
-- Updated the guide navigation from “Featured” to “Blog” so readers can return
-  to the Blog index from any guide.
-- Scoped the header, index, card, and footer styling to the guide section. The
-  marketplace homepage and seller flows were not changed.
-- Added a one-column phone layout with the same artwork and card hierarchy.
+- Rebuilt `GuideHeader` with the homepage navbar structure and global design
+  system classes.
+- Restored the homepage links: Browse essays, Featured, Sell your essays,
+  Seller login, and the rounded Find my matches action.
+- Added the same mobile menu behavior to all guide pages.
+- Removed guide-only navbar and footer overrides from the Blog stylesheet.
+- Added `?matches=1` support on the homepage so the guide navbar action opens
+  the real in-page matcher after navigation.
+- Left the approved Blog index cards and all seven article layouts unchanged.
 
 ## Verification
 
-- `tsc --noEmit` passed.
+- `git diff --check` and `tsc --noEmit` passed.
 - Direct `next build` passed with harmless build-only placeholder values. No
   migration, database access, or production write ran.
-- The real local `/guides` page renders seven linked article cards and four
-  topic chips.
-- Desktop and 390px mobile layouts were visually checked in the visible browser.
-- The page has no horizontal overflow or browser console errors at either size.
-- The mobile header hides secondary navigation and keeps the primary Browse
-  essays button visible.
+- Homepage and guide navbar computed styles match at desktop size, including
+  background, height, padding, logo typography, and primary action styling.
+- The guide navbar and mobile menu were visually checked in the visible browser.
+- At 390px, the menu contains all four actions and has no horizontal overflow.
+- Find my matches navigates to the homepage and opens the real matcher.
 
 ## What is left
 
-1. Push the new index design to `main` only after Fatimah asks.
-2. Wait for Vercel and verify the live `/guides` page after deployment.
+1. Push the navbar fix to `main`.
+2. Wait for Vercel and verify the homepage and guide navbar live.
 
-No migration, backfill, or new asset upload is needed.
+No migration, backfill, or production data write is needed.
 
 ## Unrelated workspace state
 
 The original workspace has pre-existing edits for cards, the essay reader,
 school naming, checkout previews, and other work. They were not touched or
-staged. This Blog work is isolated in the clean worktree above.
+staged. This navbar fix is isolated in the clean worktree above.
