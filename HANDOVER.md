@@ -14,7 +14,8 @@ Worktree: `/private/tmp/admitfolio-all-guides`
 
 The Blog index displayed five useful guide topics as “Coming next.” Fatimah
 asked for complete guides for every card while keeping the approved Admitfolio
-Blog design.
+Blog design. She then asked for one more guide about taking inspiration from
+other students' essays without copying them.
 
 ## What changed
 
@@ -24,6 +25,8 @@ Blog design.
 - Added a research-based Why This College supplement guide.
 - Added a college essay formatting and submission guide.
 - Added a Common App word-count and revision guide.
+- Added a guide to studying other students' essays for craft, with an
+  inspiration loop and originality check.
 - Gave every new page its own title, description, canonical URL, Open Graph
   article data, and Article structured data.
 - Linked each Blog card to its finished article and replaced “Coming next” with
@@ -38,7 +41,7 @@ Blog design.
 - `tsc --noEmit` passed.
 - Direct `next build` passed with harmless build-only placeholder values. No
   migration, database access, or production write ran.
-- All six guide cards have unique routes and all six article routes are
+- All seven guide cards have unique routes and all seven article routes are
   statically generated.
 - Each article was opened locally and checked for its title, H1, canonical URL,
   Article structured data, and horizontal overflow.

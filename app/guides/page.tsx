@@ -19,6 +19,13 @@ export const metadata: Metadata = {
 
 const guides = [
   {
+    href: '/guides/how-to-take-inspiration-from-college-essays',
+    category: 'Essay examples',
+    readTime: '7 min',
+    title: 'The best way to take inspiration from other college student essays',
+    description: 'Study voice, structure, and reflection without copying someone else\'s words or story.',
+  },
+  {
     href: '/guides/uc-piq-examples',
     category: 'UC applications',
     readTime: '10 min',
