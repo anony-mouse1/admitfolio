@@ -3,7 +3,9 @@ import { SELLER_SHARE_BPS, UNSNAPSHOTTED_SELLER_SHARE_BPS } from './pricing';
 import { sameSchool, schoolShortName } from './schools';
 
 export const MONEY_BASIS_POINTS = 10_000;
-export const CHECKOUT_VERSION = '2';
+export const LEGACY_CHECKOUT_VERSION = '2';
+export const STRIPE_FEE_CHECKOUT_VERSION = '3';
+export const CHECKOUT_VERSION = STRIPE_FEE_CHECKOUT_VERSION;
 export const PURCHASE_UNIT = 'listing';
 
 export type RevenueSplit = {
@@ -11,6 +13,10 @@ export type RevenueSplit = {
   sellerEarningsCents: number;
   platformFeeCents: number;
   sellerShareBps: number;
+};
+
+export type FinalizedRevenueSplit = RevenueSplit & {
+  stripeProcessingFeeCents: number;
 };
 
 // Stripe amounts are integer cents. Calculate the split with integer arithmetic
@@ -40,16 +46,42 @@ export function splitRevenueCents(
   };
 }
 
+// Checkout v3 keeps the 40% Admitfolio fee fixed, then subtracts the actual
+// processing fee reported by Stripe from the seller's 60% share. The fee is
+// snapshotted in cents so the final transfer never depends on a guessed rate.
+export function finalizeRevenueWithStripeFeeCents(
+  grossAmountCents: number,
+  stripeProcessingFeeCents: number,
+  sellerShareBps = SELLER_SHARE_BPS,
+): FinalizedRevenueSplit {
+  if (!Number.isSafeInteger(stripeProcessingFeeCents) || stripeProcessingFeeCents < 0) {
+    throw new Error('Stripe processing fee must be a non-negative integer number of cents.');
+  }
+  const base = splitRevenueCents(grossAmountCents, sellerShareBps);
+  if (stripeProcessingFeeCents > base.sellerEarningsCents) {
+    throw new Error('Stripe processing fee cannot exceed the seller share.');
+  }
+  return {
+    ...base,
+    sellerEarningsCents: base.sellerEarningsCents - stripeProcessingFeeCents,
+    stripeProcessingFeeCents,
+  };
+}
+
 export function splitForCheckoutVersion(
   grossAmountCents: number,
   checkoutVersion: string | null,
 ): RevenueSplit {
-  if (checkoutVersion && checkoutVersion !== CHECKOUT_VERSION) {
+  if (
+    checkoutVersion &&
+    checkoutVersion !== LEGACY_CHECKOUT_VERSION &&
+    checkoutVersion !== STRIPE_FEE_CHECKOUT_VERSION
+  ) {
     throw new Error('Unsupported checkout version.');
   }
   return splitRevenueCents(
     grossAmountCents,
-    checkoutVersion === CHECKOUT_VERSION ? SELLER_SHARE_BPS : UNSNAPSHOTTED_SELLER_SHARE_BPS,
+    checkoutVersion ? SELLER_SHARE_BPS : UNSNAPSHOTTED_SELLER_SHARE_BPS,
   );
 }
 
@@ -59,14 +91,18 @@ export type StoredPurchaseAccounting = {
   sellerEarningsCents: number | null;
   platformFeeCents: number | null;
   sellerShareBps: number | null;
+  stripeProcessingFeeCents?: number | null;
+  checkoutVersion?: string | null;
 };
 
 // Prototype rows only have a whole-dollar `amount`. There were no live sales
-// before 60/40, so those rows use the same split. New rows must carry a complete immutable cents snapshot.
+// before 60/40, so those rows use the same split. Legacy complete snapshots
+// intentionally treat the Stripe fee as zero so their seller earnings never
+// change. Checkout v3 is complete only after its actual Stripe fee is stored.
 // Never silently blend a partial/corrupt snapshot with today's rate.
 export function purchaseAccounting(
   purchase: StoredPurchaseAccounting,
-): RevenueSplit {
+): FinalizedRevenueSplit {
   const values = [
     purchase.grossAmountCents,
     purchase.sellerEarningsCents,
@@ -76,12 +112,16 @@ export function purchaseAccounting(
   if (values.every((value) => value == null)) {
     const legacyGrossCents = Math.max(0, purchase.amount * 100);
     return legacyGrossCents > 0
-      ? splitRevenueCents(legacyGrossCents, UNSNAPSHOTTED_SELLER_SHARE_BPS)
+      ? {
+          ...splitRevenueCents(legacyGrossCents, UNSNAPSHOTTED_SELLER_SHARE_BPS),
+          stripeProcessingFeeCents: 0,
+        }
       : {
           grossAmountCents: 0,
           sellerEarningsCents: 0,
           platformFeeCents: 0,
           sellerShareBps: UNSNAPSHOTTED_SELLER_SHARE_BPS,
+          stripeProcessingFeeCents: 0,
         };
   }
   if (!values.every((value) => value != null)) {
@@ -92,18 +132,43 @@ export function purchaseAccounting(
   const sellerEarningsCents = purchase.sellerEarningsCents as number;
   const platformFeeCents = purchase.platformFeeCents as number;
   const sellerShareBps = purchase.sellerShareBps as number;
+  const stripeProcessingFeeCents = purchase.stripeProcessingFeeCents ?? 0;
   if (
-    ![grossAmountCents, sellerEarningsCents, platformFeeCents, sellerShareBps].every(Number.isSafeInteger) ||
+    ![
+      grossAmountCents,
+      sellerEarningsCents,
+      platformFeeCents,
+      sellerShareBps,
+      stripeProcessingFeeCents,
+    ].every(Number.isSafeInteger) ||
     grossAmountCents < 1 ||
     sellerEarningsCents < 0 ||
     platformFeeCents < 0 ||
-    sellerEarningsCents + platformFeeCents !== grossAmountCents ||
+    stripeProcessingFeeCents < 0 ||
+    sellerEarningsCents + platformFeeCents + stripeProcessingFeeCents !== grossAmountCents ||
     sellerShareBps < 0 ||
     sellerShareBps > MONEY_BASIS_POINTS
   ) {
     throw new Error('Purchase has an invalid accounting snapshot.');
   }
-  return { grossAmountCents, sellerEarningsCents, platformFeeCents, sellerShareBps };
+  return {
+    grossAmountCents,
+    sellerEarningsCents,
+    platformFeeCents,
+    sellerShareBps,
+    stripeProcessingFeeCents,
+  };
+}
+
+export function purchaseAccountingPending(purchase: StoredPurchaseAccounting): boolean {
+  return Boolean(
+    purchase.checkoutVersion === STRIPE_FEE_CHECKOUT_VERSION &&
+      purchase.grossAmountCents != null &&
+      purchase.platformFeeCents != null &&
+      purchase.sellerShareBps != null &&
+      purchase.sellerEarningsCents == null &&
+      purchase.stripeProcessingFeeCents == null,
+  );
 }
 
 export type CheckoutListing = {
@@ -305,12 +370,16 @@ export function paidListingSession(session: StripeSessionLike): PaidSessionResul
   if (metadata.purchaseUnit && metadata.purchaseUnit !== PURCHASE_UNIT) {
     return { ok: false, message: 'Paid session has the wrong purchase unit.' };
   }
-  if (checkoutVersion && checkoutVersion !== CHECKOUT_VERSION) {
+  if (
+    checkoutVersion &&
+    checkoutVersion !== LEGACY_CHECKOUT_VERSION &&
+    checkoutVersion !== STRIPE_FEE_CHECKOUT_VERSION
+  ) {
     return { ok: false, message: 'Paid session has an unsupported checkout version.' };
   }
 
   const quotedAmount = metadata.amountCents ? Number(metadata.amountCents) : null;
-  if (checkoutVersion === CHECKOUT_VERSION) {
+  if (checkoutVersion) {
     if (metadata.purchaseUnit !== PURCHASE_UNIT) {
       return { ok: false, message: 'Paid session is missing its listing purchase unit.' };
     }

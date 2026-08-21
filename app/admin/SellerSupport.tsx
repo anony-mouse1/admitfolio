@@ -37,6 +37,7 @@ type DashboardListing = {
   grossCents: number;
   sellerEarningsCents: number;
   platformFeeCents: number;
+  stripeProcessingFeeCents: number;
   essays: { id: string; prompt: string; question: string | null; price: number | null }[];
 };
 type SellerPreview = {
@@ -53,14 +54,17 @@ type SellerPreview = {
     allTimeGrossCents: number;
     allTimeSellerEarningsCents: number;
     allTimePlatformFeeCents: number;
+    allTimeStripeProcessingFeeCents: number;
     monthGrossCents: number;
     monthSellerEarningsCents: number;
+    monthStripeProcessingFeeCents: number;
     payouts: {
       status: PayoutStatus;
       setupAvailable: boolean;
       liveSaleCount: number;
       pendingCents: number;
       paidCents: number;
+      accountingPendingCount?: number;
     };
   };
   adminPayout: AdminPayout;
@@ -96,15 +100,18 @@ const PREVIEW_DASHBOARD: SellerPreview = {
       grossCents: index === 0 ? 18_400 : 0,
       sellerEarningsCents: index === 0 ? 11_040 : 0,
       platformFeeCents: index === 0 ? 7_360 : 0,
+      stripeProcessingFeeCents: 0,
       essays: [{ id: `preview-essay-${index}`, prompt: 'Personal statement', question: null, price: null }],
     })),
     sellerShareBps: 6_000,
     allTimeGrossCents: 18_400,
     allTimeSellerEarningsCents: 11_040,
     allTimePlatformFeeCents: 7_360,
+    allTimeStripeProcessingFeeCents: 0,
     monthGrossCents: 18_400,
     monthSellerEarningsCents: 11_040,
-    payouts: { status: 'setup_required', setupAvailable: true, liveSaleCount: 1, pendingCents: 11_040, paidCents: 0 },
+    monthStripeProcessingFeeCents: 0,
+    payouts: { status: 'setup_required', setupAvailable: true, liveSaleCount: 1, pendingCents: 11_040, paidCents: 0, accountingPendingCount: 0 },
   },
   adminPayout: PREVIEW_SELLER.payout,
 };
@@ -311,9 +318,9 @@ function SellerDashboardPreview({ preview, onClose }: { preview: SellerPreview; 
             <section>
               <h2 className={styles.previewHeading}>Earnings overview</h2>
               <div className={styles.previewStats}>
-                <PreviewStat label="Total net earnings" value={money(dashboard.allTimeSellerEarningsCents)} detail="After platform fees · all time" />
+                <PreviewStat label="Total net earnings" value={money(dashboard.allTimeSellerEarningsCents)} detail="After platform and transaction fees · all time" />
                 <PreviewStat label="This month (net)" value={money(dashboard.monthSellerEarningsCents)} detail={`Gross ${money(dashboard.monthGrossCents)}`} />
-                <PreviewStat label="Pending payout" value={money(dashboard.payouts.pendingCents)} detail={payoutLabel[dashboard.payouts.status]} />
+                <PreviewStat label="Pending payout" value={money(dashboard.payouts.pendingCents)} detail={dashboard.payouts.accountingPendingCount ? 'Finalizing Stripe transaction fee' : payoutLabel[dashboard.payouts.status]} />
                 <PreviewStat label="Total sales" value={String(dashboard.payouts.liveSaleCount)} detail={`Across ${published} live listing${published === 1 ? '' : 's'}`} />
               </div>
 
@@ -322,7 +329,9 @@ function SellerDashboardPreview({ preview, onClose }: { preview: SellerPreview; 
                   <div>
                     <span>Your first sale</span>
                     <h3>Congrats, you made your first sale!</h3>
-                    <p>You have <b>{money(dashboard.payouts.pendingCents)}</b> waiting. Set up your payout once so Stripe can send this and future earnings to your bank.</p>
+                    <p>{dashboard.payouts.accountingPendingCount
+                      ? 'Stripe is finalizing the transaction fee for this sale. The exact payout will appear shortly.'
+                      : <>You have <b>{money(dashboard.payouts.pendingCents)}</b> waiting. Set up your payout once so Stripe can send this and future earnings to your bank.</>}</p>
                     <small>Identity and bank details go directly to Stripe. Admitfolio never stores them.</small>
                   </div>
                   <button type="button" disabled title="Disabled in admin support mode">Set up my payout</button>
@@ -338,8 +347,9 @@ function SellerDashboardPreview({ preview, onClose }: { preview: SellerPreview; 
               <div className={styles.revenueBreakdown}>
                 <h3>All-time revenue breakdown</h3>
                 <div><span>Gross sales</span><b>{money(dashboard.allTimeGrossCents)}</b></div>
-                <div><span>Platform fees ({(100 - dashboard.sellerShareBps / 100).toFixed(0)}%)</span><b>− {money(dashboard.allTimePlatformFeeCents)}</b></div>
-                <div className={styles.revenueNet}><span>Your earnings ({(dashboard.sellerShareBps / 100).toFixed(0)}%)</span><b>{money(dashboard.allTimeSellerEarningsCents)}</b></div>
+                <div><span>Admitfolio fee ({(100 - dashboard.sellerShareBps / 100).toFixed(0)}%)</span><b>− {money(dashboard.allTimePlatformFeeCents)}</b></div>
+                <div><span>Stripe transaction fee</span><b>− {money(dashboard.allTimeStripeProcessingFeeCents)}</b></div>
+                <div className={styles.revenueNet}><span>Your payout</span><b>{money(dashboard.allTimeSellerEarningsCents)}</b></div>
               </div>
             </section>
 
@@ -360,8 +370,9 @@ function SellerDashboardPreview({ preview, onClose }: { preview: SellerPreview; 
                     <p>{listing.essays.length} essay{listing.essays.length === 1 ? '' : 's'} · {listing.sales} sale{listing.sales === 1 ? '' : 's'}</p>
                     <div className={styles.listingMoney}>
                       <span>Gross <b>{money(listing.grossCents)}</b></span>
-                      <span>Platform fee <b>{money(listing.platformFeeCents)}</b></span>
-                      <span>Net <b>{money(listing.sellerEarningsCents)}</b></span>
+                      <span>Admitfolio fee <b>{money(listing.platformFeeCents)}</b></span>
+                      <span>Stripe fee <b>{money(listing.stripeProcessingFeeCents)}</b></span>
+                      <span>Payout <b>{money(listing.sellerEarningsCents)}</b></span>
                     </div>
                     {listing.adminNote && <small>Review note: {listing.adminNote}</small>}
                   </article>

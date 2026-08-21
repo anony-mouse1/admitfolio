@@ -81,6 +81,21 @@ assert.equal(mod.sellerReversalTargetCents({
   sellerEarningsCents: 2700,
   sellerShareBps: 6000,
 }), 2700);
+
+// Future purchases transfer the 60% share after the actual Stripe fee. A full
+// refund reverses the final payout, never the larger pre-fee share.
+assert.equal(mod.sellerReversalTargetCents({
+  affectedGrossCents: 18_400,
+  grossAmountCents: 18_400,
+  sellerEarningsCents: 10_200,
+  sellerShareBps: 6_000,
+}), 10_200);
+assert.equal(mod.sellerReversalTargetCents({
+  affectedGrossCents: 9_200,
+  grossAmountCents: 18_400,
+  sellerEarningsCents: 10_200,
+  sellerShareBps: 6_000,
+}), 5_520);
 assert.equal(mod.sellerReversalTargetCents({
   affectedGrossCents: 1000,
   grossAmountCents: 4500,

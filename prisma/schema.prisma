@@ -175,9 +175,11 @@ model Purchase {
   itemLabel                       String? // checkout snapshot, e.g. "Stanford · 4 essays"
   amount                          Int // legacy whole-dollar amount, retained for older readers
   grossAmountCents                Int? // exact Stripe amount for all new purchases
-  sellerEarningsCents             Int? // exact seller entitlement fixed at purchase time
-  platformFeeCents                Int? // exact platform share; sums with sellerEarningsCents
+  sellerEarningsCents             Int? // immutable final seller transfer after all snapshotted fees
+  platformFeeCents                Int? // immutable Admitfolio share, currently 40% of gross
+  stripeProcessingFeeCents        Int? // immutable actual Stripe fee; null on legacy purchases
   sellerShareBps                  Int? // split snapshot; 6000 means 60%
+  checkoutVersion                 String? // v3 waits for Stripe's actual fee before finalizing seller earnings
   currency                        String? // lowercase ISO currency, currently usd
   stripeSessionId                 String?     @unique // idempotency key for Stripe webhook retries
   stripePaymentIntentId           String?     @unique // reconciliation/refund reference

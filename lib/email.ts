@@ -44,11 +44,26 @@ export async function sendLoginCode(email: string, code: string): Promise<SendRe
 // work before they have earned anything.
 export async function sendSaleNotification(
   email: string,
-  opts: { itemLabel: string; amount: number; net: number; firstSale: boolean },
+  opts: {
+    itemLabel: string;
+    grossAmountCents: number;
+    platformFeeCents: number;
+    stripeProcessingFeeCents: number;
+    sellerPayoutCents: number;
+    firstSale: boolean;
+  },
 ): Promise<SendResult> {
-  const { itemLabel, amount, net, firstSale } = opts;
+  const {
+    itemLabel,
+    grossAmountCents,
+    platformFeeCents,
+    stripeProcessingFeeCents,
+    sellerPayoutCents,
+    firstSale,
+  } = opts;
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   if (!RESEND_API_KEY) {
-    console.log(`[email:dev] sale notification for ${email}: ${itemLabel} $${amount} (net $${net})${firstSale ? ' FIRST SALE - Stripe payout setup action' : ''}`);
+    console.log(`[email:dev] sale notification for ${email}: ${itemLabel} ${money(grossAmountCents)} (payout ${money(sellerPayoutCents)})${firstSale ? ' FIRST SALE - Stripe payout setup action' : ''}`);
     return { ok: true, simulated: true };
   }
   const actionBox = firstSale
@@ -56,7 +71,7 @@ export async function sendSaleNotification(
       <div style="margin:18px 0;padding:14px 16px;background:#faf3f4;border:1px solid #e6c9ce;border-radius:12px">
         <div style="font-size:14px;font-weight:700;color:#7d1d2d">Congrats, you made your first sale!</div>
         <p style="color:#56524a;font-size:14px;line-height:1.6;margin:6px 0 0">
-          You earned <b>$${net.toFixed(2)}</b>. Please set up your payout so Stripe
+          Your payout is <b>${money(sellerPayoutCents)}</b>. Please set up your payout so Stripe
           can send your earnings to your bank. You only have to do this once.
         </p>
         <a href="https://admitfolio.com/?login=1&amp;payouts=setup" style="display:inline-block;margin-top:10px;background:#7d1d2d;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;padding:9px 18px">Set up my payout</a>
@@ -71,9 +86,14 @@ export async function sendSaleNotification(
       <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
       <h2 style="margin:22px 0 6px">${firstSale ? 'Congrats, you made your first sale! 🎉' : 'You made a sale! 🎉'}</h2>
       <p style="color:#56524a;font-size:15px;line-height:1.6">
-        <b>${esc(itemLabel)}</b> just sold for <b>$${amount}</b>.
-        Your share: <b>$${net.toFixed(2)}</b>.
+        <b>${esc(itemLabel)}</b> just sold for <b>${money(grossAmountCents)}</b>.
       </p>
+      <div style="margin:16px 0;border-top:1px solid #ebe6de;border-bottom:1px solid #ebe6de;padding:7px 0">
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:#56524a;font-size:14px"><span>Gross sales</span><b style="color:#1b1a17">${money(grossAmountCents)}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:#56524a;font-size:14px"><span>Admitfolio fee (40%)</span><b style="color:#8a857b">−${money(platformFeeCents)}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:#56524a;font-size:14px"><span>Stripe transaction fee</span><b style="color:#8a857b">−${money(stripeProcessingFeeCents)}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:8px 0 7px;color:#1b1a17;font-size:15px"><strong>Your payout</strong><strong style="color:#7d1d2d">${money(sellerPayoutCents)}</strong></div>
+      </div>
       ${actionBox}
       <p style="color:#8a857b;font-size:13px">See details anytime in your seller dashboard.</p>
     </div>`;
@@ -81,9 +101,13 @@ export async function sendSaleNotification(
     ? 'Congrats, you made your first sale! Set up your payout'
     : `You made a sale: ${itemLabel}`;
   const text =
-    `${itemLabel} just sold for $${amount}. Your share: $${net.toFixed(2)}.\n\n` +
+    `${itemLabel} just sold for ${money(grossAmountCents)}.\n\n` +
+    `Gross sales: ${money(grossAmountCents)}\n` +
+    `Admitfolio fee (40%): -${money(platformFeeCents)}\n` +
+    `Stripe transaction fee: -${money(stripeProcessingFeeCents)}\n` +
+    `Your payout: ${money(sellerPayoutCents)}\n\n` +
     (firstSale
-      ? `Congrats, you made your first sale! You earned $${net.toFixed(2)}. Please set up your payout so Stripe can send your earnings to your bank. You only have to do this once: https://admitfolio.com/?login=1&payouts=setup`
+      ? `Congrats, you made your first sale! Your payout is ${money(sellerPayoutCents)}. Please set up your payout so Stripe can send your earnings to your bank. You only have to do this once: https://admitfolio.com/?login=1&payouts=setup`
       : 'Your earnings are recorded in your seller dashboard. Once payout setup is complete, Stripe sends them automatically to your bank.');
   return send(email, subject, html, text, {
     from: SELLER_FROM,

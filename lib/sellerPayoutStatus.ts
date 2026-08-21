@@ -1,7 +1,7 @@
 import 'server-only';
 import { prisma } from './prisma';
 import { connectedAccountStatus } from './sellerPayoutsCore';
-import { purchaseAccounting } from './commerce';
+import { purchaseAccounting, purchaseAccountingPending } from './commerce';
 
 export async function sellerPayoutStatus(sellerId: string) {
   const [seller, purchases] = await Promise.all([
@@ -23,7 +23,9 @@ export async function sellerPayoutStatus(sellerId: string) {
         grossAmountCents: true,
         sellerEarningsCents: true,
         platformFeeCents: true,
+        stripeProcessingFeeCents: true,
         sellerShareBps: true,
+        checkoutVersion: true,
         stripeTransferId: true,
         sellerTransferredAt: true,
         sellerTransferReversedCents: true,
@@ -32,10 +34,13 @@ export async function sellerPayoutStatus(sellerId: string) {
   ]);
   if (!seller) return null;
 
-  const accounted = purchases.map((purchase) => ({
-    ...purchase,
-    accounting: purchaseAccounting(purchase),
-  }));
+  const accountingPendingCount = purchases.filter(purchaseAccountingPending).length;
+  const accounted = purchases
+    .filter((purchase) => !purchaseAccountingPending(purchase))
+    .map((purchase) => ({
+      ...purchase,
+      accounting: purchaseAccounting(purchase),
+    }));
   const paidCents = accounted.reduce(
     (sum, purchase) => sum + (purchase.sellerTransferredAt
       ? purchase.accounting.sellerEarningsCents - purchase.sellerTransferReversedCents
@@ -59,5 +64,6 @@ export async function sellerPayoutStatus(sellerId: string) {
     liveSaleCount: purchases.length,
     pendingCents,
     paidCents,
+    accountingPendingCount,
   };
 }

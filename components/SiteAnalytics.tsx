@@ -3,6 +3,7 @@
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { redactAnalyticsUrl, redactAnalyticsPath } from '@/lib/redactAnalyticsUrl';
+import { shouldSendBrowserAnalytics } from '@/lib/analyticsPolicy';
 
 // Wraps both Vercel analytics components so neither can ship a buyer's reading
 // token to Vercel. `beforeSend` is a function prop, which a Server Component
@@ -20,12 +21,14 @@ export default function SiteAnalytics() {
     <>
       <Analytics
         beforeSend={(event) => {
+          if (!shouldSendBrowserAnalytics(event.url)) return null;
           const url = redactAnalyticsUrl(event.url);
           return url ? { ...event, url } : null;
         }}
       />
       <SpeedInsights
         beforeSend={(event) => {
+          if (!shouldSendBrowserAnalytics(event.url)) return null;
           const url = redactAnalyticsUrl(event.url);
           if (!url) return null;
           // `route` is a SEPARATE field from `url` and must be scrubbed on its
