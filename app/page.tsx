@@ -131,6 +131,20 @@ type SellerPayouts = {
   pendingCents: number;
   paidCents: number;
   accountingPendingCount?: number;
+  bankPayouts: {
+    stripeBalanceCents: number;
+    paidCents: number;
+    inTransitCents: number;
+    failedCents: number;
+    latest: {
+      id: string;
+      amountCents: number;
+      currency: string;
+      status: 'pending' | 'in_transit' | 'paid' | 'failed' | 'canceled';
+      arrivalDate: string | null;
+      failureMessage: string | null;
+    } | null;
+  };
 };
 
 const essays: Essay[] = [
@@ -203,6 +217,9 @@ const listingTitle = (l: SellerListing) => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
+const payoutDate = (value: string | null | undefined) => value
+  ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  : null;
 
 const eduRe = /^[^@\s]+@[^@\s]+\.edu$/i;
 const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -1295,6 +1312,26 @@ export default function Page() {
 
   const publishedListings = listings.filter((l) => l.status === 'approved');
   const publishedCount = publishedListings.length;
+  const bankPayouts = sellerPayouts?.bankPayouts;
+  const latestBankPayout = bankPayouts?.latest;
+  const bankArrivalDate = payoutDate(latestBankPayout?.arrivalDate);
+  const payoutCard = sellerPayouts?.pendingCents
+    ? {
+      label: 'Pending payout',
+      cents: sellerPayouts.pendingCents,
+      detail: sellerPayouts.status === 'setup_required'
+        ? sellerPayouts.accountingPendingCount ? 'Finalizing Stripe transaction fee' : 'Payout setup needed'
+        : sellerPayouts.status === 'in_review' ? 'Stripe verification in progress' : 'Processing automatically through Stripe',
+    }
+    : bankPayouts?.inTransitCents
+      ? { label: 'Bank payout', cents: bankPayouts.inTransitCents, detail: `In transit${bankArrivalDate ? `. Expected ${bankArrivalDate}` : ''}` }
+      : bankPayouts?.stripeBalanceCents
+        ? { label: 'Stripe balance', cents: bankPayouts.stripeBalanceCents, detail: 'Transferred to Stripe. Bank payout scheduling next.' }
+        : latestBankPayout?.status === 'paid'
+          ? { label: 'Last bank payout', cents: latestBankPayout.amountCents, detail: `Deposited${bankArrivalDate ? ` ${bankArrivalDate}` : ''}` }
+          : latestBankPayout?.status === 'failed'
+            ? { label: 'Bank payout', cents: latestBankPayout.amountCents, detail: 'Deposit failed. Review your payout account in Stripe.' }
+            : { label: 'Pending payout', cents: 0, detail: 'No unpaid earnings' };
 
   async function listingAction(id: string, action: 'takedown' | 'resubmit') {
     try {
@@ -2508,21 +2545,9 @@ export default function Page() {
                 <div className="dash-stat-sub">Gross {fmt(earnings.monthGross)} · {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
               </div>
               <div className="dash-stat-card">
-                <div className="dash-stat-label">Pending payout</div>
-                <div className="dash-stat-value">{fmt(earnings.pendingPayout)}</div>
-                <div className="dash-stat-sub">
-                  {sellerPayouts?.status === 'setup_required'
-                    ? sellerPayouts.accountingPendingCount
-                      ? 'Finalizing Stripe transaction fee'
-                      : 'Payout setup needed'
-                    : sellerPayouts?.status === 'in_review'
-                      ? 'Stripe verification in progress'
-                      : sellerPayouts?.status === 'ready' && earnings.pendingPayout > 0
-                        ? 'Processing automatically through Stripe'
-                        : earnings.pendingPayout > 0
-                          ? 'Recorded and waiting safely'
-                          : 'No unpaid earnings'}
-                </div>
+                <div className="dash-stat-label">{payoutCard.label}</div>
+                <div className="dash-stat-value">{fmt(payoutCard.cents / 100)}</div>
+                <div className="dash-stat-sub">{payoutCard.detail}</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total sales</div>
@@ -2558,6 +2583,57 @@ export default function Page() {
                 <button className="secondary-btn" type="button" onClick={handlePayoutSetup} disabled={payoutSetupBusy}>
                   {payoutSetupBusy ? 'Opening Stripe…' : 'Continue payout setup'}
                 </button>
+              </div>
+            )}
+            {sellerPayouts?.status === 'ready' && bankPayouts && (
+              bankPayouts.stripeBalanceCents > 0 ||
+              bankPayouts.inTransitCents > 0 ||
+              latestBankPayout?.status === 'paid' ||
+              latestBankPayout?.status === 'failed'
+            ) && (
+              <div className={`dash-bank-payout${latestBankPayout?.status === 'failed' ? ' failed' : ''}`} role="status">
+                <div className="dash-bank-payout-head">
+                  <div>
+                    <div className="dash-payout-kicker">Payout setup complete</div>
+                    <div className="dash-payout-title">
+                      {latestBankPayout?.status === 'paid'
+                        ? 'Your payout reached your bank'
+                        : latestBankPayout?.status === 'failed'
+                          ? 'Stripe could not complete your bank payout'
+                          : 'Your payout is moving automatically'}
+                    </div>
+                  </div>
+                  <span className="dash-bank-payout-pill">
+                    {latestBankPayout?.status === 'paid'
+                      ? 'Deposited'
+                      : latestBankPayout?.status === 'failed'
+                        ? 'Action needed'
+                        : bankPayouts.inTransitCents > 0 ? 'In transit' : 'At Stripe'}
+                  </span>
+                </div>
+                <div className="dash-bank-payout-track" aria-label="Bank payout progress">
+                  <div className="dash-bank-payout-step complete">
+                    <span className="dash-bank-payout-dot">✓</span>
+                    <div><strong>Transferred to Stripe</strong><small>{fmt((latestBankPayout?.amountCents || bankPayouts.stripeBalanceCents) / 100)} from your essay sales</small></div>
+                    <b>Complete</b>
+                  </div>
+                  <div className={`dash-bank-payout-step ${latestBankPayout?.status === 'paid' ? 'complete' : latestBankPayout?.status === 'failed' ? 'failed' : 'current'}`}>
+                    <span className="dash-bank-payout-dot">{latestBankPayout?.status === 'paid' ? '✓' : latestBankPayout?.status === 'failed' ? '!' : ''}</span>
+                    <div>
+                      <strong>{latestBankPayout?.status === 'paid' ? 'Deposited in your bank' : latestBankPayout?.status === 'failed' ? 'Bank payout needs attention' : 'On the way to your bank'}</strong>
+                      <small>{latestBankPayout?.status === 'failed'
+                        ? latestBankPayout.failureMessage || 'Review your payout account in Stripe.'
+                        : latestBankPayout?.status === 'paid'
+                          ? 'Stripe confirmed the deposit'
+                          : bankPayouts.inTransitCents > 0 ? 'Stripe will confirm when the deposit arrives' : 'Stripe will schedule the bank deposit automatically'}</small>
+                    </div>
+                    <b>{latestBankPayout?.status === 'paid'
+                      ? bankArrivalDate || 'Deposited'
+                      : latestBankPayout?.status === 'failed'
+                        ? 'Update Stripe'
+                        : bankArrivalDate ? `Expected ${bankArrivalDate}` : 'Scheduling'}</b>
+                  </div>
+                </div>
               </div>
             )}
             <div className="dash-revenue-card">

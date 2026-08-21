@@ -2,9 +2,10 @@ import 'server-only';
 import { prisma } from './prisma';
 import { connectedAccountStatus } from './sellerPayoutsCore';
 import { purchaseAccounting, purchaseAccountingPending } from './commerce';
+import { sellerBankPayoutSummary } from './sellerBankPayouts';
 
 export async function sellerPayoutStatus(sellerId: string) {
-  const [seller, purchases] = await Promise.all([
+  const [seller, purchases, bankPayouts] = await Promise.all([
     prisma.seller.findUnique({
       where: { id: sellerId },
       select: {
@@ -31,6 +32,7 @@ export async function sellerPayoutStatus(sellerId: string) {
         sellerTransferReversedCents: true,
       },
     }),
+    sellerBankPayoutSummary(sellerId),
   ]);
   if (!seller) return null;
 
@@ -51,6 +53,10 @@ export async function sellerPayoutStatus(sellerId: string) {
     (sum, purchase) => sum + (!purchase.sellerTransferredAt ? purchase.accounting.sellerEarningsCents : 0),
     0,
   );
+  const stripeBalanceCents = Math.max(
+    0,
+    paidCents - bankPayouts.paidCents - bankPayouts.inTransitCents,
+  );
   const status = connectedAccountStatus({
     liveSaleCount: purchases.length,
     stripeAccountId: seller.stripeAccountId,
@@ -65,5 +71,6 @@ export async function sellerPayoutStatus(sellerId: string) {
     pendingCents,
     paidCents,
     accountingPendingCount,
+    bankPayouts: { ...bankPayouts, stripeBalanceCents },
   };
 }
