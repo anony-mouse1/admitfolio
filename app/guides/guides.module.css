@@ -467,6 +467,22 @@ a.guideCard:hover {
   );
 }
 
+.photoCover::after {
+  display: none;
+}
+
+.coverPhoto {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 360ms ease;
+}
+
+.blogCard:hover .coverPhoto {
+  transform: scale(1.025);
+}
+
 .coverCommon { background: linear-gradient(145deg, #c78791, #772033); }
 .coverInspiration { background: #d8cfea; }
 .coverUc { background: #d2e8e4; }

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-20', modifiedTime: '2026-08-20' },
+  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-12', modifiedTime: '2026-08-12' },
 };
 
 export default function UcPiqExamplesPage() {
@@ -23,8 +23,8 @@ export default function UcPiqExamplesPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-20',
-    dateModified: '2026-08-20',
+    datePublished: '2026-08-12',
+    dateModified: '2026-08-12',
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -44,7 +44,7 @@ export default function UcPiqExamplesPage() {
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 20, 2026</span>
+              <span>Updated August 12, 2026</span>
               <span>10 min read</span>
             </div>
           </header>

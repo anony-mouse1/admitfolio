@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-20', modifiedTime: '2026-08-20' },
+  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-16', modifiedTime: '2026-08-16' },
 };
 
 export default function CommonAppEssayExamplesPage() {
@@ -23,8 +23,8 @@ export default function CommonAppEssayExamplesPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-20',
-    dateModified: '2026-08-20',
+    datePublished: '2026-08-16',
+    dateModified: '2026-08-16',
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -45,7 +45,7 @@ export default function CommonAppEssayExamplesPage() {
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 20, 2026</span>
+              <span>Updated August 16, 2026</span>
               <span>8 min read</span>
             </div>
           </header>

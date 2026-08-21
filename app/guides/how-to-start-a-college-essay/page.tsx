@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-20', modifiedTime: '2026-08-20' },
+  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-08', modifiedTime: '2026-08-08' },
 };
 
 export default function HowToStartACollegeEssayPage() {
@@ -23,8 +23,8 @@ export default function HowToStartACollegeEssayPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-20',
-    dateModified: '2026-08-20',
+    datePublished: '2026-08-08',
+    dateModified: '2026-08-08',
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -44,7 +44,7 @@ export default function HowToStartACollegeEssayPage() {
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 20, 2026</span>
+              <span>Updated August 8, 2026</span>
               <span>6 min read</span>
             </div>
           </header>
