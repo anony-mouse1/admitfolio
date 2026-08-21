@@ -15,6 +15,8 @@ import {
 import { fulfillPurchase } from '@/lib/purchaseFulfillment';
 import { releaseSellerEarnings, reverseSellerTransfer } from '@/lib/sellerPayouts';
 import { stripeFeeSnapshotFromCharge, type StripeFeeSnapshot } from '@/lib/stripeFeeCore';
+import { ANALYTICS_EVENTS } from '@/lib/analyticsEventNames';
+import { track } from '@vercel/analytics/server';
 
 export const runtime = 'nodejs';
 
@@ -288,6 +290,18 @@ export async function POST(req: Request) {
       email: delivery.email,
     });
     return NextResponse.json({ error: 'Purchase delivery failed.' }, { status: 500 });
+  }
+  if (!delivery.alreadyFulfilled) {
+    try {
+      await track(ANALYTICS_EVENTS.purchaseCompleted, {
+        school: listingTitle,
+        value: paid.amountCents / 100,
+      });
+    } catch (error) {
+      // Buyer delivery is the source of truth. An analytics outage must never
+      // make Stripe retry a completed order or send a duplicate receipt.
+      console.warn('purchase analytics failed:', error instanceof Error ? error.message : error);
+    }
   }
 
   // Buyer delivery must not wait on Stripe's balance transaction. If the fee

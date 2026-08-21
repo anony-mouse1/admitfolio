@@ -12,6 +12,7 @@ import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
 import { spreadRepeatedKeys } from '@/lib/listingOrder';
+import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
 
 /* ============================================================================
    Types & static data
@@ -307,6 +308,16 @@ export default function Page() {
     () => pubListings.find((l) => l.id === detailId) || null,
     [pubListings, detailId],
   );
+  const trackedListingViews = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!detailListing || trackedListingViews.current.has(detailListing.id)) return;
+    trackedListingViews.current.add(detailListing.id);
+    trackConversion(ANALYTICS_EVENTS.listingViewed, {
+      school: schoolShortName(headlineSchool(detailListing)),
+      listingType: detailListing.essays.length > 1 ? 'package' : 'single',
+    });
+  }, [detailListing]);
 
   const openDetail = useCallback((id: string) => {
     setDetailId(id);
@@ -412,6 +423,7 @@ export default function Page() {
   }, []);
 
   const openBrowse = useCallback(() => {
+    trackConversion(ANALYTICS_EVENTS.browseOpened);
     setPageView('browse');
     if (window.location.hash !== '#browse') window.history.pushState(window.history.state, '', '#browse');
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -427,6 +439,7 @@ export default function Page() {
   }, []);
 
   const openMatcher = useCallback(() => {
+    trackConversion(ANALYTICS_EVENTS.browseOpened);
     setPageView('browse');
     if (window.location.hash !== '#browse') window.history.pushState(window.history.state, '', '#browse');
     setMatcherOpen(true);
@@ -556,6 +569,7 @@ export default function Page() {
   }, [resetListingForm]);
 
   const openSell = useCallback(() => {
+    trackConversion(ANALYTICS_EVENTS.sellerSignupStarted);
     setLoginOpen(false);
     setDashOpen(false);
     fullResetSell();
@@ -654,6 +668,7 @@ export default function Page() {
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; emailToken?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'That code is incorrect. Please try again.');
       setEmailToken(data.emailToken || '');
+      trackConversion(ANALYTICS_EVENTS.sellerEmailVerified);
     } catch (err) {
       setCodeErr(err instanceof Error ? err.message : 'That code is incorrect. Please try again.');
       return;
@@ -857,6 +872,10 @@ export default function Page() {
     }
     setSubmitting(false);
     setSubmitLabel('');
+    trackConversion(ANALYTICS_EVENTS.sellerListingSubmitted, {
+      essayCount: rows.length,
+      pricingMode,
+    });
     setListingCount((c) => c + 1);
     setSellStep(6);
   }
@@ -870,6 +889,10 @@ export default function Page() {
   const [buyErr, setBuyErr] = useState('');
 
   const openBuy = useCallback((item: { listingId: string; school: string; price: number; summary?: string | null; essayCount?: number }) => {
+    trackConversion(ANALYTICS_EVENTS.checkoutStarted, {
+      school: item.school,
+      value: item.price,
+    });
     setCurItem(item);
     setBuyErr('');
     setBuyOpen(true);

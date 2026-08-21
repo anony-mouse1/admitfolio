@@ -18,6 +18,7 @@
     "test:stripe-fees": "node scripts/stripe-fee.test.mjs",
     "test:payout-sandbox": "node scripts/payout-sandbox.test.mjs",
     "test:opening-lines": "node scripts/opening-line.test.mjs",
+    "test:analytics": "node scripts/analytics-policy.test.mjs",
     "test:logo-assets": "node scripts/logo-assets.test.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",
     "db:push": "prisma db push",
