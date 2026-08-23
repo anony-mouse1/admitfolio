@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import LogoBadge from '@/components/LogoBadge';
-import { catalogSchool } from '@/lib/listingSchool';
+import { listingHeadline } from '@/lib/listingSchool';
 import { schoolColor, schoolInfo, schoolShortName } from '@/lib/schools';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
 
@@ -10,6 +10,7 @@ type MatchListing = {
   id: string;
   school: string;
   targetSchool?: string | null;
+  headlineSchool?: string | null;
   applicationSystem?: string | null;
   admitTags: string[];
   price: number | null;
@@ -23,13 +24,16 @@ type MatchListing = {
 type MatchResult = { listing: MatchListing; score: number; reasons: string[] };
 type Message =
   | { id: number; kind: 'you'; text: string }
-  | { id: number; kind: 'bot'; text: string; results?: MatchResult[]; query?: string; budget?: number | null };
+  | { id: number; kind: 'thinking' }
+  | { id: number; kind: 'bot'; text: string; results?: MatchResult[]; query?: string; budget?: number | null; typing?: boolean; revealResults?: boolean };
 
 const SUGGESTIONS = [
-  'UC PIQs for Berkeley engineering under $40',
-  'Common App personal statement under $50',
-  'Why school supplement for Georgia Tech, computer science',
-  'First generation essay under $30',
+  { label: 'Common App under $120', query: 'Common App personal statement under $120' },
+  { label: 'STEM essays', query: 'STEM and engineering essays' },
+  { label: 'Medicine and pre-med', query: 'Medicine and pre-med essays' },
+  { label: 'Harvard essays', query: 'Harvard essays' },
+  { label: 'UC PIQs', query: 'UC PIQs' },
+  { label: 'Under $80', query: 'Essays at or under $80' },
 ];
 
 const SUBJECTS: { words: string[]; matches: string[] }[] = [
@@ -53,7 +57,7 @@ const BACKGROUNDS: { words: string[]; label: string }[] = [
 ];
 
 function targetSchool(listing: MatchListing): string {
-  return catalogSchool(listing) || 'College essay listing';
+  return listing.headlineSchool?.trim() || listingHeadline(listing);
 }
 
 function parseBudget(query: string): number | null {
@@ -163,10 +167,19 @@ export default function MatchFinder({
   const [bandVisible, setBandVisible] = useState(false);
   const [nudgeReady, setNudgeReady] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [responding, setResponding] = useState(false);
   const bandRef = useRef<HTMLElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageId = useRef(0);
+  const responseRun = useRef(0);
+  const pendingTimers = useRef<number[]>([]);
+
+  useEffect(() => () => {
+    responseRun.current += 1;
+    pendingTimers.current.forEach((timer) => window.clearTimeout(timer));
+    pendingTimers.current = [];
+  }, []);
 
   useEffect(() => {
     if (!bandRef.current) return;
@@ -206,27 +219,82 @@ export default function MatchFinder({
 
   function ask(raw: string) {
     const value = raw.trim();
-    if (!value) return;
+    if (!value || responding) return;
     const match = runMatch(listings, value);
+    const results = match.results.slice(0, 3);
+    const run = ++responseRun.current;
+    const thinkingId = ++messageId.current;
     trackConversion(ANALYTICS_EVENTS.matchSearch, {
       resultCount: match.results.length,
       budgetSet: match.budget != null,
     });
+    setResponding(true);
     setMessages((current) => [
       ...current,
       { id: ++messageId.current, kind: 'you', text: value },
-      {
-        id: ++messageId.current,
-        kind: 'bot',
-        text: match.results.length
-          ? `${match.summary} ${match.results.length} listing${match.results.length === 1 ? '' : 's'} fit. Here are the strongest options.`
-          : `${match.summary} Nothing fits those filters yet. Try a higher budget or a different school.`,
-        results: match.results.slice(0, 6),
-        query: value,
-        budget: match.budget,
-      },
+      { id: thinkingId, kind: 'thinking' },
     ]);
     setInput('');
+
+    const countWord = results.length === 1 ? 'one' : results.length === 2 ? 'two' : 'three';
+    const answer = results.length
+      ? `I found ${countWord} essay${results.length === 1 ? '' : 's'} that fit what you asked for. ${results.length === 1 ? 'This is the strongest place' : 'These are the strongest places'} to start.`
+      : 'I could not find a close match yet. Try a higher budget, a broader subject, or a different school.';
+    const botId = ++messageId.current;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const schedule = (callback: () => void, delay: number) => {
+      const timer = window.setTimeout(callback, delay);
+      pendingTimers.current.push(timer);
+    };
+
+    schedule(() => {
+      if (responseRun.current !== run) return;
+      setMessages((current) => [
+        ...current.filter((message) => message.id !== thinkingId),
+        {
+          id: botId,
+          kind: 'bot',
+          text: reducedMotion ? answer : '',
+          results,
+          query: value,
+          budget: match.budget,
+          typing: !reducedMotion,
+          revealResults: reducedMotion,
+        },
+      ]);
+
+      if (reducedMotion) {
+        setResponding(false);
+        return;
+      }
+
+      let length = 0;
+      const typeNext = () => {
+        if (responseRun.current !== run) return;
+        length += 1;
+        setMessages((current) => current.map((message) => (
+          message.id === botId && message.kind === 'bot'
+            ? { ...message, text: answer.slice(0, length) }
+            : message
+        )));
+        if (length < answer.length) {
+          schedule(typeNext, answer[length - 1] === '.' ? 105 : 16);
+          return;
+        }
+        schedule(() => {
+          if (responseRun.current !== run) return;
+          setMessages((current) => current.map((message) => (
+            message.id === botId && message.kind === 'bot'
+              ? { ...message, typing: false, revealResults: true }
+              : message
+          )));
+          setResponding(false);
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }, 140);
+      };
+      typeNext();
+    }, 950);
   }
 
   function submit(event: FormEvent) {
@@ -275,16 +343,19 @@ export default function MatchFinder({
         <div className="mf-panel" role="dialog" aria-modal="false" aria-label="Find my matches">
           <div className="mf-panel-head">
             <div className="t">Find my matches</div>
-            <div className="s">scored in-page</div>
             <button className="mf-x" type="button" aria-label="Close" onClick={() => onOpenChange(false)}>&times;</button>
           </div>
           <div className="mf-log" ref={logRef} aria-live="polite">
             {messages.map((message) => (
-              <div key={message.id} className={`mf-msg ${message.kind}`}>
-                {message.kind === 'you' ? message.text : (
+              <div key={message.id} className={`mf-msg ${message.kind === 'you' ? 'you' : 'bot'}`}>
+                {message.kind === 'you' ? message.text : message.kind === 'thinking' ? (
+                  <div className="bubble mf-thinking" aria-label="Finding your matches">
+                    <span></span><span></span><span></span>
+                  </div>
+                ) : (
                   <div className="bubble">
-                    <div>{message.text}</div>
-                    {message.results && message.results.length > 0 && (
+                    <div className={message.typing ? 'mf-typed is-typing' : 'mf-typed'}>{message.text}</div>
+                    {message.revealResults && message.results && message.results.length > 0 && (
                       <>
                         <div className="mf-results">
                           {message.results.map(({ listing, reasons }) => {
@@ -302,8 +373,8 @@ export default function MatchFinder({
                         </div>
                         <div className="mf-proof">
                           {message.budget != null
-                            ? `Listings over $${message.budget} were removed before scoring.`
-                            : 'No budget stated. Add “under $50” to set a hard price cap.'}
+                            ? `Only matches at or below $${message.budget} are shown.`
+                            : `Only the ${message.results.length === 1 ? 'strongest match is' : `${message.results.length} strongest matches are`} shown.`}
                         </div>
                         <div className="mf-actions">
                           <button className="mf-mini" type="button" onClick={() => {
@@ -319,12 +390,29 @@ export default function MatchFinder({
             ))}
             <div className="mf-proof">All {pricedCount} public listings are scored on this page. Your search does not leave your browser.</div>
           </div>
-          <div className="mf-suggest">
-            {SUGGESTIONS.map((suggestion) => <button key={suggestion} className="mf-chip" type="button" onClick={() => ask(suggestion)}>{suggestion}</button>)}
+          <div className="mf-suggest" aria-label="Sample searches">
+            <div className="mf-suggest-track">
+              {[false, true].map((duplicate) => (
+                <div className="mf-suggest-set" aria-hidden={duplicate || undefined} key={duplicate ? 'duplicate' : 'primary'}>
+                  {SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion.label}
+                      className="mf-chip"
+                      type="button"
+                      tabIndex={duplicate ? -1 : undefined}
+                      disabled={responding}
+                      onClick={() => ask(suggestion.query)}
+                    >
+                      {suggestion.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
           <form className="mf-form" autoComplete="off" onSubmit={submit}>
-            <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="e.g. Berkeley engineering under $40" aria-label="Describe what you are looking for" />
-            <button className="btn-primary" type="submit">Ask</button>
+            <input ref={inputRef} value={input} disabled={responding} onChange={(event) => setInput(event.target.value)} placeholder="e.g. Berkeley engineering under $40" aria-label="Describe what you are looking for" />
+            <button className="btn-primary" type="submit" disabled={responding}>Ask</button>
           </form>
         </div>
       )}
