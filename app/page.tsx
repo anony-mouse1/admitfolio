@@ -581,6 +581,7 @@ export default function Page() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navScrolled, setNavScrolled] = useState(false);
 
   /* ============================ Sell onboarding ============================ */
   const [sellStep, setSellStep] = useState(1);
@@ -1487,6 +1488,15 @@ export default function Page() {
 
   /* ============================ Global effects ============================ */
 
+  // Granola-style navbar: transparent at the top, then a floating glass pill
+  // once the page has moved beneath it.
+  useEffect(() => {
+    const updateNav = () => setNavScrolled(window.scrollY > 32);
+    updateNav();
+    window.addEventListener('scroll', updateNav, { passive: true });
+    return () => window.removeEventListener('scroll', updateNav);
+  }, []);
+
   // Lock body scroll while any overlay is open; keep the ref in sync so the
   // waitlist auto-popup timer can check it (the hamburger menu counts as a
   // popup for that purpose, but shouldn't lock scroll).
@@ -1574,7 +1584,7 @@ export default function Page() {
           <button type="button" onClick={() => window.location.reload()}>Refresh</button>
         </div>
       )}
-      <nav className="nav">
+      <nav className="nav" data-scrolled={navScrolled ? 'true' : 'false'}>
         <a className="logo" href="#home" onClick={() => setPageView('home')}>
           <div className="logo-word">Admitfolio</div>
           <div className="logo-dot"></div>
@@ -1604,6 +1614,7 @@ export default function Page() {
           </>
         )}
       </nav>
+      <div className="nav-spacer" aria-hidden="true"></div>
 
       {/* ===== Hero ===== */}
       <section className="hero editorial-hero" id="home" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
