@@ -2443,6 +2443,109 @@ body { -webkit-tap-highlight-color: transparent; }
   max-width: 100%;
 }
 
+/* ===== Shaded button system =====
+   Major actions share the dimensional burgundy treatment. Secondary actions
+   use the raised white treatment. Close, back, filter, tab and icon controls
+   stay intentionally quiet so every control does not compete for attention. */
+.btn-primary,
+.editorial-actions .btn-primary,
+.modal-btn:not(.modal-btn-secondary),
+.d-unlock-btn,
+.editorial-unlock,
+.ecard-unlock,
+.seller-actions a,
+.wl-fab,
+.essay-reader-head button {
+  border: 2px solid #4f101d;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(180deg,#8b2639,#6d1528);
+  box-shadow: inset 0 2px rgba(255,255,255,.16), inset 0 -2px rgba(40,5,13,.18), 0 12px 25px rgba(89,24,38,.25);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.btn-primary:hover,
+.editorial-actions .btn-primary:hover,
+.modal-btn:not(.modal-btn-secondary):hover,
+.d-unlock-btn:hover,
+.editorial-unlock:hover,
+.ecard-unlock:hover,
+.seller-actions a:hover,
+.wl-fab:hover,
+.essay-reader-head button:hover {
+  color: #fff;
+  background: linear-gradient(180deg,#7e2033,#611021);
+  box-shadow: inset 0 2px rgba(255,255,255,.14), inset 0 -2px rgba(40,5,13,.2), 0 15px 30px rgba(89,24,38,.3);
+  filter: none;
+  transform: translateY(-2px);
+}
+
+.btn-ghost,
+.editorial-actions .btn-ghost,
+.pub-more-btn,
+.home-see-more,
+.modal-btn.modal-btn-secondary,
+.secondary-btn,
+.add-btn,
+.mf-mini,
+.site-update button,
+.dash-action-btn:not(.danger),
+.dash-logout {
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: var(--accent);
+  background: linear-gradient(180deg,#fff 0%,#fffdf9 62%,#f1ebe6 100%);
+  box-shadow: inset 0 2px rgba(255,255,255,1), inset 0 -3px rgba(82,54,43,.09), 0 12px 24px rgba(70,44,36,.16);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.btn-ghost:hover,
+.editorial-actions .btn-ghost:hover,
+.pub-more-btn:hover,
+.home-see-more:hover,
+.modal-btn.modal-btn-secondary:hover,
+.secondary-btn:hover,
+.add-btn:hover,
+.mf-mini:hover,
+.site-update button:hover,
+.dash-action-btn:not(.danger):hover,
+.dash-logout:hover {
+  border-color: #fff;
+  color: var(--accent);
+  background: linear-gradient(180deg,#fff 0%,#fffdf9 55%,#eee6df 100%);
+  box-shadow: inset 0 2px rgba(255,255,255,1), inset 0 -3px rgba(82,54,43,.11), 0 15px 29px rgba(70,44,36,.2);
+  transform: translateY(-2px);
+}
+.editorial-actions .btn-primary,
+.editorial-actions .btn-ghost {
+  min-height: 50px;
+  padding: 0 25px;
+  border-radius: 999px;
+}
+.editorial-actions .btn-ghost { gap: 9px; }
+.editorial-action-label { padding-bottom: 0; border-bottom: 0; }
+.ecard-unlock,
+.mf-mini,
+.secondary-btn,
+.dash-action-btn,
+.dash-logout,
+.essay-reader-head button {
+  box-shadow: inset 0 1px rgba(255,255,255,.16), inset 0 -2px rgba(40,5,13,.13), 0 8px 18px rgba(89,24,38,.18);
+}
+.ecard-unlock { cursor: pointer; }
+.btn-primary:disabled,
+.modal-btn:disabled,
+.secondary-btn:disabled,
+.mf-mini:disabled,
+.dash-action-btn:disabled {
+  cursor: wait;
+  opacity: .58;
+  box-shadow: none;
+  transform: none;
+}
+
 /* Printing a browser page is another easy path to an untracked copy. This is
    only a deterrent, like the other client-side controls. The fingerprint still
    provides the real attribution if someone bypasses it. */
