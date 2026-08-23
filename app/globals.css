@@ -1914,11 +1914,24 @@ body { -webkit-tap-highlight-color: transparent; }
 .nav .nav-links a { font-size: 14px; font-weight: 550; }
 .nav .nav-cta { grid-column: 3; justify-self: end; gap: 18px; }
 .nav .nav-cta .login { font-size: 14px; }
-.nav .btn-primary { min-height: 44px; padding: 0 21px; border: 1px solid rgba(95,16,34,.2); font-size: 14px; box-shadow: inset 0 1px rgba(255,255,255,.18), 0 10px 23px rgba(125,29,45,.18); }
+.nav .btn-primary {
+  min-height: 44px;
+  padding: 0 21px;
+  border: 1px solid rgba(125,29,45,.28);
+  color: var(--accent);
+  background: rgba(255,252,247,.94);
+  font-size: 14px;
+  box-shadow: inset 0 1px rgba(255,255,255,.9), 0 9px 24px rgba(73,45,37,.11);
+}
+.nav .btn-primary:hover {
+  color: var(--accent);
+  background: #fffdf9;
+  filter: none;
+}
 .nav[data-scrolled='true'] .btn-primary {
   border-color: rgba(125,29,45,.28);
   color: var(--accent);
-  background: rgba(255,252,247,.9);
+  background: rgba(255,252,247,.94);
   box-shadow: inset 0 1px rgba(255,255,255,.9), 0 9px 24px rgba(73,45,37,.11);
 }
 .nav[data-scrolled='true'] .btn-primary:hover {

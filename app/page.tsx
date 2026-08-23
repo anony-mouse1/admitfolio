@@ -1497,7 +1497,7 @@ export default function Page() {
         </div>
         <div className="nav-cta">
           <a className="login" onClick={openLogin}><span className="login-prefix">Seller </span>login</a>
-          {LAUNCHED && <button className="btn-primary" type="button" onClick={openMatcher}>Find my matches</button>}
+          {LAUNCHED && <button className="btn-primary" type="button" onClick={openBrowse}>Browse essays</button>}
           {!LAUNCHED && <a className="btn-primary" onClick={openSell}>Sell your essay</a>}
           <button type="button" className={`nav-burger${menuOpen ? ' open' : ''}`} aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
             <span></span><span></span>
