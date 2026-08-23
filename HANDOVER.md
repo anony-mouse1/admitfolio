@@ -4,9 +4,9 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/sale-alerts-analytics-fix`
+Branch: `main`
 
-Base: `origin/main` at `aa4d62f`.
+Implementation commit: `c55902e`. Merge commit: `66ea4bf`.
 
 Worktree: `/private/tmp/admitfolio-sale-alerts-analytics-fix`
 
@@ -50,9 +50,19 @@ retry skipped it because the buyer delivery was already complete.
 
 All checks passed under the bundled Node.js runtime.
 
+## Production verification
+
+- GitHub pull request #55 merged to `main` as `66ea4bf`.
+- Vercel marked the production deployment Ready and assigned `admitfolio.com`.
+- `https://admitfolio.com/api/version` returned the exact merge commit with 200.
+- Deployment runtime logs showed zero warnings, errors, or fatal events. The
+  homepage, listings API, version endpoint, and review cron all returned 200.
+- No fake purchase or test email was sent. The first genuine sale after this
+  deployment is the end-to-end verification for the owner email and Vercel
+  conversion event.
+
 ## What is left
 
-Push the branch, merge it to `main`, wait for Vercel production deployment, and
-verify the deployed commit. No migration, backfill, database write, or Vercel
-environment change is required. Historical missed conversion events are not
-backfilled.
+Nothing remains for this change. No migration, backfill, database write, or
+Vercel environment change was required. Historical missed conversion events
+were not backfilled.
