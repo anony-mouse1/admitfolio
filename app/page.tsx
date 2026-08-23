@@ -1392,7 +1392,7 @@ export default function Page() {
   // Granola-style navbar: transparent at the top, then a floating glass pill
   // once the page has moved beneath it.
   useEffect(() => {
-    const updateNav = () => setNavScrolled(window.scrollY > 32);
+    const updateNav = () => setNavScrolled(window.scrollY > 0);
     updateNav();
     window.addEventListener('scroll', updateNav, { passive: true });
     return () => window.removeEventListener('scroll', updateNav);
@@ -1497,7 +1497,7 @@ export default function Page() {
         </div>
         <div className="nav-cta">
           <a className="login" onClick={openLogin}><span className="login-prefix">Seller </span>login</a>
-          {LAUNCHED && <button className="btn-primary" type="button" onClick={openMatcher}>Find my matches</button>}
+          {LAUNCHED && <button className="btn-primary" type="button" onClick={openBrowse}>Browse essays</button>}
           {!LAUNCHED && <a className="btn-primary" onClick={openSell}>Sell your essay</a>}
           <button type="button" className={`nav-burger${menuOpen ? ' open' : ''}`} aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
             <span></span><span></span>
