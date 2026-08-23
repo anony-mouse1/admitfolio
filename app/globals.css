@@ -1898,12 +1898,8 @@ body { -webkit-tap-highlight-color: transparent; }
 .nav .logo-word { font-size: 29px; font-weight: 650; }
 .nav .logo { grid-column: 1; }
 .nav .nav-links {
-  position: absolute;
-  /* Optically center the links in the open space between the wordmark and
-     the wider seller controls. */
-  left: 45.5%;
+  grid-column: 2;
   gap: 34px;
-  transform: translateX(-50%);
 }
 .nav .nav-links a { font-size: 14px; font-weight: 550; }
 .nav .nav-cta { grid-column: 3; justify-self: end; gap: 18px; }
