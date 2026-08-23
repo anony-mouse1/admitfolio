@@ -1,7 +1,7 @@
 .page {
   min-height: 100vh;
   color: var(--ink);
-  background: #fff;
+  background: var(--bg);
 }
 
 .hero {
@@ -412,7 +412,7 @@ a.guideCard:hover {
   border: 1px solid #e6e2dc;
   border-radius: 999px;
   color: #68645d;
-  background: #faf8f4;
+  background: var(--bg);
   font-size: 12px;
   font-weight: 700;
 }
