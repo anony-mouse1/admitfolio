@@ -40,114 +40,16 @@ type CmpRow = { feature: string; mineText?: string; diy: string; agency: string;
 
 type Msg = { text: string; kind: '' | 'ok' | 'err' };
 
-const HERO_ESSAY_SLIDES = [
-  {
-    school: 'Harvard',
-    domain: 'harvard.edu',
-    letter: 'H',
-    color: '#A51C30',
-    type: 'Common App · Personal Statement',
-    major: 'Mechanical Engineering',
-    opening: 'A midday nap, nonexistent in 105-degree heat. There was no air conditioner in Nawabganj...',
-    price: '$50',
-    priceLabel: 'full essay',
-    action: 'Unlock essay',
-  },
-  {
-    school: 'Stanford',
-    domain: 'stanford.edu',
-    letter: 'S',
-    color: '#8C1515',
-    type: 'Common App · 9-essay package',
-    major: 'Symbolic Systems',
-    opening: 'I watched people through security cameras, learning how small choices shape a community...',
-    price: '$184',
-    priceLabel: '9-essay set',
-    action: 'Unlock essays',
-  },
-  {
-    school: 'Northwestern',
-    domain: 'northwestern.edu',
-    letter: 'N',
-    color: '#4E2A84',
-    type: 'Common App · 3-essay package',
-    major: 'Economics',
-    opening: '“Because I said so”, the soundtrack of my childhood. As someone who has always...',
-    price: '$112',
-    priceLabel: '3-essay set',
-    action: 'Unlock essays',
-  },
-] as const;
-
-function HeroEssayCarousel({ onBrowse }: { onBrowse: () => void }) {
-  const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-
-  useEffect(() => {
-    if (paused) return;
-    const timer = window.setInterval(() => {
-      setActive((current) => (current + 1) % HERO_ESSAY_SLIDES.length);
-    }, 4600);
-    return () => window.clearInterval(timer);
-  }, [paused]);
-
-  const show = (index: number) => {
-    setActive((index + HERO_ESSAY_SLIDES.length) % HERO_ESSAY_SLIDES.length);
-  };
-
+function HeroEssayLoop() {
   return (
-    <div
-      className="editorial-carousel"
-      aria-roledescription="carousel"
-      aria-label="Featured verified essays"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
-    >
-      <div className="editorial-note editorial-note-one">Specific detail makes the opening feel lived in.</div>
-      <div className="editorial-note editorial-note-two">Structure turns reflection into a clear arc.</div>
-      <div className="editorial-paper-track">
-        {HERO_ESSAY_SLIDES.map((slide, index) => (
-          <article
-            className={`editorial-paper${index === active ? ' is-active' : ''}`}
-            key={slide.school}
-            aria-hidden={index !== active}
-          >
-            <div className="editorial-paper-head">
-              <div className="editorial-paper-school">
-                <LogoBadge domain={slide.domain} letter={slide.letter} color={slide.color} school={slide.school} size={40} fontSize={18} />
-                <div><strong>{slide.school}</strong><span>{slide.type}</span></div>
-              </div>
-            </div>
-            <div className="editorial-paper-major">{slide.major}</div>
-            <p className="editorial-paper-opening">{slide.opening}</p>
-            <div className="editorial-blur-lines" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-            <div className="editorial-paper-foot">
-              <div className="editorial-price"><strong>{slide.price}</strong><span>{slide.priceLabel}</span></div>
-              <button className="editorial-unlock" type="button" tabIndex={index === active ? 0 : -1} onClick={onBrowse}>{slide.action}</button>
-            </div>
-          </article>
-        ))}
-      </div>
-      <div className="editorial-carousel-controls" aria-label="Essay carousel controls">
-        <button type="button" className="editorial-carousel-arrow" aria-label="Previous essay" onClick={() => show(active - 1)}>‹</button>
-        <div className="editorial-carousel-dots">
-          {HERO_ESSAY_SLIDES.map((slide, index) => (
-            <button
-              type="button"
-              className="editorial-carousel-dot"
-              key={slide.school}
-              aria-label={`Show ${slide.school} essay`}
-              aria-current={index === active}
-              onClick={() => show(index)}
-            ></button>
-          ))}
-        </div>
-        <button type="button" className="editorial-carousel-arrow" aria-label="Next essay" onClick={() => show(active + 1)}>›</button>
-      </div>
-      <span className="editorial-carousel-status" aria-live="polite">Showing {HERO_ESSAY_SLIDES[active].school} essay</span>
-    </div>
+    <iframe
+      className="hero-loop-frame"
+      src="/hero-loop-embed.html"
+      title="Animated preview of finding and unlocking Admitfolio essays"
+      aria-hidden="true"
+      tabIndex={-1}
+      scrolling="no"
+    />
   );
 }
 
@@ -1632,7 +1534,7 @@ export default function Page() {
             <div className="editorial-proof"><span className="editorial-proof-seal">✓</span><span>Admission proof checked before an essay is listed</span></div>
           </div>
           <div className="essay-hero-art">
-            <HeroEssayCarousel onBrowse={openBrowse} />
+            <HeroEssayLoop />
           </div>
         </div>
       </section>
