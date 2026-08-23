@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe';
-import { sendSaleNotification } from '@/lib/email';
+import { sendAdminSaleNotification, sendSaleNotification } from '@/lib/email';
 import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
 import {
   finalizeRevenueWithStripeFeeCents,
@@ -291,19 +291,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ error: 'Purchase delivery failed.' }, { status: 500 });
   }
-  if (!delivery.alreadyFulfilled) {
-    try {
-      await track(ANALYTICS_EVENTS.purchaseCompleted, {
-        school: listingTitle,
-        value: paid.amountCents / 100,
-      });
-    } catch (error) {
-      // Buyer delivery is the source of truth. An analytics outage must never
-      // make Stripe retry a completed order or send a duplicate receipt.
-      console.warn('purchase analytics failed:', error instanceof Error ? error.message : error);
-    }
-  }
-
   // Buyer delivery must not wait on Stripe's balance transaction. If the fee
   // is not ready yet, acknowledge nothing after delivery so Stripe retries the
   // signed event. The Purchase remains in an explicit non-transferable state.
@@ -378,9 +365,40 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Purchase accounting needs review.' }, { status: 500 });
   }
 
-  // Buyer delivery above is retryable and idempotent. Seller notification is a
-  // secondary alert; the cents snapshot remains the source of truth for payout.
+  // The first finalized handling reaches this block even when buyer delivery
+  // happened on an earlier fee-pending attempt. This is why conversion tracking
+  // is tied to finalized notification state instead of alreadyFulfilled.
   if (!purchase.sellerNotifiedAt) {
+    try {
+      await track(ANALYTICS_EVENTS.purchaseCompleted, {
+        school: listingTitle,
+        value: accounting.grossAmountCents / 100,
+      });
+    } catch (error) {
+      // Buyer delivery is the source of truth. An analytics outage must never
+      // make Stripe retry a completed order or send a duplicate receipt.
+      console.warn('purchase analytics failed:', error instanceof Error ? error.message : error);
+    }
+
+    try {
+      const ownerNote = await sendAdminSaleNotification({
+        purchaseId: purchase.id,
+        itemLabel: deliveryLabel,
+        grossAmountCents: accounting.grossAmountCents,
+        platformFeeCents: accounting.platformFeeCents,
+        stripeProcessingFeeCents: accounting.stripeProcessingFeeCents,
+        sellerPayoutCents: accounting.sellerEarningsCents,
+        soldAt: purchase.createdAt,
+      });
+      if (!ownerNote.ok) {
+        console.error('owner sale notification failed:', ownerNote.status, ownerNote.detail);
+      }
+    } catch (error) {
+      // This notification is secondary. A mail outage must not block delivery,
+      // accounting, or seller payout processing.
+      console.error('owner sale notification error:', error instanceof Error ? error.message : error);
+    }
+
     try {
       const firstSellerPurchase = await prisma.purchase.findFirst({
         where: {

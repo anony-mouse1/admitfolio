@@ -1,4 +1,10 @@
-import { RESEND_API_KEY, FROM_EMAIL, ADMIN_NOTIFY_EMAILS, SUPPORT_EMAIL } from './config';
+import {
+  RESEND_API_KEY,
+  FROM_EMAIL,
+  ADMIN_NOTIFY_EMAILS,
+  SALE_NOTIFY_EMAILS,
+  SUPPORT_EMAIL,
+} from './config';
 
 // Minimal Resend wrapper (ported from the prototype). Returns {ok, simulated?}.
 // When no API key is configured, it logs the code to the server console instead
@@ -113,6 +119,88 @@ export async function sendSaleNotification(
     from: SELLER_FROM,
     replyTo: SELLER_REPLY_TO,
   });
+}
+
+// Gives the Admitfolio team a privacy-safe accounting snapshot after a sale
+// has been delivered and its Stripe fee is final. Buyer and seller contact
+// details are intentionally excluded.
+export async function sendAdminSaleNotification(opts: {
+  purchaseId: string;
+  itemLabel: string;
+  grossAmountCents: number;
+  platformFeeCents: number;
+  stripeProcessingFeeCents: number;
+  sellerPayoutCents: number;
+  soldAt: Date;
+}): Promise<SendResult> {
+  const {
+    purchaseId,
+    itemLabel,
+    grossAmountCents,
+    platformFeeCents,
+    stripeProcessingFeeCents,
+    sellerPayoutCents,
+    soldAt,
+  } = opts;
+  const recipients = SALE_NOTIFY_EMAILS;
+  if (recipients.length === 0) {
+    console.warn('[email] completed sale but no sale notification address is configured');
+    return { ok: false, detail: 'SALE_NOTIFY_EMAILS/SUPPORT_EMAIL not configured' };
+  }
+
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const soldAtPacific = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+  }).format(soldAt);
+  const admitfolioRevenueCents = platformFeeCents;
+
+  if (!RESEND_API_KEY) {
+    console.log(
+      `[email:dev] owner sale notification: ${itemLabel} ${money(grossAmountCents)} at ${soldAtPacific}`,
+    );
+    return { ok: true, simulated: true };
+  }
+
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1b1a17">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">admitfolio${wineDot}</div>
+      <h2 style="margin:22px 0 6px">New sale completed</h2>
+      <p style="color:#56524a;font-size:15px;line-height:1.6">
+        <b>${esc(itemLabel)}</b> sold for <b>${money(grossAmountCents)}</b> on ${esc(soldAtPacific)}.
+      </p>
+      <div style="margin:16px 0;border-top:1px solid #ebe6de;border-bottom:1px solid #ebe6de;padding:7px 0">
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:#56524a;font-size:14px"><span>Gross sale</span><b style="color:#1b1a17">${money(grossAmountCents)}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:#56524a;font-size:14px"><span>Admitfolio revenue</span><b style="color:#7d1d2d">${money(admitfolioRevenueCents)}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:#56524a;font-size:14px"><span>Stripe fee</span><b style="color:#1b1a17">${money(stripeProcessingFeeCents)}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:8px 0 7px;color:#1b1a17;font-size:15px"><strong>Seller payout</strong><strong>${money(sellerPayoutCents)}</strong></div>
+      </div>
+      <a href="https://admitfolio.com/admin" style="display:inline-block;margin:14px 0;background:#7d1d2d;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;padding:12px 24px">Open Admitfolio admin</a>
+    </div>`;
+  const text =
+    `${itemLabel} sold for ${money(grossAmountCents)} on ${soldAtPacific}.\n\n` +
+    `Gross sale: ${money(grossAmountCents)}\n` +
+    `Admitfolio revenue: ${money(admitfolioRevenueCents)}\n` +
+    `Stripe fee: ${money(stripeProcessingFeeCents)}\n` +
+    `Seller payout: ${money(sellerPayoutCents)}\n\n` +
+    'Open Admitfolio admin: https://admitfolio.com/admin';
+  const results = await Promise.all(
+    recipients.map((to, index) =>
+      send(to, `New Admitfolio sale: ${itemLabel} (${money(grossAmountCents)})`, html, text, {
+        from: SELLER_FROM,
+        replyTo: SELLER_REPLY_TO,
+        idempotencyKey: `admin-sale/${purchaseId}/${index}`,
+      }),
+    ),
+  );
+  const failed = results.find((result) => !result.ok);
+  return failed ?? { ok: true };
 }
 
 // Tells the admin(s) a new listing just landed in the review queue. Submissions

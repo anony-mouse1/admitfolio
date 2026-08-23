@@ -1,51 +1,58 @@
-# Handover: Homepage hero and navbar refinements
+# Handover: Owner sale alerts and conversion tracking
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/liquid-glass-navbar`
+Branch: `codex/sale-alerts-analytics-fix`
 
-Merged base: `origin/main` at `6a6c5c1`.
+Base: `origin/main` at `aa4d62f`.
 
-Implementation commit: `3ea40a9`. Merge commit: `e1cb17d`.
-
-Worktree: `/private/tmp/admitfolio-hero.xS76PH`
+Worktree: `/private/tmp/admitfolio-sale-alerts-analytics-fix`
 
 ## Why this change
 
-Fatimah refined the approved warm editorial homepage hero and liquid-glass
-navbar after reviewing them in the visible local browser.
+Fatimah asked to receive an email at `hello@admitfolio.com` after every sale
+and to repair the missing Vercel `Purchase Completed` conversion event.
+
+The conversion event was emitted before the Stripe fee snapshot was ready.
+That request returned 500, so Vercel discarded the event. Stripe's successful
+retry skipped it because the buyer delivery was already complete.
 
 ## What changed
 
-- Replaced the hero copy with a larger problem-first headline and shorter
-  supporting sentence.
-- Switched the hero essay-card typography to Newsreader and removed the
-  redundant `Verified admit` label.
-- Kept Harvard as the first hero carousel slide and tightened the card footer
-  so its price and unlock action stay clear of the bottom edge.
-- Optically centered the three desktop navigation links between the wordmark
-  and seller controls.
-- Preserved the liquid-glass scroll treatment and inverted the navbar
-  `Find my matches` button after scrolling.
-- Kept one continuous cream page background.
-- Preserved the newer continuous university marquee while making its real
-  university logos larger and clearer on desktop and phone.
+- Added a privacy-safe owner sale email. It includes the listing, sale amount,
+  Admitfolio revenue, Stripe fee, seller payout, and Pacific sale timestamp.
+- Excluded buyer and seller contact details from the owner email.
+- Defaulted sale alerts to `hello@admitfolio.com`, with an optional
+  comma-separated `SALE_NOTIFY_EMAILS` override.
+- Added a stable Resend idempotency key per purchase and recipient so webhook
+  retries cannot send duplicate owner alerts.
+- Moved `Purchase Completed` tracking after Stripe fee finalization and into
+  the first finalized notification block. A fee-pending first attempt can now
+  be completed and tracked by Stripe's retry.
+- Kept analytics and owner-email failures non-fatal to delivery and payouts.
+- Added a regression test for the recipient fallback, privacy boundary,
+  idempotency key, and conversion-event ordering.
 
 ## Verification
 
-- `git diff --check` and `tsc --noEmit` passed after merging `origin/main`.
-- The merged homepage was checked in the visible local browser.
-- The headline, continuous marquee, eight loaded university logos, liquid-glass
-  scroll state, inverted button colors, and zero horizontal overflow were
-  asserted in the DOM.
-- Vercel completed the `e1cb17d` deployment successfully. The live homepage was
-  read back with the new headline, all eight logos loaded, no verified-admit
-  card labels, the inverted scrolled button, and zero horizontal overflow.
+- `npm run test:sale-alerts`
+- `npm run test:analytics`
+- `npm run test:commerce`
+- `npm run test:stripe-fees`
+- `npm run test:purchase-fulfillment`
+- `npm run test:seller-payouts`
+- `npx tsc --noEmit`
+- Direct `npx next build` with build-only placeholder environment values. This
+  deliberately bypassed the repository build script so no live database
+  migration ran.
+
+All checks passed under the bundled Node.js runtime.
 
 ## What is left
 
-Nothing remains for this change.
-
-No migration, backfill, database write, or payment change is required.
+Push the branch, merge it to `main`, wait for Vercel production deployment, and
+verify the deployed commit. No migration, backfill, database write, or Vercel
+environment change is required. Historical missed conversion events are not
+backfilled.

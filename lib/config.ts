@@ -36,6 +36,17 @@ export const ADMIN_NOTIFY_EMAILS = (() => {
   return list.length > 0 ? list : [...ADMIN_EMAILS];
 })();
 
+// Where completed-sale alerts go. Keep this separate from admin login and
+// listing-review notifications. When unset, send to the confirmed support
+// inbox so a production sale is never silently missed.
+export const SALE_NOTIFY_EMAILS = (() => {
+  const list = (process.env.SALE_NOTIFY_EMAILS || 'hello@admitfolio.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return list;
+})();
+
 // TEST-ONLY: extra non-.edu emails allowed to sign up while testing (Resend
 // sandbox only delivers to your account email). Remove before launch.
 export const TEST_EMAILS = new Set(
