@@ -1392,7 +1392,7 @@ export default function Page() {
   // Granola-style navbar: transparent at the top, then a floating glass pill
   // once the page has moved beneath it.
   useEffect(() => {
-    const updateNav = () => setNavScrolled(window.scrollY > 32);
+    const updateNav = () => setNavScrolled(window.scrollY > 0);
     updateNav();
     window.addEventListener('scroll', updateNav, { passive: true });
     return () => window.removeEventListener('scroll', updateNav);
