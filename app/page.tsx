@@ -119,7 +119,6 @@ function HeroEssayCarousel({ onBrowse }: { onBrowse: () => void }) {
                 <LogoBadge domain={slide.domain} letter={slide.letter} color={slide.color} school={slide.school} size={40} fontSize={18} />
                 <div><strong>{slide.school}</strong><span>{slide.type}</span></div>
               </div>
-              <span className="editorial-verified">Verified admit</span>
             </div>
             <div className="editorial-paper-major">{slide.major}</div>
             <p className="editorial-paper-opening">{slide.opening}</p>
@@ -1620,9 +1619,9 @@ export default function Page() {
       <section className="hero editorial-hero" id="home" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div className="editorial-hero-inner">
           <div className="editorial-hero-copy">
-            <p className="editorial-eyebrow">Real essays, thoughtfully explored</p>
-            <h1>See why their essays worked. Then write one <em>only you could.</em></h1>
-            <p className="editorial-description">Read real admissions essays from verified students, organized by school and prompt, so you can find inspiration without losing your own voice.</p>
+            <p className="editorial-eyebrow">Real essays from students who got in</p>
+            <h1>Stuck on your college essay? <em>Start here.</em></h1>
+            <p className="editorial-description">See how successful applicants shaped their stories, then find the words for your own.</p>
             <div className="hero-actions editorial-actions">
               <a className="btn-primary" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse verified essays</a>
               <button className="btn-ghost" type="button" onClick={openMatcher}>Find my matches</button>
