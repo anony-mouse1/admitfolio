@@ -157,16 +157,20 @@ a { color: inherit; }
 /* ---- Trust bar ---- */
 .trust { max-width: 1200px; margin: 0 auto; padding: 24px 40px 36px; }
 .trust-label { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); text-transform: uppercase; }
-.trust-row { margin-top: 20px; }
-.trust-set { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 30px; }
-/* Desktop shows one centered wrapped set; the duplicate exists only for the
-   mobile marquee loop. */
-.trust-set[aria-hidden] { display: none; }
-.trust-row span { font-family: var(--serif); font-size: 21px; font-weight: 600; color: #a8a298; cursor: default; transition: color .2s; }
+.trust-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.trust-row { width: max-content; margin-top: 20px; display: flex; animation: trustScroll 28s linear infinite; }
+.trust-set, .trust-set[aria-hidden] { display: flex; align-items: center; justify-content: flex-start; flex: none; flex-wrap: nowrap; gap: 30px; padding-right: 30px; }
+.trust-row span { font-family: var(--serif); font-size: 21px; font-weight: 600; color: #a8a298; cursor: default; transition: color .2s; white-space: nowrap; }
 .trust-row span:hover { color: var(--ink); }
+.trust-marquee:hover .trust-row { animation-play-state: paused; }
 @keyframes trustScroll { to { transform: translateX(-50%); } }
 .trust-school { display: inline-flex; align-items: center; gap: 9px; }
 .trust-school img { width: 26px; height: 26px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .trust-row { animation: none; } }
 
 /* ---- Featured ---- */
 .featured { max-width: 1200px; margin: 0 auto; padding: 80px 40px 40px; }
@@ -1361,25 +1365,15 @@ body { -webkit-tap-highlight-color: transparent; }
      foot row has nothing to show on phones. */
   .hero-art .fc-foot { display: none; }
 
-  /* Trust bar: continuous scrolling marquee (SideShift-style) - one row,
-     the set rendered twice and shifted -50% for a seamless loop. */
+  /* Keep the university marquee compact on phones. */
   .trust { padding-left: 0; padding-right: 0; padding-bottom: 20px; }
   /* Pull "Releasing soon" up close under the marquee */
   .featured { padding-top: 24px; }
-  .trust-marquee {
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
-  }
-  .trust-row {
-    display: flex; width: max-content;
-    animation: trustScroll 24s linear infinite;
-  }
-  /* padding-right = item gap so -50% lands exactly on the second copy */
-  .trust-set, .trust-set[aria-hidden] { display: flex; flex-wrap: nowrap; gap: 34px; padding-right: 34px; }
-  .trust-row span { font-size: 17px; white-space: nowrap; }
+  .trust-marquee { -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+  .trust-row { animation-duration: 24s; }
+  .trust-set, .trust-set[aria-hidden] { gap: 34px; padding-right: 34px; }
+  .trust-row span { font-size: 17px; }
   .trust-school img { width: 22px; height: 22px; }
-  @media (prefers-reduced-motion: reduce) { .trust-row { animation: none; } }
 
   /* How-it-works: SideShift-style staggered two-column collage. Steps 1 & 3
      in the left column, 2 & 4 in the right column pushed down half a card so
