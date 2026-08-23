@@ -1591,32 +1591,38 @@ body { -webkit-tap-highlight-color: transparent; }
   font-size: 17px;
   line-height: 1.64;
 }
-.editorial-actions { margin-top: 28px; gap: 11px; }
+.editorial-actions { margin-top: 30px; gap: 22px; }
 .editorial-actions > * {
-  min-height: 54px;
-  padding: 0 25px;
+  min-height: 48px;
+  padding: 0 21px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 24px;
+  border-radius: 8px;
   font-family: var(--sans);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
 }
 .editorial-actions .btn-primary {
-  border: 1px solid rgba(108,27,40,.28);
-  background: linear-gradient(135deg, #a33a3f, #7f1b31 72%);
-  box-shadow: 0 15px 30px rgba(140,32,51,.22), inset 0 1px rgba(255,255,255,.2);
+  border: 1px solid #6d1728;
+  background: var(--accent);
+  box-shadow: 0 5px 12px rgba(87,29,39,.10);
 }
-.editorial-actions .btn-primary:hover { background: linear-gradient(135deg, #923037, #6f1427 72%); }
+.editorial-actions .btn-primary:hover { background: #681827; transform: translateY(-1px); }
 .editorial-actions .btn-ghost {
-  border: 1px solid #cebba5;
-  color: var(--ink);
-  background: rgba(255,248,238,.86);
-  box-shadow: 0 9px 22px rgba(105,74,47,.07);
+  padding: 0;
+  gap: 9px;
+  border: 0;
+  border-radius: 0;
+  color: #302b26;
+  background: transparent;
+  box-shadow: none;
 }
-.editorial-actions .btn-ghost:hover { border-color: #aa947b; background: #fff9f0; }
+.editorial-actions .btn-ghost:hover { border-color: transparent; background: transparent; transform: none; }
+.editorial-action-label { padding-bottom: 3px; border-bottom: 1px solid rgba(48,43,38,.42); }
+.editorial-action-arrow { color: var(--accent); font-size: 17px; font-weight: 500; transition: transform .18s ease; }
+.editorial-actions .btn-ghost:hover .editorial-action-arrow { transform: translateX(3px); }
 .editorial-proof {
   margin-top: 28px;
   display: flex;
@@ -1814,6 +1820,7 @@ body { -webkit-tap-highlight-color: transparent; }
   .editorial-hero .editorial-description { margin-top: 20px; font-size: 15px; line-height: 1.56; }
   .editorial-actions { margin-top: 24px; display: grid; }
   .editorial-actions > * { width: 100%; }
+  .editorial-actions .btn-ghost { width: auto; justify-self: center; }
   .editorial-proof { display: none; }
   .essay-hero-art { min-height: 500px; margin-top: 26px; }
   .editorial-carousel { position: relative; top: auto; right: auto; width: 100%; height: 470px; }

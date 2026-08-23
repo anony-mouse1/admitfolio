@@ -1625,7 +1625,10 @@ export default function Page() {
             <p className="editorial-description">Read real admissions essays from verified students, organized by school and prompt, so you can find inspiration without losing your own voice.</p>
             <div className="hero-actions editorial-actions">
               <a className="btn-primary" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse verified essays</a>
-              <button className="btn-ghost" type="button" onClick={openMatcher}>Find my matches</button>
+              <button className="btn-ghost" type="button" onClick={openMatcher}>
+                <span className="editorial-action-label">Find my matches</span>
+                <span className="editorial-action-arrow" aria-hidden="true">→</span>
+              </button>
             </div>
             <div className="editorial-proof"><span className="editorial-proof-seal">✓</span><span>Admission proof checked before an essay is listed</span></div>
           </div>
