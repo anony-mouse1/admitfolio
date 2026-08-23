@@ -8,6 +8,8 @@ Branch: `codex/liquid-glass-navbar`
 
 Merged base: `origin/main` at `6a6c5c1`.
 
+Implementation commit: `3ea40a9`. Merge commit: `e1cb17d`.
+
 Worktree: `/private/tmp/admitfolio-hero.xS76PH`
 
 ## Why this change
@@ -38,10 +40,12 @@ navbar after reviewing them in the visible local browser.
 - The headline, continuous marquee, eight loaded university logos, liquid-glass
   scroll state, inverted button colors, and zero horizontal overflow were
   asserted in the DOM.
+- Vercel completed the `e1cb17d` deployment successfully. The live homepage was
+  read back with the new headline, all eight logos loaded, no verified-admit
+  card labels, the inverted scrolled button, and zero horizontal overflow.
 
 ## What is left
 
-1. Complete the merge commit and push the feature branch and `main`.
-2. Confirm the Vercel deployment and verify the live homepage.
+Nothing remains for this change.
 
 No migration, backfill, database write, or payment change is required.
