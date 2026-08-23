@@ -1859,7 +1859,7 @@ body { -webkit-tap-highlight-color: transparent; }
   left: 50%;
   width: min(1180px, calc(100% - 34px));
   min-height: 66px;
-  padding: 0 14px 0 22px;
+  padding: 0 18px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
