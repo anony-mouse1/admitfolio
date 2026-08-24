@@ -6,7 +6,9 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 Branch: `codex/ritvik-seller-flow`
 
-Target base: `origin/main` at `f95cfa7`.
+Implementation commit: `56a9c11`.
+
+GitHub `main` was fast-forwarded from `f95cfa7` to `56a9c11`.
 
 Worktree: `/private/tmp/admitfolio-ritvik-fixes`
 
@@ -45,13 +47,13 @@ The persistent checklist is `docs/ritvik-seller-flow-tasks.md`.
 
 ## Database changes
 
-Two migrations are included but have not been applied:
+Two migrations were applied automatically by the successful Vercel production
+build:
 
 - `20260824090000_seller_signup_security`
 - `20260824110000_seller_drafts_verification`
 
-No production rows were changed. No backfill or destructive cleanup is
-included.
+No legacy backfill or destructive cleanup was included.
 
 The read-only production impact report is
 `docs/seller-flow-production-impact.md`. At the time of the report it found no
@@ -74,11 +76,18 @@ deployment review does not silently infer or overwrite historical data.
 
 All checks passed.
 
+## Production verification
+
+- GitHub `main` resolved to `56a9c11` after the approved push.
+- Vercel marked the production deployment Ready.
+- `https://admitfolio.com/api/version` returned the full `56a9c11` commit.
+- The production homepage and public listings API returned 200.
+- The successful Vercel build ran `prisma migrate deploy` before `next build`,
+  so both included migrations completed before the new version became live.
+
 ## What is left
 
-- Review and open the focused pull request.
-- Obtain Fatimah's explicit approval before merge, deployment, or applying the
-  production migrations.
-- Decide later whether to schedule the non-destructive draft-retention endpoint.
-- Run no legacy verification or class-year backfill unless it is separately
-  reviewed and explicitly approved.
+No required implementation or deployment work remains. The non-destructive
+draft-retention endpoint remains deliberately unscheduled. Run no legacy
+verification or class-year backfill unless it is separately reviewed and
+explicitly approved.

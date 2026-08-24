@@ -102,6 +102,6 @@ code and focused tests are complete. A mockup alone does not complete an item.
 - [x] Produce read-only impact reports for normalized-email collisions and
       legacy verification state.
 - [x] Document that no legacy inference backfill or destructive cleanup is included.
-- [ ] Open a focused PR and review deployment risk.
-- [ ] Obtain explicit approval before production migrations, backfills, merge,
-      or deployment.
+- [x] Review deployment risk and merge the focused change into `main`.
+- [x] Obtain explicit approval before production migrations, merge, and
+      deployment.
