@@ -1522,7 +1522,10 @@ export default function Page() {
           <div className="editorial-hero-copy">
             <p className="editorial-eyebrow">Real essays from students who got in</p>
             <h1>Stuck on your college essay? <em>Start here.</em></h1>
-            <p className="editorial-description">See how successful applicants shaped their stories, then find the words for your own.</p>
+            <p className="editorial-description">
+              <span>The hardest part of a college essay is finding the right words.</span>
+              <span>See how T20 admits shaped their stories, then tell yours.</span>
+            </p>
             <div className="hero-actions editorial-actions">
               <a className="btn-primary" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse verified essays</a>
               <button className="btn-ghost" type="button" onClick={openMatcher}>
