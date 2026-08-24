@@ -9,14 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* ====== Admitfolio hero loop — pure HTML/CSS/JS embed ======
-     Same 8.4s seamless loop as the video: typing struggle -> card stream ->
-     close-up with notes -> unlock -> wrap. No video file needed.
+     ~14.4s seamless loop: typing struggle -> card stream -> close-up ->
+     unlock (padlock opens center screen) -> annotated essay -> wrap.
      Embed: copy this <style>, the .afl-hero div, and the <script> into your
-     hero's right column (or iframe this file). Fills its container at the
-     original card's 880x930 proportions. */
+     hero's right column (or iframe this file). Fills its container at 880x930. */
   .afl-hero * { margin: 0; padding: 0; box-sizing: border-box; }
   .afl-hero { position: relative; width: 100%; aspect-ratio: 880/930; overflow: hidden; font-family: 'Geist', sans-serif; }
-  .afl-stage { position: absolute; left: 0; top: 0; width: 880px; height: 930px; transform-origin: 0 0; }
+  .afl-stage { position: absolute; left: 0; top: 0; width: 880px; height: 930px; transform-origin: 0 0; perspective: 1600px; }
   .afl-scene { position: absolute; inset: 0; }
   .afl-serif { font-family: 'Fraunces', serif; }
   .afl-paper { position: absolute; left: 70px; top: 150px; width: 740px; height: 560px; background: #FFFDFA; border: 1px solid #EFECE5; border-radius: 24px; box-shadow: 0 30px 70px rgba(20,18,15,.10); padding: 52px 56px; }
@@ -26,7 +25,7 @@
   .afl-count { position: absolute; right: 36px; bottom: 28px; font-size: 15px; color: #8A857B; }
   .afl-mini { position: absolute; left: 250px; width: 380px; height: 300px; background: #FFFDFA; border: 1px solid #EFECE5; border-radius: 18px; padding: 20px 24px; box-shadow: 0 1px 2px rgba(20,18,15,.04); }
   .afl-mini .h { display: flex; align-items: center; gap: 10px; }
-  .afl-badge { width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 1px solid #EFECE5; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 700; font-size: 16px; }
+  .afl-badge { position: relative; overflow: hidden; width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 1px solid #EFECE5; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 700; font-size: 16px; }
   .afl-mini .s { font-size: 16px; font-weight: 600; color: #1B1A17; }
   .afl-major { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: #7D1D2D; text-transform: uppercase; margin-top: 14px; }
   .afl-hook { font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px; line-height: 1.28; color: #1B1A17; margin-top: 8px; }
@@ -39,12 +38,20 @@
   .afl-fadeBot { bottom: 0; background: linear-gradient(transparent, #F6F0E7); }
   .afl-big { position: absolute; left: 65px; top: 120px; width: 750px; height: 640px; background: #FFFDFA; border: 1px solid #EFECE5; border-radius: 24px; box-shadow: 0 30px 70px rgba(20,18,15,.12); padding: 48px 56px 44px 72px; }
   .afl-big::before { content: ''; position: absolute; left: 44px; top: 0; bottom: 0; width: 1px; background: #F0EDE6; }
-  .afl-skel { height: 11px; border-radius: 6px; background: #ECE9E2; margin-bottom: 11px; position: relative; }
-  .afl-line { position: absolute; left: 0; top: -4px; font-size: 14.5px; line-height: 1.3; color: #56524A; white-space: nowrap; opacity: 0; }
-  .afl-note { position: absolute; width: 250px; background: #FFFDFA; border: 1px solid #EFECE5; border-radius: 12px; box-shadow: 0 14px 34px rgba(20,18,15,.13); padding: 13px 16px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13.5px; line-height: 1.5; color: #56524A; opacity: 0; }
+  .afl-skel { height: 11px; border-radius: 6px; background: #ECE9E2; margin-bottom: 11px; }
+  .afl-note { position: absolute; width: 250px; background: #7D1D2D; border: 1px solid #691826; border-radius: 12px; box-shadow: 0 14px 34px rgba(125,29,45,.30); padding: 13px 16px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13.5px; line-height: 1.5; color: #F3DCE0; opacity: 0; }
+  .afl-note b { color: #F6F0E7; font-weight: 700; }
   .afl-unlock { position: relative; margin-left: auto; }
   .afl-ring { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid #7D1D2D; opacity: 0; }
   .afl-btn { background: #7D1D2D; color: #fff; border-radius: 999px; padding: 16px 34px; font-size: 17px; font-weight: 600; box-shadow: 0 16px 40px rgba(125,29,45,.38); }
+  .afl-badge img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; transform: scale(1.08); background: #fff; }
+  .afl-blur { filter: blur(5px); user-select: none; pointer-events: none; }
+  .afl-scrim { position: absolute; inset: 0; background: rgba(20,18,15,.55); backdrop-filter: blur(4px); opacity: 0; }
+  .afl-lockwrap { position: absolute; left: 50%; top: 50%; width: 200px; margin-left: -100px; margin-top: -130px; text-align: center; opacity: 0; }
+  .afl-locklabel { margin-top: 18px; font-size: 15px; font-weight: 600; letter-spacing: .08em; color: #F6F0E7; opacity: 0; }
+  .afl-essay { position: absolute; left: 65px; top: 100px; width: 750px; height: 690px; background: #FFFDFA; border: 1px solid #EFECE5; border-radius: 24px; box-shadow: 0 30px 70px rgba(20,18,15,.12); padding: 46px 54px; opacity: 0; }
+  .afl-essay p { font-size: 15.5px; line-height: 1.75; color: #56524A; margin-bottom: 14px; }
+  #scrim { display: none !important; }
 </style>
 </head>
 <body style="background:transparent">
@@ -59,12 +66,17 @@
     </div>
     <div class="afl-scene" id="scB" style="opacity:0">
       <div id="bCards"></div>
+      <div id="fgCards" style="position:absolute;inset:0;pointer-events:none;filter:blur(7px);opacity:.5"></div>
       <div class="afl-fadeTop"></div><div class="afl-fadeBot"></div>
+      <div id="bCur" style="position:absolute;opacity:0">
+        <div class="afl-ring" id="bRing" style="left:4px;top:4px;margin:-22px 0 0 -22px;width:44px;height:44px"></div>
+        <svg width="34" height="34" viewBox="0 0 24 24"><path d="M4 2l16 12-7 1 4 7-3 1.6-4-7L4 22z" fill="#1B1A17" stroke="#FFF" stroke-width="1.4"></path></svg>
+      </div>
     </div>
     <div class="afl-scene" id="scC" style="opacity:0">
       <div class="afl-big" id="cCard">
         <div style="display:flex;align-items:center;gap:14px">
-          <div class="afl-badge" style="width:52px;height:52px;font-size:24px;color:#8C1515">S</div>
+          <div class="afl-badge" style="width:52px;height:52px;font-size:24px;color:#8C1515">S<img src="https://www.google.com/s2/favicons?domain=stanford.edu&sz=64" alt="" onerror="this.style.display='none'"></div>
           <div>
             <div class="afl-serif" style="font-weight:700;font-size:25px;color:#1B1A17">Stanford</div>
             <div style="font-size:14.5px;color:#8A857B;margin-top:2px">Common App &middot; 9-essay package</div>
@@ -74,8 +86,8 @@
         <div class="afl-eyebrow" style="font-size:13px">SYMBOLIC SYSTEMS</div>
         <div class="afl-serif" style="font-weight:600;font-size:33px;line-height:1.3;color:#1B1A17;margin-top:14px">I watched people through security cameras, learning how small choices shape a community&hellip;</div>
         <div style="margin-top:22px">
-          <div class="afl-skel" style="width:92%"><span class="afl-line" id="cL1">It started with a monitor bank in a strip-mall office, eleven screens and one</span></div>
-          <div class="afl-skel" style="width:84%"><span class="afl-line" id="cL2">question: why does anyone hold a door?</span></div>
+          <div class="afl-skel" style="width:92%"></div>
+          <div class="afl-skel" style="width:84%"></div>
           <div class="afl-skel" style="width:88%"></div>
           <div class="afl-skel" style="width:58%"></div>
         </div>
@@ -85,9 +97,36 @@
           <div class="afl-unlock"><div class="afl-ring" id="cRing"></div><div class="afl-btn" id="cBtn">Unlock essays</div></div>
         </div>
       </div>
-      <div class="afl-note" id="cN1" style="left:30px;top:330px;transform:rotate(-2deg)">Specific detail makes the opening feel lived in.</div>
-      <div class="afl-note" id="cN2" style="right:26px;top:560px;width:254px;transform:rotate(1.6deg)">Structure turns reflection into a clear arc.</div>
     </div>
+    <div class="afl-scene" id="scE" style="opacity:0">
+      <div class="afl-essay" id="eCard">
+        <div class="afl-eyebrow">STANFORD &middot; PERSONAL STATEMENT &middot; UNLOCKED &#10003;</div>
+        <div class="afl-serif" style="font-weight:600;font-size:29px;line-height:1.3;color:#1B1A17;margin-top:16px">I watched people through security cameras, learning how small choices shape a community.</div>
+        <div style="margin-top:20px">
+          <p>It started with a monitor bank in a strip-mall office: eleven screens, one folding chair, and a summer job nobody else wanted. My shifts were quiet. The footage never was.</p>
+          <p>People returned carts they could have abandoned. They held doors for strangers they would never see again. Somewhere around week three, the job stopped being about security and started being about attention.</p>
+          <div class="afl-blur">
+            <p>The night manager called it wasted attention. I logged it anyway: timestamps of small kindnesses, a ledger no one asked for. By August it ran nine pages, and I understood the store better than its own floor plan.</p>
+            <p>I still watch that carefully. Just without the cameras.</p>
+          </div>
+        </div>
+        <div style="position:absolute;left:54px;right:54px;bottom:30px;border-top:1px solid #F0EDE6;padding-top:14px;display:flex;gap:10px;font-size:13.5px;color:#8A857B">
+          <span>Essay 1 of 9</span><span>&middot;</span><span>648 words</span>
+          <span style="margin-left:auto;color:#7D1D2D;font-weight:600">For inspiration, never to copy.</span>
+        </div>
+      </div>
+      <div class="afl-note" id="eN1" style="left:26px;top:352px;transform:rotate(-2deg)"><b>Hook:</b> opens in a scene, not a statement.</div>
+      <div class="afl-note" id="eN2" style="right:22px;top:430px;width:254px;transform:rotate(1.6deg)"><b>Turn:</b> the question gets bigger than the job.</div>
+      <div class="afl-note" id="eN3" style="left:40px;top:640px;transform:rotate(-1.4deg)"><b>Reflection:</b> ends on what it changed.</div>
+    </div>
+    <div class="afl-scrim" id="scrim"></div>
+    <div class="afl-lockwrap" id="lockW">
+      <div id="lockFlip" style="position:relative;width:200px;height:200px;margin:0 auto;transform-style:preserve-3d">
+        <div id="lockGlow" style="position:absolute;inset:-46px;border-radius:50%;background:radial-gradient(circle, rgba(224,161,170,.6), transparent 65%);opacity:0"></div>
+        <span id="lockFront" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:150px;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;filter:drop-shadow(0 12px 34px rgba(0,0,0,.4))">🔒️</span>
+        <span id="lockBack" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:150px;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;filter:drop-shadow(0 12px 34px rgba(0,0,0,.4)) drop-shadow(0 0 18px rgba(224,161,170,.8));transform:rotateY(180deg);opacity:0">🔓️</span>
+      </div>
+          </div>
     <div class="afl-scene" id="scD" style="opacity:0">
       <div class="afl-paper">
         <div class="afl-eyebrow">COMMON APP &middot; PERSONAL STATEMENT</div>
@@ -99,8 +138,10 @@
 </div>
 <script>
 (function () {
+  var FLIP = false; // true = card-flip unlock instead of padlock
   var $ = function (id) { return document.getElementById(id); };
-  var ST = 0, BR = 4.4, CU = 6.8, UN = 8.8, END = 10.4;
+  var ST = 0, BR = 4.4, CU = 6.8, LK = 9.2, ES = 10.4, OUT = 14.0, END = 14.45;
+  var UP = CU + 1.9; // unlock button press
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
   var ease = function (p) { return p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; };
   var outC = function (p) { return 1 - Math.pow(1 - p, 3); };
@@ -116,27 +157,47 @@
   }
 
   var CARDS = [
-    { s: 'Harvard', l: 'H', c: '#A51C30', m: 'Economics', h: 'This is a courage the earlier versions of me would never have\u2026', p: '$112', set: '5-essay set' },
-    { s: 'Stanford', l: 'S', c: '#8C1515', m: 'Symbolic systems', h: 'I watched people through security cameras, studying their behavio\u2026', p: '$184', set: '9-essay set' },
-    { s: 'Yale', l: 'Y', c: '#00356B', m: 'Computer science', h: 'Engineering, to me, is reimagining systems: human,\u2026', p: '$76', set: '3-essay set' },
-    { s: 'MIT', l: 'M', c: '#A31F34', m: 'Mech. engineering', h: 'Our garage had no door, so ideas kept walking in.\u2026', p: '$96', set: '4-essay set' },
-    { s: 'UPenn', l: 'P', c: '#011F5B', m: 'Nursing', h: 'During my time in Indonesia, I learned that life was hard.\u2026', p: '$80', set: 'full essay' }
+    { s: 'Harvard', d: 'harvard.edu', l: 'H', c: '#A51C30', m: 'Economics', h: 'This is a courage the earlier versions of me would never have\u2026', p: '$112', set: '5-essay set' },
+    { s: 'Yale', d: 'yale.edu', l: 'Y', c: '#00356B', m: 'Computer science', h: 'Engineering, to me, is reimagining systems: human,\u2026', p: '$76', set: '3-essay set' },
+    { s: 'MIT', d: 'mit.edu', l: 'M', c: '#A31F34', m: 'Mech. engineering', h: 'Our garage had no door, so ideas kept walking in.\u2026', p: '$96', set: '4-essay set' },
+    { s: 'UPenn', d: 'upenn.edu', l: 'P', c: '#011F5B', m: 'Nursing', h: 'During my time in Indonesia, I learned that life was hard.\u2026', p: '$80', set: 'full essay' },
+    { s: 'Princeton', d: 'princeton.edu', l: 'P', c: '#E77500', m: 'Public policy', h: 'The dinner table was my first debate stage.\u2026', p: '$104', set: '4-essay set' },
+    { s: 'Columbia', d: 'columbia.edu', l: 'C', c: '#5A87B0', m: 'Economics and public policy', h: 'At Columbia, I\u2019ll be able to work across the university\u2026', p: '$150', set: '7-essay set' },
+    { s: 'Duke', d: 'duke.edu', l: 'D', c: '#012169', m: 'Biomedical eng.', h: 'A stethoscope taught me to listen before I spoke.\u2026', p: '$88', set: '3-essay set' },
+    { s: 'Stanford', d: 'stanford.edu', l: 'S', c: '#8C1515', m: 'Symbolic systems', h: 'I watched people through security cameras, studying their behavio\u2026', p: '$184', set: '9-essay set' },
+    { s: 'Brown', d: 'brown.edu', l: 'B', c: '#4E3629', m: 'Literary arts', h: 'My grandmother\u2019s recipes were written in the margins.\u2026', p: '$72', set: '2-essay set' }
   ];
   var bCards = $('bCards');
   CARDS.forEach(function (c) {
     var d = document.createElement('div');
     d.className = 'afl-mini';
-    d.innerHTML = '<div class="h"><div class="afl-badge" style="color:' + c.c + '">' + c.l + '</div><span class="s">' + c.s + '</span></div>' +
+    d.style.left = (50 + (bCards.children.length % 2) * 400) + 'px';
+    d.innerHTML = '<div class="h"><div class="afl-badge" style="color:' + c.c + '">' + c.l + '<img src="https://www.google.com/s2/favicons?domain=' + c.d + '&sz=64" alt="" onerror="this.style.display=\'none\'"></div><span class="s">' + c.s + '</span></div>' +
       '<div class="afl-major">' + c.m + '</div><div class="afl-hook">' + c.h + '</div>' +
       '<div class="f"><span class="afl-price">' + c.p + '</span><span class="afl-set">' + c.set + '</span><span class="afl-pill">Unlock</span></div>';
     bCards.appendChild(d);
   });
   var minis = bCards.children;
+  var fgWrap = $('fgCards');
+  for (var fi = 0; fi < 6; fi++) {
+    var fc = CARDS[fi % CARDS.length];
+    var fd = document.createElement('div');
+    fd.className = 'afl-mini';
+    fd.style.left = (fi % 2 === 0 ? -110 : 610) + 'px';
+    fd.style.transform = 'scale(1.18)';
+    fd.innerHTML = '<div class="h"><div class="afl-badge" style="color:' + fc.c + '">' + fc.l + '</div><span class="s">' + fc.s + '</span></div>' +
+      '<div class="afl-major">' + fc.m + '</div><div class="afl-hook">' + fc.h + '</div>' +
+      '<div class="f"><span class="afl-price">' + fc.p + '</span><span class="afl-set">' + fc.set + '</span><span class="afl-pill">Unlock</span></div>';
+    fgWrap.appendChild(fd);
+  }
+  var fgs = fgWrap.children;
 
-  var TXT = 'I have always been passionate about', TXT2 = 'Ever since I was young, I have', MASHTXT = 'jkfds;alskdjf;;ASDFGHJ!!?! fjkdsl!!', MASH_AT = ST + 2.75;
+  var TXT = 'I have always been passionate about', TXT2 = 'Ever since I was young, I have',
+      MASHTXT = 'jkfds;alskdjf;;ASDFGHJ!!?! fjkdsl!!', MASH_AT = ST + 2.75;
+
   function frame(T) {
     var caret = Math.floor(T * 2.4) % 2 === 0 ? 1 : 0;
-    // scene A
+    // scene A: struggle
     var aOp = 1 - draw(T, BR - .3, .3, lin);
     $('scA').style.opacity = aOp;
     $('scA').style.display = aOp > 0 ? '' : 'none';
@@ -158,42 +219,85 @@
       $('aPaper').style.transform = 'translate(' + Math.sin(T * 83) * shA + 'px,' + Math.cos(T * 67) * shA * .6 + 'px)';
       $('aPaper').style.borderColor = shA ? '#7D1D2D' : '#EFECE5';
     }
-    // scene B
+    // scene B: card stream
     var bOp = Math.min(draw(T, BR - .1, .35, lin), 1 - draw(T, CU - .3, .3, lin));
     $('scB').style.opacity = bOp;
     $('scB').style.display = bOp > 0 ? '' : 'none';
     if (bOp > 0) {
-      var scroll = pw(T, [[BR, 0], [CU, 560]], lin);
+      var scroll = pw(T, [[BR, 0], [BR + 1.9, 865], [CU, 865]]);
+      fgWrap.style.opacity = .5 * (1 - draw(T, BR + 1.55, .45, lin));
+      for (var g = 0; g < fgs.length; g++) {
+        fgs[g].style.top = (140 + g * 470 - scroll * 1.6) + 'px';
+      }
       for (var i = 0; i < minis.length; i++) {
-        var y = 190 + i * 330 - scroll;
+        var y = 190 + Math.floor(i / 2) * 330 - scroll;
         var lift = clamp(1 - Math.abs(y + 150 - 465) / 260, 0, 1);
         minis[i].style.top = y + 'px';
         minis[i].style.transform = 'translateY(' + (-lift * 6) + 'px) scale(' + (1 + lift * .04) + ')';
         minis[i].style.boxShadow = lift > .5 ? '0 22px 48px rgba(20,18,15,.13)' : '0 1px 2px rgba(20,18,15,.04)';
-        minis[i].style.borderColor = lift > .75 ? '#7D1D2D' : '#EFECE5';
+        minis[i].style.borderColor = (i === 7 && lift > .75) ? '#7D1D2D' : '#EFECE5';
+      }
+      var UPB = CU - .35;
+      var curOp = draw(T, BR + 1.5, .3, lin);
+      var bCur = $('bCur');
+      bCur.style.opacity = curOp;
+      if (curOp > 0) {
+        var bx = pw(T, [[BR + 1.5, 760], [UPB, 640]]);
+        var by = pw(T, [[BR + 1.5, 800], [UPB, 470]]);
+        var dip = T >= UPB && T < UPB + .16 ? .84 : 1;
+        bCur.style.left = bx + 'px'; bCur.style.top = by + 'px';
+        bCur.style.transform = 'scale(' + dip + ')';
+        var bring = clamp((T - UPB) / .45, 0, 1);
+        $('bRing').style.opacity = bring > 0 && bring < 1 ? 1 - bring : 0;
+        $('bRing').style.transform = 'scale(' + (.5 + bring) + ')';
       }
     }
-    // scene C
-    var cOp = Math.min(draw(T, CU - .1, .35, lin), 1 - draw(T, END - .5, .45, lin));
+    // scene C: close-up + press
+    var cExit = FLIP ? (T > LK + .38 ? 0 : 1) : 1 - draw(T, ES - .3, .35, lin);
+    var cOp = Math.min(draw(T, CU - .1, .35, lin), cExit);
     $('scC').style.opacity = cOp;
     $('scC').style.display = cOp > 0 ? '' : 'none';
     if (cOp > 0) {
       var cin = outC(clamp((T - CU) / .6, 0, 1));
+      var flipDeg = FLIP ? 90 * draw(T, LK, .38) : 0;
       $('cCard').style.opacity = cin;
-      $('cCard').style.transform = 'translateY(' + (1 - cin) * 26 + 'px)';
-      var n1 = outC(clamp((T - CU - .5) / .5, 0, 1)), n2 = outC(clamp((T - CU - 1.1) / .5, 0, 1));
-      $('cN1').style.opacity = n1; $('cN2').style.opacity = n2;
-      var unlockT = UN + .35;
-      var ring = clamp((T - unlockT) / .5, 0, 1);
+      $('cCard').style.transform = 'translateY(' + (1 - cin) * 26 + 'px)' + (FLIP ? ' rotateY(' + flipDeg + 'deg)' : '');
+      var ring = clamp((T - UP) / .5, 0, 1);
       $('cRing').style.opacity = ring > 0 && ring < 1 ? 1 - ring : 0;
       $('cRing').style.transform = 'scale(' + (.6 + ring * 1.1) + ')';
-      var unlocked = draw(T, unlockT + .1, .5);
-      $('cBtn').textContent = unlocked > .5 ? 'Unlocked \u2713' : 'Unlock essays';
-      $('cBtn').style.background = unlocked > .5 ? '#691826' : '#7D1D2D';
-      $('cBtn').style.transform = 'scale(' + (T >= unlockT && T < unlockT + .18 ? .94 : 1) + ')';
-      $('cL1').style.opacity = unlocked; $('cL2').style.opacity = unlocked;
-      $('cL1').parentElement.style.background = unlocked > .5 ? 'transparent' : '#ECE9E2';
-      $('cL2').parentElement.style.background = unlocked > .5 ? 'transparent' : '#ECE9E2';
+      $('cBtn').style.transform = 'scale(' + (T >= UP && T < UP + .18 ? .94 : 1) + ')';
+    }
+    // scrim + padlock (padlock mode only)
+    var sOp = FLIP ? 0 : Math.min(draw(T, LK - .3, .35, lin), 1 - draw(T, ES - .3, .35, lin));
+    $('scrim').style.opacity = sOp;
+    $('scrim').style.display = sOp > 0 ? '' : 'none';
+    var lp = FLIP ? 0 : outC(clamp((T - LK) / .45, 0, 1));
+    var ld = FLIP ? 1 : draw(T, ES - .35, .4, lin);
+    var lOp = lp * (1 - ld);
+    $('lockW').style.opacity = lOp;
+    $('lockW').style.display = lOp > 0 ? '' : 'none';
+    if (lOp > 0) {
+      var gp = clamp(1 - Math.abs(T - (LK + .85)) / .4, 0, 1);
+      $('lockW').style.transform = 'scale(' + (.6 + .4 * lp + ld * .7 + gp * .07) + ')';
+      var fo = draw(T, LK + .35, .42);
+      $('lockFlip').style.transform = 'rotateY(' + (180 * fo) + 'deg)';
+      $('lockFront').style.opacity = fo < .5 ? 1 : 0;
+      $('lockBack').style.opacity = fo < .5 ? 0 : 1;
+      $('lockGlow').style.opacity = gp;
+    }
+    // scene E: annotated essay
+    var eIn = FLIP ? draw(T, LK + .38, .1, lin) : draw(T, ES - .15, .4, lin);
+    var eOp = Math.min(eIn, 1 - draw(T, OUT - .4, .4, lin));
+    $('scE').style.opacity = eOp;
+    $('scE').style.display = eOp > 0 ? '' : 'none';
+    if (eOp > 0) {
+      var er = outC(clamp((T - (FLIP ? LK + .38 : ES - .15)) / .55, 0, 1));
+      $('eCard').style.opacity = 1;
+      $('eCard').style.transform = FLIP ? 'rotateY(' + (-90 + 90 * er) + 'deg)' : 'translateY(' + (1 - er) * 24 + 'px) scale(' + (.97 + .03 * er) + ')';
+      var base = FLIP ? LK + .9 : ES;
+      $('eN1').style.opacity = outC(clamp((T - base - .5) / .5, 0, 1));
+      $('eN2').style.opacity = outC(clamp((T - base - 1.2) / .5, 0, 1));
+      $('eN3').style.opacity = outC(clamp((T - base - 1.9) / .5, 0, 1));
     }
     // loop tail
     var dOp = draw(T, END - .45, .4, lin);
@@ -203,7 +307,7 @@
   }
 
   var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) { frame(CU + 1.6); }
+  if (reduced) { frame(ES + 2); }
   else {
     var t0 = performance.now();
     (function tick(now) {
@@ -222,4 +326,3 @@
 </template>
 </body>
 </html>
-
