@@ -2514,7 +2514,7 @@ export default function Page() {
       </section>
 
       {/* ===== Frequently asked questions ===== */}
-      <section className="faq-section" id="faq">
+      {pageView === 'home' && <section className="faq-section" id="faq">
         <div className="faq-section-inner">
           <h2>Frequently asked questions</h2>
 
@@ -2553,7 +2553,7 @@ export default function Page() {
             </details>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ===== Footer ===== */}
       <footer>
