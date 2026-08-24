@@ -1491,8 +1491,8 @@ export default function Page() {
           <div className="logo-dot"></div>
         </a>
         <div className="nav-links">
-          <a href="#featured" onClick={(event) => { event.preventDefault(); openFeatured(); }}>Featured</a>
-          <a onClick={openSell}>Sell your essays</a>
+          <a href="#featured" onClick={(event) => { event.preventDefault(); openFeatured(); }}>High schooler?</a>
+          <a onClick={openSell}>In college?</a>
         </div>
         <div className="nav-cta">
           <a className="login" onClick={openLogin}><span className="login-prefix">Seller </span>login</a>
@@ -1507,7 +1507,7 @@ export default function Page() {
             <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)}></div>
             <div className="nav-menu">
               <a href="#browse" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openBrowse(); }}>Browse essays</a>
-              <a href="#featured" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openFeatured(); }}>Featured</a>
+              <a href="#featured" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openFeatured(); }}>High schooler?</a>
               {LAUNCHED && <a onClick={() => { setMenuOpen(false); openMatcher(); }}>Find my matches</a>}
               <a onClick={() => { setMenuOpen(false); openLogin(); }}>Seller login</a>
             </div>

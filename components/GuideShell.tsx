@@ -14,8 +14,8 @@ export function GuideHeader() {
       </Link>
       <div className="nav-links">
         <Link href="/#browse">Browse essays</Link>
-        <Link href="/#featured">Featured</Link>
-        <Link href="/#sell">Sell your essays</Link>
+        <Link href="/#featured">High schooler?</Link>
+        <Link href="/#sell">In college?</Link>
       </div>
       <div className="nav-cta">
         <Link className="login" href="/?login=1"><span className="login-prefix">Seller </span>login</Link>
@@ -38,7 +38,7 @@ export function GuideHeader() {
           <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)} />
           <div className="nav-menu">
             <Link href="/#browse" onClick={() => setMenuOpen(false)}>Browse essays</Link>
-            <Link href="/#featured" onClick={() => setMenuOpen(false)}>Featured</Link>
+            <Link href="/#featured" onClick={() => setMenuOpen(false)}>High schooler?</Link>
             <Link href="/?matches=1" onClick={() => setMenuOpen(false)}>Find my matches</Link>
             <Link href="/?login=1" onClick={() => setMenuOpen(false)}>Seller login</Link>
           </div>
