@@ -2424,7 +2424,7 @@ export default function Page() {
       </section>
 
       {/* ===== Why admitfolio / comparison ===== */}
-      <section className="why" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
+      <section className="why" id="compare" style={{ display: LAUNCHED && pageView === 'browse' ? 'none' : undefined }}>
         <div className="why-inner">
           <div style={{ textAlign: 'center' }}>
             <div className="eyebrow">Why admitfolio</div>
@@ -2432,7 +2432,7 @@ export default function Page() {
             <p className="why-sub">A verified essay costs less than lunch, and shows you exactly what worked.</p>
           </div>
 
-          <div className="compare reveal" id="compare">
+          <div className="compare reveal">
             <div className="cmp-spacer"></div>
             <div className="cmp-mine-head">
               <div className="cmp-mine-logo"><span className="w">admitfolio</span><span className="d"></span></div>
@@ -2466,26 +2466,30 @@ export default function Page() {
 
           {/* Mobile-only card version of the chart (SideShift-style) */}
           <div className="compare-cards reveal">
-            <div className="cc-head">
-              <span className="cc-brand">admitfolio<i></i></span>
-              <span>Going it alone</span>
-              <span>Hiring a counselor</span>
-            </div>
             {comparisonRows.map((r, i) => (
               <div key={i} className="cc-card">
                 <div className="cc-feature">{r.feature}</div>
                 <div className="cc-cells">
                   <div className="cc-mine">
-                    {r.mineText ? (
-                      <span className="txt">{r.mineText}</span>
-                    ) : (
-                      <div className="cmp-check">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      </div>
-                    )}
+                    <span className="cc-cell-label cc-cell-label-brand">Admitfolio</span>
+                    <span className="cc-cell-value">
+                      {r.mineText ? (
+                        <span className="txt">{r.mineText}</span>
+                      ) : (
+                        <span className="cmp-check">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                      )}
+                    </span>
                   </div>
-                  <div className="cc-alt"><AltValue v={r.diyShort ?? r.diy} /></div>
-                  <div className="cc-alt"><AltValue v={r.agencyShort ?? r.agency} /></div>
+                  <div className="cc-alt">
+                    <span className="cc-cell-label">Going it alone</span>
+                    <span className="cc-cell-value"><AltValue v={r.diyShort ?? r.diy} /></span>
+                  </div>
+                  <div className="cc-alt">
+                    <span className="cc-cell-label">Counselor</span>
+                    <span className="cc-cell-value"><AltValue v={r.agencyShort ?? r.agency} /></span>
+                  </div>
                 </div>
               </div>
             ))}
