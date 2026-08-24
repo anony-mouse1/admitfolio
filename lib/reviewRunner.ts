@@ -7,6 +7,8 @@ import {
 } from '@/lib/review';
 import { applyListingDecision } from '@/lib/listingDecision';
 import { ensureListingOpeningLine } from '@/lib/openingLine';
+import { listingProofKeys } from '@/lib/admitProof';
+import { REVIEW_MODEL } from '@/lib/config';
 
 export type ReviewOutcome = 'accepted' | 'flagged' | 'errored' | 'deferred' | 'skipped';
 
@@ -76,9 +78,13 @@ export async function reviewListing(listingId: string): Promise<ReviewOutcome> {
       console.error(`opening-line extraction failed for listing ${listing.id}:`, opening.error);
     }
     const pdfs = await fetchEssayPdfsBase64(listing);
+    const proofKeys = listingProofKeys(listing.admitTags, listing.targetSchool);
     const proofRows = await prisma.admitProof.findMany({
-      where: { sellerId: listing.sellerId },
-      select: { id: true, schoolLabel: true, pdfPath: true },
+      where: {
+        sellerId: listing.sellerId,
+        schoolKey: { in: proofKeys },
+      },
+      select: { id: true, schoolLabel: true, pdfPath: true, version: true },
     });
     const proofs = await fetchAdmitProofPdfsBase64(proofRows);
     const result = await runReviewPanel(listing, pdfs, proofs);
@@ -107,16 +113,45 @@ export async function reviewListing(listingId: string): Promise<ReviewOutcome> {
     });
 
     for (const check of result.admitChecks) {
-      await prisma.admitProof
-        .update({
-          where: { id: check.proofId },
+      const reviewedProof = proofRows.find((proof) => proof.id === check.proofId);
+      if (!reviewedProof) continue;
+      await prisma.$transaction(async (tx) => {
+        const updated = await tx.admitProof.updateMany({
+          where: { id: check.proofId, version: reviewedProof.version },
           data: {
             aiCheckedAt: new Date(),
             aiGenuine: check.looksGenuine,
             aiNote: check.note,
           },
-        })
-        .catch(() => {});
+        });
+        // A seller may replace a rejected file while the model is running. A
+        // result for the old immutable version is kept out of the current row.
+        if (updated.count !== 1) return;
+        const run = await tx.verificationRun.create({
+          data: {
+            proofId: check.proofId,
+            proofVersion: reviewedProof.version,
+            model: REVIEW_MODEL,
+            rulesetVersion: 'admit-proof-v1',
+            result: {
+              looksGenuine: check.looksGenuine,
+              note: check.note,
+            },
+            confidence: result.confidence,
+          },
+          select: { id: true },
+        });
+        await tx.verificationDecision.create({
+          data: {
+            proofId: check.proofId,
+            proofVersion: reviewedProof.version,
+            runId: run.id,
+            actorType: 'ai',
+            status: check.looksGenuine ? 'suggested_verified' : 'suggested_rejected',
+            note: check.note,
+          },
+        });
+      }).catch(() => {});
     }
 
     if (result.decision !== 'approved') return 'flagged';

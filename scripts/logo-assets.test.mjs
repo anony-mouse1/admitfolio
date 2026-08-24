@@ -4,38 +4,50 @@ import path from 'node:path';
 
 const root = process.cwd();
 const component = await readFile(path.join(root, 'components/LogoBadge.tsx'), 'utf8');
-const mapBody = component.match(/const HIGH_RES_LOGOS:[\s\S]*?= \{([\s\S]*?)\n\};/)?.[1];
+const manifest = await readFile(path.join(root, 'lib/schoolLogos.ts'), 'utf8');
+const sourceNotes = await readFile(path.join(root, 'public/assets/schools/SOURCES.md'), 'utf8');
+const mapBody = manifest.match(/export const SCHOOL_LOGOS = \{([\s\S]*?)\n\} as const/)?.[1];
 
-assert.ok(mapBody, 'HIGH_RES_LOGOS map must remain readable by this regression test');
+assert.ok(mapBody, 'shared SCHOOL_LOGOS manifest must remain readable by this regression test');
+const entries = [...mapBody.matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)].map((match) => ({
+  domain: match[1],
+  source: match[2],
+}));
+assert.equal(entries.length, 75, 'every previously supported school must remain self-hosted');
+assert.equal(new Set(entries.map(({ domain }) => domain)).size, entries.length, 'logo domains must be unique');
 
-const sources = [...mapBody.matchAll(/:\s*'([^']+)'/g)].map((match) => match[1]);
-assert.ok(sources.length > 0, 'HIGH_RES_LOGOS must contain logo sources');
+const sourcesByDomain = new Map(entries.map(({ domain, source }) => [domain, source]));
+assert.equal(sourcesByDomain.get('stanford.edu'), '/assets/schools/stanford.svg');
+assert.equal(sourcesByDomain.get('duke.edu'), '/assets/schools/duke.webp');
+assert.equal(sourcesByDomain.get('indiana.edu'), '/assets/schools/indiana.webp');
+assert.equal(sourcesByDomain.get('washington.edu'), '/assets/schools/washington.webp');
 
-const sourcesByDomain = new Map(
-  [...mapBody.matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)].map((match) => [match[1], match[2]]),
-);
-assert.equal(sourcesByDomain.get('duke.edu'), '/mockup-assets/university-logos/duke.webp');
-assert.equal(sourcesByDomain.get('indiana.edu'), '/mockup-assets/university-logos/indiana.webp');
-assert.equal(sourcesByDomain.get('ufl.edu'), '/mockup-assets/university-logos/florida.webp');
-assert.equal(sourcesByDomain.get('washington.edu'), '/mockup-assets/university-logos/washington.webp');
-
-for (const source of sources) {
-  assert.match(source, /\.(?:webp|svg)$/i, `${source} must be WebP or SVG`);
-
-  if (!source.startsWith('/')) continue;
+for (const { domain, source } of entries) {
+  assert.match(source, /^\/assets\/schools\/[a-z0-9-]+\.(?:webp|svg)$/i, `${domain} must use the production asset namespace`);
+  assert.doesNotMatch(source, /^https?:\/\//i, `${domain} must not load a remote logo`);
   const bytes = await readFile(path.join(root, 'public', source));
-  assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF', `${source} must be a real WebP file`);
-  assert.equal(bytes.subarray(8, 12).toString('ascii'), 'WEBP', `${source} must be a real WebP file`);
+  if (source.endsWith('.webp')) {
+    assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF', `${source} must be a real WebP`);
+    assert.equal(bytes.subarray(8, 12).toString('ascii'), 'WEBP', `${source} must be a real WebP`);
+  } else {
+    const svg = bytes.toString('utf8');
+    assert.match(svg.slice(0, 500), /<svg\b/i, `${source} must be a real SVG`);
+    assert.doesNotMatch(svg, /<script\b/i, `${source} must not contain scripts`);
+    assert.doesNotMatch(svg, /(?:href|xlink:href)=["']https?:\/\//i, `${source} must not fetch remote subresources`);
+  }
 }
 
-assert.doesNotMatch(component, /google\.com\/s2\/favicons/, 'LogoBadge must not fall back to remote bitmap favicons');
+const assetFiles = (await readdir(path.join(root, 'public/assets/schools'))).filter((file) => file !== 'SOURCES.md');
+assert.equal(assetFiles.length, entries.length, 'the production asset directory must contain exactly the manifested files');
+assert.deepEqual(assetFiles.sort(), entries.map(({ source }) => path.basename(source)).sort(), 'every asset must be manifested');
 
-const localLogoFiles = await readdir(path.join(root, 'public/mockup-assets/university-logos'));
-assert.ok(localLogoFiles.length > 0, 'local university logos must exist');
-assert.deepEqual(
-  localLogoFiles.filter((file) => !file.endsWith('.webp')),
-  [],
-  'every local university logo must be WebP',
-);
+assert.match(component, /schoolLogoSrc\(domain\)/, 'LogoBadge must use the shared helper');
+assert.match(component, /logoSrc && !errored/, 'failed local assets must stop rendering the image');
+assert.match(component, /\{letter\}/, 'unsupported schools must keep the deterministic monogram fallback');
+assert.doesNotMatch(component, /https?:\/\//i, 'LogoBadge must not contain remote sources');
+assert.doesNotMatch(component, /mockup-assets/i, 'LogoBadge must not use prototype asset paths');
+assert.doesNotMatch(manifest, /https?:\/\//i, 'runtime manifest must contain same-origin paths only');
+assert.doesNotMatch(manifest, /mockup-assets/i, 'runtime manifest must not use prototype asset paths');
+assert.match(sourceNotes, /Retrieved 2026-08-24/, 'downloaded asset provenance must record its retrieval date');
 
-console.log(`logo asset tests passed (${sources.length} mapped logos, ${localLogoFiles.length} local WebP files)`);
+console.log(`logo asset tests passed (${entries.length} self-hosted marks, no runtime remote dependencies)`);

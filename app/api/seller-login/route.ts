@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/password';
 import { makeSession } from '@/lib/session';
 import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
+import { normalizeSellerEmail } from '@/lib/sellerAccount';
 
 function withSellerCookie(res: NextResponse, email: string): NextResponse {
   res.cookies.set(SELLER_COOKIE, makeSession(email, 'seller'), {
@@ -28,13 +29,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   }
 
-  const email = String(body?.email || '').trim().toLowerCase();
+  const email = normalizeSellerEmail(body?.email);
   const password = String(body?.password || '');
   if (!email || !password) {
     return NextResponse.json({ error: 'Enter your email and password.' }, { status: 400 });
   }
 
-  const seller = await prisma.seller.findUnique({ where: { email } });
+  const seller = await prisma.seller.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+  });
   if (!seller) {
     return NextResponse.json({ error: 'Incorrect email or password.' }, { status: 401 });
   }
@@ -71,5 +74,5 @@ export async function POST(req: Request) {
     });
   }
 
-  return withSellerCookie(NextResponse.json({ ok: true }), email);
+  return withSellerCookie(NextResponse.json({ ok: true }), normalizeSellerEmail(seller.email));
 }

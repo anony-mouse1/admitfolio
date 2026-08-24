@@ -1,0 +1,92 @@
+/**
+ * Production school-logo manifest. Every value is a same-origin public asset.
+ * Source and retrieval metadata live beside the files in
+ * public/assets/schools/SOURCES.md.
+ */
+export const SCHOOL_LOGOS = {
+  'harvard.edu': '/assets/schools/harvard.webp',
+  'yale.edu': '/assets/schools/yale.webp',
+  'princeton.edu': '/assets/schools/princeton.webp',
+  'mit.edu': '/assets/schools/mit.webp',
+  'brown.edu': '/assets/schools/brown.webp',
+  'cornell.edu': '/assets/schools/cornell.webp',
+  'upenn.edu': '/assets/schools/upenn.webp',
+  'duke.edu': '/assets/schools/duke.webp',
+  'berkeley.edu': '/assets/schools/berkeley.webp',
+  'northwestern.edu': '/assets/schools/northwestern.webp',
+  'rice.edu': '/assets/schools/rice.webp',
+  'emory.edu': '/assets/schools/emory.webp',
+  'usc.edu': '/assets/schools/usc.webp',
+  'tufts.edu': '/assets/schools/tufts.webp',
+  'bc.edu': '/assets/schools/bc.webp',
+  'northeastern.edu': '/assets/schools/northeastern.webp',
+  'rochester.edu': '/assets/schools/rochester.webp',
+  'washington.edu': '/assets/schools/washington.webp',
+  'nyu.edu': '/assets/schools/nyu.svg',
+  'sandiego.edu': '/assets/schools/sandiego.svg',
+  'umn.edu': '/assets/schools/minnesota.svg',
+  'middlebury.edu': '/assets/schools/middlebury.webp',
+  'temple.edu': '/assets/schools/temple.svg',
+  'drexel.edu': '/assets/schools/drexel.svg',
+  'gsu.edu': '/assets/schools/georgia-state.webp',
+  'sacredheart.edu': '/assets/schools/sacred-heart.svg',
+  'ucsb.edu': '/assets/schools/ucsb.svg',
+  'uci.edu': '/assets/schools/uci.webp',
+  'wisc.edu': '/assets/schools/wisconsin.svg',
+  'uic.edu': '/assets/schools/uic.webp',
+  'miami.edu': '/assets/schools/miami.svg',
+  'vanderbilt.edu': '/assets/schools/vanderbilt.svg',
+  'ucmerced.edu': '/assets/schools/uc-merced.svg',
+  'uga.edu': '/assets/schools/georgia.svg',
+  'cmu.edu': '/assets/schools/carnegie-mellon.webp',
+  'tulane.edu': '/assets/schools/tulane.svg',
+  'uchicago.edu': '/assets/schools/uchicago-seal.webp',
+  'case.edu': '/assets/schools/case-western.webp',
+  'fsu.edu': '/assets/schools/florida-state.svg',
+  'stanford.edu': '/assets/schools/stanford.svg',
+  'columbia.edu': '/assets/schools/columbia-university.webp',
+  'jhu.edu': '/assets/schools/johns-hopkins-university.webp',
+  'asu.edu': '/assets/schools/arizona-state.svg',
+  'wfu.edu': '/assets/schools/wake-forest.svg',
+  'ucla.edu': '/assets/schools/ucla.svg',
+  'fordham.edu': '/assets/schools/fordham.webp',
+  'ufl.edu': '/assets/schools/florida.webp',
+  'colorado.edu': '/assets/schools/colorado.svg',
+  'umich.edu': '/assets/schools/michigan.svg',
+  'msu.edu': '/assets/schools/michigan-state.svg',
+  'umb.edu': '/assets/schools/umass-boston.webp',
+  'lehigh.edu': '/assets/schools/lehigh.svg',
+  'ucdavis.edu': '/assets/schools/uc-davis.svg',
+  'bu.edu': '/assets/schools/boston-university.webp',
+  'tcd.ie': '/assets/schools/trinity-college-dublin.svg',
+  'gatech.edu': '/assets/schools/georgia-tech.webp',
+  'illinois.edu': '/assets/schools/illinois.webp',
+  'umd.edu': '/assets/schools/maryland.svg',
+  'unc.edu': '/assets/schools/unc.webp',
+  'utexas.edu': '/assets/schools/utexas.webp',
+  'tamu.edu': '/assets/schools/tamu.webp',
+  'purdue.edu': '/assets/schools/purdue.webp',
+  'psu.edu': '/assets/schools/psu.webp',
+  'ncsu.edu': '/assets/schools/ncsu.webp',
+  'iastate.edu': '/assets/schools/iastate.webp',
+  'auburn.edu': '/assets/schools/auburn.webp',
+  'bates.edu': '/assets/schools/bates.webp',
+  'vt.edu': '/assets/schools/virginia-tech.svg',
+  'ucsd.edu': '/assets/schools/uc-san-diego.svg',
+  'indiana.edu': '/assets/schools/indiana.webp',
+  'osu.edu': '/assets/schools/ohio-state.svg',
+  'ucr.edu': '/assets/schools/uc-riverside.svg',
+  'villanova.edu': '/assets/schools/villanova.svg',
+  'virginia.edu': '/assets/schools/virginia.webp',
+  'binghamton.edu': '/assets/schools/binghamton.svg',
+} as const satisfies Record<string, `/assets/schools/${string}`>;
+
+export type SchoolLogoDomain = keyof typeof SCHOOL_LOGOS;
+
+export function schoolLogoSrc(domain?: string | null): string | undefined {
+  if (!domain) return undefined;
+  return SCHOOL_LOGOS[domain as SchoolLogoDomain];
+}
+
+// Kept as a named compatibility export for callers outside the component.
+export const universityLogoSrc = schoolLogoSrc;

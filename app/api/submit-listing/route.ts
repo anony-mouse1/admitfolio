@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { emailAllowed, isAdminEmail, TEST_EMAILS } from '@/lib/config';
+import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
 import { makeUploadToken } from '@/lib/uploadToken';
-import { verifyEmailToken } from '@/lib/emailToken';
 import { currentSeller } from '@/lib/sellerAuth';
-import { hashPassword } from '@/lib/password';
-import { makeSession } from '@/lib/session';
-import { SELLER_COOKIE, SESSION_TTL_MS } from '@/lib/config';
 import { packageFloor, perEssayFloor, schoolTier, TIER } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { normalizeAnonymity } from '@/lib/anonymity';
 import { sameSchool } from '@/lib/schools';
 import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
+import { normalizeSellerEmail } from '@/lib/sellerAccount';
 
 export const runtime = 'nodejs';
 
@@ -21,8 +18,6 @@ type EssayIn = { prompt?: string; question?: string; price?: number; wordCount?:
 export async function POST(req: Request) {
   let body: {
     email?: string;
-    emailToken?: string;
-    password?: string;
     school?: string;
     targetSchool?: string;
     applicationSystem?: string;
@@ -43,21 +38,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   }
 
-  const email = String(body?.email || '').trim().toLowerCase();
-  if (!emailAllowed(email)) {
-    return NextResponse.json({ error: 'A verified .edu email is required.' }, { status: 400 });
-  }
-  // Require server-issued proof of identity: either a fresh OTP email token
-  // (signup flow) or a logged-in seller session for the same email (dashboard
-  // "add essay" flow) - otherwise anyone could impersonate any .edu address.
-  const verified = verifyEmailToken(body?.emailToken);
-  const tokenOk = !!verified && verified.email === email;
-  const sessionOk = !tokenOk && currentSeller()?.email?.toLowerCase() === email;
-  if (!tokenOk && !sessionOk) {
+  // Account creation is a separate, completed step. Listing submission may
+  // only use the authenticated seller and can never create an account or alter
+  // its password.
+  const session = currentSeller();
+  if (!session) {
     return NextResponse.json(
-      { error: 'Your verification expired. Please verify your email again.' },
+      { error: 'Log in before submitting a listing.' },
       { status: 401 },
     );
+  }
+  const email = normalizeSellerEmail(session.email);
+  const requestedEmail = normalizeSellerEmail(body?.email || email);
+  if (requestedEmail !== email) {
+    return NextResponse.json({ error: 'Not allowed.' }, { status: 403 });
   }
   const school = String(body?.school || '').replace(/[\r\n]/g, ' ').trim().slice(0, 120);
   if (!school) return NextResponse.json({ error: 'A school is required.' }, { status: 400 });
@@ -130,11 +124,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const seller = await prisma.seller.upsert({
-    where: { email },
-    update: body?.password ? { passwordHash: hashPassword(String(body.password)) } : {},
-    create: { email, passwordHash: body?.password ? hashPassword(String(body.password)) : null },
+  const seller = await prisma.seller.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
   });
+  if (!seller) return NextResponse.json({ error: 'Seller account not found.' }, { status: 401 });
 
   const reusedEssay = await prisma.essay.findFirst({
     where: {
@@ -269,7 +262,7 @@ export async function POST(req: Request) {
     select: { id: true, schoolLabel: true, status: true, pdfPath: true },
   });
 
-  const res = NextResponse.json({
+  return NextResponse.json({
     ok: true,
     listingId: listing.id,
     essays: listing.essays,
@@ -281,16 +274,4 @@ export async function POST(req: Request) {
       needsUpload: p.status !== 'verified' && !p.pdfPath,
     })),
   });
-  // The OTP signup flow just proved this email, so start a seller session -
-  // the success screen can open the dashboard (photo, bio) without a login.
-  if (tokenOk) {
-    res.cookies.set(SELLER_COOKIE, makeSession(email, 'seller'), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: Math.floor(SESSION_TTL_MS / 1000),
-    });
-  }
-  return res;
 }

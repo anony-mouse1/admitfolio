@@ -16,27 +16,31 @@ datasource db {
 
 // A verified seller — identity is a .edu email, proven via the OTP flow.
 model Seller {
-  id                         String             @id @default(cuid())
-  email                      String             @unique
+  id                         String                   @id @default(cuid())
+  email                      String                   @unique
   passwordHash               String? // scrypt "salt:hash", set at signup
-  failedLogins               Int                @default(0) // consecutive bad passwords; reset on success
+  failedLogins               Int                      @default(0) // consecutive bad passwords; reset on success
   lockedUntil                DateTime? // brute-force lockout expiry
   name                       String? // full name; display follows the listing's anonymity choice
   paypalEmail                String? // where biweekly payouts go once buying launches
   // Stripe Connect is deliberately created only after this seller's first
   // settled live sale. Until onboarding finishes, the 60% entitlement stays
   // attached to its Purchase row instead of being sent anywhere.
-  stripeAccountId            String?            @unique
+  stripeAccountId            String?                  @unique
   stripeOnboardingStartedAt  DateTime?
   stripeOnboardingCompleteAt DateTime?
-  stripePayoutsEnabled       Boolean            @default(false)
+  stripePayoutsEnabled       Boolean                  @default(false)
   stripeBankPayouts          SellerBankPayout[]
   bio                        String? // short "about me" shown on the seller profile
   photoPath                  String? // Supabase Storage path for the profile photo
-  backgroundTags             String             @default("[]") // JSON array of profile tags (e.g. First-generation)
-  createdAt                  DateTime           @default(now())
+  backgroundTags             String                   @default("[]") // JSON array of profile tags (e.g. First-generation)
+  currentUniversity          String?
+  currentMajor               String?
+  graduationYear             String?
+  createdAt                  DateTime                 @default(now())
   listings                   Listing[]
   admitProofs                AdmitProof[]
+  applicationDrafts          SellerApplicationDraft[]
 }
 
 // An acceptance letter backing one school a seller claims in `Listing.admitTags`.
@@ -50,22 +54,25 @@ model Seller {
 // moves a proof to `verified` or `rejected`, and only a `verified` proof lets
 // the public catalogue describe that admit as confirmed.
 model AdmitProof {
-  id          String    @id @default(cuid())
-  seller      Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  sellerId    String
-  schoolKey   String // normalised; collapses spellings of the same school
-  schoolLabel String // what the seller actually typed, for display
-  pdfPath     String? // Supabase Storage path, null until the upload lands
-  status      String    @default("pending") // pending | verified | rejected
-  adminNote   String? // why it was rejected, shown to the seller
-  createdAt   DateTime  @default(now())
-  reviewedAt  DateTime?
+  id                    String                 @id @default(cuid())
+  seller                Seller                 @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId              String
+  schoolKey             String // normalised; collapses spellings of the same school
+  schoolLabel           String // what the seller actually typed, for display
+  pdfPath               String? // Supabase Storage path, null until the upload lands
+  status                String                 @default("pending") // pending | verified | rejected
+  adminNote             String? // why it was rejected, shown to the seller
+  createdAt             DateTime               @default(now())
+  reviewedAt            DateTime?
   // What the review panel made of the letter. Advisory only: the panel never
   // sets `status`, exactly as it never publishes a listing. It puts a note
   // beside the Verify button so a human decides with the reading already done.
-  aiCheckedAt DateTime?
-  aiGenuine   Boolean? // panel's read: does this look like a real admission decision
-  aiNote      String? // one sentence - what it shows, or what is wrong with it
+  aiCheckedAt           DateTime?
+  aiGenuine             Boolean? // panel's read: does this look like a real admission decision
+  aiNote                String? // one sentence - what it shows, or what is wrong with it
+  version               Int                    @default(1) // increments whenever the seller replaces the file
+  verificationRuns      VerificationRun[]
+  verificationDecisions VerificationDecision[]
 
   @@unique([sellerId, schoolKey])
   @@index([status])
@@ -73,8 +80,8 @@ model AdmitProof {
 
 // One submission = one seller's package of essays for a school.
 model Listing {
-  id                String     @id @default(cuid())
-  seller            Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  id                String                   @id @default(cuid())
+  seller            Seller                   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   sellerId          String
   school            String
   // The college this package was written for and should be filed under in the
@@ -85,16 +92,16 @@ model Listing {
   // Common App, UC Application, MIT Application, etc. Kept separately from the
   // target college because one application system can serve many colleges.
   applicationSystem String?
-  gradYear          String?
+  gradYear          String? // seller's expected college graduation year, e.g. 2028
   major             String? // the seller's current major at their university
   appliedMajors     String? // major(s) they applied to with these essays, free text
-  admitTags         String     @default("[]") // JSON array of schools they got into
+  admitTags         String                   @default("[]") // JSON array of schools they got into
   // anonymous | revealOnPurchase | full. See lib/anonymity.ts: the middle value
   // is a TIMING choice (nothing public, first name once bought), not a "show
   // less of the name" choice. Rows written before 2026-08 spell it 'firstName'
   // and are read as the same thing.
-  anonymity         String     @default("anonymous")
-  pricingMode       String     @default("package") // package | separate
+  anonymity         String                   @default("anonymous")
+  pricingMode       String                   @default("package") // package | separate
   packagePrice      Int? // whole dollars, when pricingMode = package
   teaser            String? // optional one-line hook shown on the public browse card
   // The opening sentence of the seller's own essay, read out of their uploaded
@@ -103,10 +110,10 @@ model Listing {
   // short-answer listings have no narrative opening, and some PDFs are scans
   // with no text layer. Backfilled by scripts/extract-opening-lines.mjs.
   openingLine       String?
-  status            String     @default("pending") // pending | approved | rejected | removed (seller take-down)
+  status            String                   @default("pending") // pending | approved | rejected | removed (seller take-down)
   adminNote         String?
   sellerNote        String? // optional note from the seller, shown to the admin during review
-  createdAt         DateTime   @default(now())
+  createdAt         DateTime                 @default(now())
   reviewedAt        DateTime?
   // Automated review (Claude reviewer panel). aiReviewedAt doubles as the
   // "already screened" guard for the cron query. Auto-approve flips `status`;
@@ -131,11 +138,90 @@ model Listing {
   savedAt           DateTime?
   essays            Essay[]
   purchases         Purchase[]
+  sourceDraft       SellerApplicationDraft?  @relation("DraftFinalizedListing")
+  revisionDrafts    SellerApplicationDraft[] @relation("DraftSourceListing")
 
   @@index([status])
   @@index([sellerId])
   @@index([targetSchool])
   @@index([aiReviewStartedAt])
+}
+
+// Private, resumable work owned by one authenticated seller. `state` contains
+// only structured form values. Files are stored separately as DraftAsset rows
+// so closing or refreshing the browser never discards an upload.
+model SellerApplicationDraft {
+  id                 String       @id @default(cuid())
+  seller             Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId           String
+  status             String       @default("draft") // draft | finalizing | submitted | abandoned
+  step               Int          @default(1)
+  state              Json         @default("{}")
+  revision           Int          @default(1) // optimistic concurrency token
+  finalizedListing   Listing?     @relation("DraftFinalizedListing", fields: [finalizedListingId], references: [id], onDelete: SetNull)
+  finalizedListingId String?      @unique
+  sourceListing      Listing?     @relation("DraftSourceListing", fields: [sourceListingId], references: [id], onDelete: SetNull)
+  sourceListingId    String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  submittedAt        DateTime?
+  assets             DraftAsset[]
+
+  @@index([sellerId, status, updatedAt])
+  @@index([sourceListingId])
+}
+
+model DraftAsset {
+  id          String                 @id @default(cuid())
+  draft       SellerApplicationDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draftId     String
+  kind        String // essay | admitProof
+  clientKey   String // stable browser row key, never a seller or listing id
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  storagePath String                 @unique
+  contentHash String?
+  status      String                 @default("ready") // ready | replaced | finalized
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([draftId, kind, clientKey])
+  @@index([draftId, status])
+  @@index([contentHash])
+}
+
+// Append-only AI and human verification history. The AdmitProof row keeps the
+// current display state, while these rows preserve what was reviewed and why.
+model VerificationRun {
+  id             String                 @id @default(cuid())
+  proof          AdmitProof             @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  proofId        String
+  proofVersion   Int
+  model          String
+  rulesetVersion String
+  result         Json
+  confidence     String?
+  createdAt      DateTime               @default(now())
+  decisions      VerificationDecision[]
+
+  @@index([proofId, proofVersion, createdAt])
+}
+
+model VerificationDecision {
+  id           String           @id @default(cuid())
+  proof        AdmitProof       @relation(fields: [proofId], references: [id], onDelete: Cascade)
+  proofId      String
+  proofVersion Int
+  run          VerificationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  runId        String?
+  actorType    String // ai | admin
+  actorId      String? // admin email for human decisions; null for automated advice
+  status       String // suggested_verified | suggested_rejected | verified | rejected
+  note         String?
+  createdAt    DateTime         @default(now())
+
+  @@index([proofId, proofVersion, createdAt])
 }
 
 // An individual essay within a listing.
@@ -267,6 +353,22 @@ model EssayView {
 model LoginCode {
   email     String   @id
   code      String
+  purpose   String   @default("signup") // signup | reset; prevents cross-flow token use
   expiresAt DateTime
   attempts  Int      @default(0)
+}
+
+// One signed OTP result can authorize exactly one signup or password reset.
+// Keeping the nonce server-side prevents a captured one-hour email token from
+// being replayed after the action already succeeded.
+model EmailActionToken {
+  id         String    @id
+  email      String
+  purpose    String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, purpose, consumedAt])
+  @@index([expiresAt])
 }

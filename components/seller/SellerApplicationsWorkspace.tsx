@@ -1,0 +1,239 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import styles from './SellerApplicationsWorkspace.module.css';
+import {
+  anonymitySummary,
+  applicationDecisionLabel,
+  applicationsForFilter,
+  applicationVerificationLabel,
+  isSafeLocalLogoPath,
+  listingActionLabel,
+  listingFilterCounts,
+  listingFilterForStatus,
+  listingStatusLabel,
+  verifiedOutcomeClaim,
+  type SellerApplicationRecord,
+  type SellerListingFilter,
+  type SellerProfileSummary,
+} from './sellerApplicationsCore';
+
+export type SellerApplicationsWorkspaceProps = {
+  profile: SellerProfileSummary;
+  applications: SellerApplicationRecord[];
+  onEditProfile: () => void;
+  onAddApplication: () => void;
+  onEditApplication: (applicationKey: string) => void;
+  onAddListing: (applicationKey: string) => void;
+  onEditListing: (listingId: string) => void;
+  onTakeDownListing?: (listingId: string) => void;
+};
+
+const FILTER_LABELS: Record<SellerListingFilter, string> = {
+  all: 'All',
+  published: 'Published',
+  review: 'In review',
+  draft: 'Drafts',
+};
+
+function initials(value: string | null): string {
+  const letters = (value || 'Verified seller')
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('');
+  return letters.toUpperCase() || 'VS';
+}
+
+function schoolInitials(school: string): string {
+  const words = school.split(/\s+/).filter((word) => !['of', 'the', 'at'].includes(word.toLowerCase()));
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return words.slice(0, 2).map((word) => word[0]).join('').toUpperCase();
+}
+
+function formatPrice(cents: number | null): string {
+  if (cents == null) return 'Price not set';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
+
+function verificationTone(status: SellerApplicationRecord['verificationStatus']): string {
+  if (status === 'verified') return styles.verified;
+  if (status === 'reviewing') return styles.reviewing;
+  return styles.needsProof;
+}
+
+export default function SellerApplicationsWorkspace({
+  profile,
+  applications,
+  onEditProfile,
+  onAddApplication,
+  onEditApplication,
+  onAddListing,
+  onEditListing,
+  onTakeDownListing,
+}: SellerApplicationsWorkspaceProps) {
+  const [filter, setFilter] = useState<SellerListingFilter>('all');
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const counts = useMemo(() => listingFilterCounts(applications), [applications]);
+  const visibleApplications = useMemo(() => applicationsForFilter(applications, filter), [applications, filter]);
+
+  function toggleApplication(key: string) {
+    setCollapsed((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  return (
+    <section className={styles.workspace} aria-labelledby="seller-applications-title">
+      <header className={styles.hero}>
+        <div>
+          <div className={styles.eyebrow}>Application library</div>
+          <h1 id="seller-applications-title">List once. Reuse what matters.</h1>
+          <p>Keep your background and each school outcome in one place. Add more listings without repeating the same details.</p>
+        </div>
+        <button className={styles.primaryButton} type="button" onClick={onAddApplication}>+ Add an application</button>
+      </header>
+
+      <article className={styles.profileCard} data-testid="reusable-seller-profile">
+        <div className={styles.profileAvatar} aria-hidden="true">{initials(profile.displayName)}</div>
+        <div className={styles.profileCopy}>
+          <h2>{profile.displayName?.trim() || 'Complete your seller profile'}</h2>
+          <p>{profile.bio?.trim() || 'Add a short background once, then reuse it across your listings.'}</p>
+          {profile.backgroundTags.length > 0 && (
+            <div className={styles.profileTags} aria-label="Seller background">
+              {profile.backgroundTags.map((tag) => <span key={tag}>{tag}</span>)}
+            </div>
+          )}
+          <div className={styles.reuseNote}>Saved once and reused across all {counts.all} {counts.all === 1 ? 'listing' : 'listings'}</div>
+        </div>
+        <button className={styles.secondaryButton} type="button" onClick={onEditProfile}>Edit reusable profile</button>
+      </article>
+
+      <div className={styles.sectionHeader}>
+        <div>
+          <h2>Your applications</h2>
+          <p>Common school details sit above the listings they support.</p>
+        </div>
+        <div className={styles.filters} role="group" aria-label="Filter listings">
+          {(Object.keys(FILTER_LABELS) as SellerListingFilter[]).map((key) => (
+            <button
+              key={key}
+              className={filter === key ? styles.filterActive : styles.filter}
+              type="button"
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+            >
+              {FILTER_LABELS[key]} {counts[key]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {visibleApplications.length === 0 ? (
+        <div className={styles.emptyState}>
+          <h3>No {FILTER_LABELS[filter].toLowerCase()} listings yet</h3>
+          <p>Your applications stay saved when a filter has no matching listings.</p>
+        </div>
+      ) : visibleApplications.map((application) => {
+        const isCollapsed = collapsed.has(application.key);
+        const claim = verifiedOutcomeClaim(application);
+        return (
+          <article className={styles.applicationCard} key={application.key} data-testid="seller-application-group">
+            <button
+              className={styles.applicationHeader}
+              type="button"
+              aria-expanded={!isCollapsed}
+              onClick={() => toggleApplication(application.key)}
+            >
+              <span className={styles.schoolMark} aria-hidden="true">
+                {isSafeLocalLogoPath(application.localLogoSrc) && (
+                  <img
+                    src={application.localLogoSrc}
+                    alt=""
+                    onError={(event) => { event.currentTarget.hidden = true; }}
+                  />
+                )}
+                <span>{schoolInitials(application.school)}</span>
+              </span>
+              <span className={styles.schoolCopy}>
+                <strong>{application.school}</strong>
+                <span>{application.cycleLabel} application</span>
+              </span>
+              <span className={`${styles.verificationPill} ${verificationTone(application.verificationStatus)}`}>
+                {applicationVerificationLabel(application)}
+              </span>
+              <span className={styles.listingCount}>{application.listings.length} {application.listings.length === 1 ? 'listing' : 'listings'}</span>
+              <span className={isCollapsed ? styles.chevronCollapsed : styles.chevron} aria-hidden="true">⌄</span>
+            </button>
+
+            {!isCollapsed && (
+              <div className={styles.applicationBody}>
+                <div className={styles.sharedDetails}>
+                  <div className={styles.sharedTopline}>
+                    <div><strong>Shared application details</strong><span>Entered once</span></div>
+                    <button type="button" onClick={() => onEditApplication(application.key)}>Edit outcome</button>
+                  </div>
+                  <div className={styles.facts}>
+                    <div><span>Decision</span><strong>{applicationDecisionLabel(application.decision)}</strong></div>
+                    <div><span>Class year</span><strong>{application.classYear || 'Not set'}</strong></div>
+                    <div><span>Verification</span><strong>{applicationVerificationLabel(application)}</strong></div>
+                    <div><span>Buyer-visible outcome</span><strong className={claim ? styles.safeClaim : undefined}>{claim || 'Hidden until verification finishes'}</strong></div>
+                  </div>
+                </div>
+
+                <div className={styles.listings}>
+                  {application.listings.map((listing) => {
+                    const statusFilter = listingFilterForStatus(listing.status);
+                    return (
+                      <div className={styles.listingRow} key={listing.id} data-testid="seller-listing-row">
+                        <div className={styles.documentIcon} aria-hidden="true">▤</div>
+                        <div className={styles.listingCopy}>
+                          <strong>{listing.title}</strong>
+                          <div>
+                            <span>{listing.essayCount} {listing.essayCount === 1 ? 'essay' : 'essays'}</span>
+                            {listing.wordCount != null && <span>{listing.wordCount.toLocaleString()} words</span>}
+                            <span className={styles.anonymity}>{anonymitySummary(listing.anonymity)}</span>
+                          </div>
+                          {listing.reviewerNote && <p>Reviewer note: {listing.reviewerNote}</p>}
+                        </div>
+                        <div className={styles.listingActions}>
+                          <strong className={styles.price}>{formatPrice(listing.priceCents)}</strong>
+                          <span className={`${styles.statusPill} ${styles[statusFilter]}`}>{listingStatusLabel(listing.status)}</span>
+                          <button className={styles.secondaryButton} type="button" onClick={() => onEditListing(listing.id)}>{listingActionLabel(listing.status)}</button>
+                          {listing.status === 'approved' && onTakeDownListing && (
+                            <button className={styles.dangerButton} type="button" onClick={() => onTakeDownListing(listing.id)}>Take down</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className={styles.addListingRow}>
+                  <button type="button" onClick={() => onAddListing(application.key)}>+ Add another {application.school} listing</button>
+                </div>
+              </div>
+            )}
+          </article>
+        );
+      })}
+
+      <div className={styles.guidance} data-testid="responsible-outcome-guidance">
+        <article className={styles.allowedClaim}>
+          <h3>Say what happened</h3>
+          <p>Outcomes are factual, structured, and tied to a verified application.</p>
+          <div><span>Shown to buyers</span>Admitted to Stanford, Class of 2028</div>
+        </article>
+        <article className={styles.blockedClaim}>
+          <h3>Avoid causal claims</h3>
+          <p>No listing can imply that one essay guaranteed an admission decision.</p>
+          <div><span>Not allowed</span>This essay got me into Stanford</div>
+        </article>
+      </div>
+    </section>
+  );
+}

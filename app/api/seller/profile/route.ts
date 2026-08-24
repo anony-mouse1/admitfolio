@@ -8,9 +8,18 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BIO = 300;
 const MAX_NAME = 80;
+const MAX_EDUCATION = 120;
+const MAX_GRADUATION_YEAR = 12;
 
 // Avatars are the seller's initials, rendered client-side - no photos.
-function shape(seller: { name: string | null; bio: string | null; backgroundTags: string }) {
+function shape(seller: {
+  name: string | null;
+  bio: string | null;
+  backgroundTags: string;
+  currentUniversity: string | null;
+  currentMajor: string | null;
+  graduationYear: string | null;
+}) {
   let backgroundTags: string[] = [];
   try {
     const parsed = JSON.parse(seller.backgroundTags);
@@ -18,7 +27,14 @@ function shape(seller: { name: string | null; bio: string | null; backgroundTags
   } catch {
     /* ignore */
   }
-  return { name: seller.name, bio: seller.bio, backgroundTags };
+  return {
+    name: seller.name,
+    bio: seller.bio,
+    backgroundTags,
+    currentUniversity: seller.currentUniversity,
+    currentMajor: seller.currentMajor,
+    graduationYear: seller.graduationYear,
+  };
 }
 
 export async function GET() {
@@ -35,7 +51,14 @@ export async function POST(req: Request) {
   const session = currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  let body: { name?: string; bio?: string; backgroundTags?: string[] };
+  let body: {
+    name?: string;
+    bio?: string;
+    backgroundTags?: string[];
+    currentUniversity?: string;
+    currentMajor?: string;
+    graduationYear?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -44,6 +67,9 @@ export async function POST(req: Request) {
 
   const name = String(body?.name || '').trim().slice(0, MAX_NAME) || null;
   const bio = String(body?.bio || '').trim().slice(0, MAX_BIO) || null;
+  const currentUniversity = String(body?.currentUniversity || '').trim().slice(0, MAX_EDUCATION) || null;
+  const currentMajor = String(body?.currentMajor || '').trim().slice(0, MAX_EDUCATION) || null;
+  const graduationYear = String(body?.graduationYear || '').trim().slice(0, MAX_GRADUATION_YEAR) || null;
   const allowed = new Set<string>(PROFILE_TAGS);
   const backgroundTags = Array.isArray(body?.backgroundTags)
     ? [...new Set(body.backgroundTags.map(String).filter((t) => allowed.has(t)))]
@@ -51,7 +77,14 @@ export async function POST(req: Request) {
 
   const seller = await prisma.seller.update({
     where: { email: session.email },
-    data: { name, bio, backgroundTags: JSON.stringify(backgroundTags) },
+    data: {
+      ...(body.name !== undefined ? { name } : {}),
+      ...(body.bio !== undefined ? { bio } : {}),
+      ...(body.backgroundTags !== undefined ? { backgroundTags: JSON.stringify(backgroundTags) } : {}),
+      ...(body.currentUniversity !== undefined ? { currentUniversity } : {}),
+      ...(body.currentMajor !== undefined ? { currentMajor } : {}),
+      ...(body.graduationYear !== undefined ? { graduationYear } : {}),
+    },
   });
 
   return NextResponse.json({ ok: true, ...shape(seller) });

@@ -42,6 +42,23 @@ export function schoolKey(name: string): string {
     .trim();
 }
 
+/**
+ * Return only the proof keys claimed by one listing. Review jobs must never
+ * load every admission document belonging to the seller because those files
+ * can contain unrelated schools and sensitive personal information.
+ */
+export function listingProofKeys(admitTags: string, targetSchool?: string | null): string[] {
+  let claims: string[] = [];
+  try {
+    const parsed: unknown = JSON.parse(admitTags);
+    if (Array.isArray(parsed)) claims = parsed.map(String);
+  } catch {
+    // A malformed legacy value has no trusted proof claims.
+  }
+  if (targetSchool) claims.push(targetSchool);
+  return [...new Set(claims.map(schoolKey).filter(Boolean))];
+}
+
 /** Human label for a proof's state, used in the seller dashboard and console. */
 export const PROOF_LABEL: Record<ProofStatus, string> = {
   pending: 'Awaiting review',

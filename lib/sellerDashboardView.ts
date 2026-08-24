@@ -6,6 +6,11 @@ import { sellerPayoutStatus } from './sellerPayoutStatus';
 import { connectedAccountStatus } from './sellerPayoutsCore';
 import { buildAdminPayoutSummary, summarizeSellerAccounting } from './sellerDashboardCore';
 import { summarizeBankPayouts } from './sellerBankPayoutCore';
+import { schoolKey } from './admitProof';
+import { catalogSchool } from './listingSchool';
+import { schoolInfo } from './schools';
+import { schoolLogoSrc } from './schoolLogos';
+import type { SellerApplicationRecord } from '@/components/seller';
 
 function safeParse(s: string): string[] {
   try {
@@ -26,7 +31,19 @@ export async function getSellerDashboardView(sellerId: string) {
         name: true,
         bio: true,
         backgroundTags: true,
+        currentUniversity: true,
+        currentMajor: true,
+        graduationYear: true,
         stripeAccountId: true,
+        admitProofs: {
+          select: {
+            schoolKey: true,
+            status: true,
+            pdfPath: true,
+            adminNote: true,
+            aiCheckedAt: true,
+          },
+        },
       },
     }),
     prisma.listing.findMany({
@@ -95,7 +112,12 @@ export async function getSellerDashboardView(sellerId: string) {
       school: listing.school,
       targetSchool: listing.targetSchool,
       applicationSystem: listing.applicationSystem,
-      status: listing.status,
+      gradYear: listing.gradYear,
+      appliedMajors: listing.appliedMajors,
+      anonymity: listing.anonymity,
+      status: ['approved', 'pending', 'rejected', 'removed'].includes(listing.status)
+        ? listing.status as SellerApplicationRecord['listings'][number]['status']
+        : 'draft',
       pricingMode: listing.pricingMode,
       packagePrice: listing.packagePrice,
       admitTags: safeParse(listing.admitTags),
@@ -114,6 +136,7 @@ export async function getSellerDashboardView(sellerId: string) {
           id: essay.id,
           prompt: essay.prompt,
           question: essay.question,
+          wordCount: essay.wordCount,
           price: essay.price,
           sales: forEssay.length,
           gross: essayGrossCents / 100,
@@ -125,6 +148,58 @@ export async function getSellerDashboardView(sellerId: string) {
       }),
     };
   });
+
+  const proofBySchool = new Map(seller.admitProofs.map((proof) => [proof.schoolKey, proof]));
+  const applicationsByKey = new Map<string, SellerApplicationRecord>();
+  for (const listing of listings) {
+    const school = catalogSchool({
+      school: listing.school,
+      targetSchool: listing.targetSchool,
+      admitTags: listing.admitTags,
+    }) || listing.targetSchool || listing.school;
+    const classYearNumber = Number(listing.gradYear);
+    const cycleLabel = Number.isInteger(classYearNumber) && classYearNumber >= 2020
+      ? String(classYearNumber - 4)
+      : String(new Date(listing.createdAt).getFullYear());
+    const key = `${schoolKey(school)}:${cycleLabel}`;
+    const proof = proofBySchool.get(schoolKey(school));
+    const verificationStatus: SellerApplicationRecord['verificationStatus'] = proof?.status === 'verified'
+      ? 'verified'
+      : proof?.status === 'rejected'
+        ? 'needs_proof'
+        : proof?.status === 'pending' && !proof.pdfPath
+          ? 'needs_proof'
+        : proof?.status === 'pending'
+          ? 'reviewing'
+          : 'not_started';
+    const domain = schoolInfo(school)?.domain;
+    const existing = applicationsByKey.get(key) || {
+      key,
+      school,
+      cycleLabel,
+      classYear: listing.gradYear,
+      decision: 'admitted' as const,
+      verificationStatus,
+      verificationLabel: proof?.status === 'rejected' && proof.adminNote
+        ? 'Proof needs an update'
+        : null,
+      localLogoSrc: schoolLogoSrc(domain),
+      listings: [],
+    };
+    existing.listings.push({
+      id: listing.id,
+      title: listing.applicationSystem
+        ? `${listing.applicationSystem} essays`
+        : `${school} essays`,
+      essayCount: listing.essays.length,
+      wordCount: listing.essays.reduce((total, essay) => total + (essay.wordCount || 0), 0) || null,
+      priceCents: listing.packagePrice == null ? null : listing.packagePrice * 100,
+      status: listing.status,
+      anonymity: listing.anonymity as SellerApplicationRecord['listings'][number]['anonymity'],
+      reviewerNote: listing.adminNote,
+    });
+    applicationsByKey.set(key, existing);
+  }
 
   return {
     seller: {
@@ -141,6 +216,15 @@ export async function getSellerDashboardView(sellerId: string) {
       ...accountingSummary,
       monthGross: accountingSummary.monthGrossCents / 100,
       payouts,
+      profile: {
+        displayName: seller.name,
+        bio: seller.bio,
+        backgroundTags: safeParse(seller.backgroundTags),
+        currentUniversity: seller.currentUniversity,
+        currentMajor: seller.currentMajor,
+        graduationYear: seller.graduationYear,
+      },
+      applications: [...applicationsByKey.values()],
     },
     adminPayout: buildAdminPayoutSummary({
       status: payouts.status,

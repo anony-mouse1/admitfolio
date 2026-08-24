@@ -5,6 +5,7 @@ import type React from 'react';
 import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
 import MatchFinder from '@/components/MatchFinder';
 import EmbeddedListingCheckout from '@/components/EmbeddedListingCheckout';
+import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/components/seller';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
@@ -86,7 +87,16 @@ type PublicListing = {
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
 
-type EssayRow = { prompt: string; question: string; fileName: string; file: File | null; price: string };
+type EssayRow = {
+  clientKey: string;
+  sourceEssayId: string | null;
+  prompt: string;
+  question: string;
+  fileName: string;
+  file: File | null;
+  assetId: string | null;
+  price: string;
+};
 
 async function fileSha256(file: File): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
@@ -98,6 +108,7 @@ type SellerEssay = {
   id: string;
   prompt: string;
   question: string | null;
+  wordCount?: number | null;
   price: number | null;
   sales: number;
   gross: number;
@@ -111,6 +122,9 @@ type SellerListing = {
   school: string;
   targetSchool?: string | null;
   applicationSystem?: string | null;
+  gradYear?: string | null;
+  appliedMajors?: string | null;
+  anonymity?: Anonymity;
   status: 'pending' | 'approved' | 'rejected' | 'removed';
   pricingMode: string;
   packagePrice: number | null;
@@ -158,6 +172,26 @@ type SellerPayouts = {
       failureMessage: string | null;
     } | null;
   };
+};
+
+type SellerDraftSummary = {
+  id: string;
+  step: number;
+  revision: number;
+  updatedAt: string;
+  state: Record<string, unknown>;
+  assets: Array<{ id: string; kind: string; clientKey: string; fileName: string }>;
+};
+
+type SellerProof = {
+  id: string;
+  school: string;
+  status: 'pending' | 'verified' | 'rejected';
+  statusLabel: string;
+  note: string | null;
+  submittedAt: string;
+  hasFile: boolean;
+  canReplace: boolean;
 };
 
 const essays: Essay[] = [
@@ -241,7 +275,16 @@ const isLocalHost = () => typeof window !== 'undefined' && ['localhost', '127.0.
 const WAITLIST_MSG_OK_NEW = "You're on the list! We'll email you the moment essays go live. 💌";
 const WAITLIST_MSG_OK_DUP = "You're already on the list. We'll be in touch! 💌";
 
-const newEssayRow = (): EssayRow => ({ prompt: '', question: '', fileName: '', file: null, price: '' });
+const newEssayRow = (): EssayRow => ({
+  clientKey: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `essay-${Date.now()}-${Math.random()}`,
+  sourceEssayId: null,
+  prompt: '',
+  question: '',
+  fileName: '',
+  file: null,
+  assetId: null,
+  price: '',
+});
 
 /* ============================================================================
    Page component
@@ -497,6 +540,7 @@ export default function Page() {
   const [pwErr, setPwErr] = useState('');
   const [currentUni, setCurrentUni] = useState('');
   const [currentMajor, setCurrentMajor] = useState('');
+  const [graduationYear, setGraduationYear] = useState('');
   const [uniErr, setUniErr] = useState('');
   const [anonMode, setAnonMode] = useState<AnonMode>('public');
   const [applicationType, setApplicationType] = useState('');
@@ -508,6 +552,15 @@ export default function Page() {
   // One acceptance letter per school claimed in `admits`, keyed by the same
   // normalised key the server uses, so "Tufts" and "Tufts University" ask once.
   const [admitFiles, setAdmitFiles] = useState<Record<string, File | null>>({});
+  const [admitFileNames, setAdmitFileNames] = useState<Record<string, string>>({});
+  const [admitAssetIds, setAdmitAssetIds] = useState<Record<string, string>>({});
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const draftRevisionRef = useRef(0);
+  const draftSavePromiseRef = useRef<Promise<boolean> | null>(null);
+  const draftDirtyRef = useRef(false);
+  const latestDraftRef = useRef<{ step: number; state: Record<string, unknown> } | null>(null);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [draftSaveLabel, setDraftSaveLabel] = useState('');
   // Distinct schools needing a letter, in the order the seller typed them.
   const admitProofRows = useMemo(() => {
     const seen = new Set<string>();
@@ -534,6 +587,8 @@ export default function Page() {
   const [detailsErr, setDetailsErr] = useState('');
   const [listingCount, setListingCount] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitLabel, setSubmitLabel] = useState('');
 
@@ -548,6 +603,55 @@ export default function Page() {
     () => (listingSchool ? schoolTier(listingSchool) : null),
     [listingSchool],
   );
+
+  const sellerDraftSnapshot = useMemo(() => ({
+    currentUniversity: currentUni,
+    currentMajor,
+    graduationYear,
+    targetSchool: listingSchool,
+    applicationSystem: appLabels[applicationType] || applicationType,
+    admits,
+    anonymity: anonApiValue[anonMode],
+    packagePrice: packagePrice ? Number(packagePrice) : null,
+    teaser,
+    appliedMajors,
+    sellerNote,
+    essays: essayRows.map((row) => ({
+      clientKey: row.clientKey,
+      sourceEssayId: row.sourceEssayId,
+      sourceFileName: row.sourceEssayId ? row.fileName : null,
+      prompt: row.prompt,
+      question: row.question,
+      price: row.price ? Number(row.price) : null,
+    })),
+  }), [
+    currentUni,
+    currentMajor,
+    graduationYear,
+    listingSchool,
+    applicationType,
+    admits,
+    anonMode,
+    packagePrice,
+    teaser,
+    appliedMajors,
+    sellerNote,
+    essayRows,
+  ]);
+
+  useEffect(() => {
+    if (!activeDraftId) return;
+    latestDraftRef.current = { step: sellStep, state: sellerDraftSnapshot };
+    draftDirtyRef.current = true;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => void flushSellerDraft(), 700);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+    // flushSellerDraft intentionally reads the latest refs, so it does not
+    // belong in this dependency list and cannot restart the debounce itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDraftId, sellStep, sellerDraftSnapshot]);
 
   // Auto-apply the tier floor to prices (mirrors applyTierToPrices).
   useEffect(() => {
@@ -593,11 +697,110 @@ export default function Page() {
     setPwErr('');
     setCurrentUni('');
     setCurrentMajor('');
+    setGraduationYear('');
     setUniErr('');
     setAnonMode('public');
     setListingCount(0);
+    setActiveDraftId(null);
+    draftRevisionRef.current = 0;
+    setAdmitAssetIds({});
+    setAdmitFileNames({});
+    setDraftSaveLabel('');
     resetListingForm();
   }, [resetListingForm]);
+
+  async function createSellerDraft(initialState: Record<string, unknown> = {}): Promise<string | null> {
+    try {
+      const resp = await fetch('/api/seller/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: 4, state: initialState }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        draft?: { id: string; revision: number };
+      };
+      if (!resp.ok || !data.ok || !data.draft) throw new Error(data.error || 'Could not start a saved draft.');
+      setActiveDraftId(data.draft.id);
+      draftRevisionRef.current = data.draft.revision;
+      setDraftSaveLabel('Draft saved');
+      return data.draft.id;
+    } catch (error) {
+      setDraftSaveLabel(error instanceof Error ? error.message : 'Draft could not be saved');
+      return null;
+    }
+  }
+
+  async function flushSellerDraft(): Promise<boolean> {
+    if (!activeDraftId || !latestDraftRef.current) return true;
+    if (draftSavePromiseRef.current) {
+      const saved = await draftSavePromiseRef.current;
+      return saved && (!draftDirtyRef.current || await flushSellerDraft());
+    }
+
+    const draftId = activeDraftId;
+    const save = (async () => {
+      try {
+        while (draftDirtyRef.current && latestDraftRef.current) {
+          draftDirtyRef.current = false;
+          const snapshot = latestDraftRef.current;
+          setDraftSaveLabel('Saving draft…');
+          const resp = await fetch(`/api/seller/drafts/${draftId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              revision: draftRevisionRef.current,
+              step: snapshot.step,
+              state: snapshot.state,
+            }),
+          });
+          const data = (await resp.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            draft?: { revision: number };
+          };
+          if (!resp.ok || !data.ok || !data.draft) {
+            setDraftSaveLabel(data.error || 'Draft could not be saved');
+            return false;
+          }
+          draftRevisionRef.current = data.draft.revision;
+          setDraftSaveLabel('Draft saved');
+        }
+        return true;
+      } catch {
+        setDraftSaveLabel('Draft could not be saved. Check your connection and try again.');
+        return false;
+      }
+    })();
+    draftSavePromiseRef.current = save;
+    try {
+      return await save;
+    } finally {
+      if (draftSavePromiseRef.current === save) draftSavePromiseRef.current = null;
+    }
+  }
+
+  async function stageDraftAsset(kind: 'essay' | 'admitProof', clientKey: string, file: File): Promise<string | null> {
+    let draftId = activeDraftId;
+    if (!draftId) draftId = await createSellerDraft();
+    if (!draftId) return null;
+    setDraftSaveLabel(`Uploading ${kind === 'essay' ? 'essay' : 'proof'}…`);
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('clientKey', clientKey);
+    form.append('file', file);
+    try {
+      const resp = await fetch(`/api/seller/drafts/${draftId}/assets`, { method: 'POST', body: form });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; asset?: { id: string } };
+      if (!resp.ok || !data.ok || !data.asset) throw new Error(data.error || 'Upload failed.');
+      setDraftSaveLabel('Draft saved');
+      return data.asset.id;
+    } catch (error) {
+      setDraftSaveLabel(error instanceof Error ? error.message : 'Upload failed');
+      return null;
+    }
+  }
 
   const openSell = useCallback(() => {
     trackConversion(ANALYTICS_EVENTS.sellerSignupStarted);
@@ -610,6 +813,7 @@ export default function Page() {
   }, [fullResetSell]);
 
   const closeSell = useCallback(() => {
+    void flushSellerDraft();
     setSellOpen(false);
     fullResetSell();
   }, [fullResetSell]);
@@ -617,15 +821,96 @@ export default function Page() {
   // From the dashboard the seller is already authenticated (session cookie),
   // so skip email/OTP/password and start at the school step. The server
   // accepts the session in place of an email token.
-  const openSellFromDashboard = useCallback((email: string, lastSchool: string) => {
+  async function openSellFromDashboard(
+    email: string,
+    lastSchool: string,
+    prefillSchool = '',
+    preferredDraftId = '',
+    profileGraduationYear = '',
+  ) {
+    setResumableDraft(null);
     setDashOpen(false);
     fullResetSell();
     setVerifiedEmail(email);
     setCurrentUni(lastSchool);
-    setSellStep(4);
     setSellOpen(true);
-    setTimeout(() => uniRef.current?.focus(), 60);
-  }, [fullResetSell]);
+    try {
+      const resp = await fetch('/api/seller/drafts');
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; drafts?: SellerDraftSummary[] };
+      const draft = resp.ok && data.ok
+        ? data.drafts?.find((item) => item.id === preferredDraftId) || data.drafts?.[0]
+        : undefined;
+      if (!draft) {
+        const initialState = {
+          currentUniversity: lastSchool,
+          graduationYear: profileGraduationYear,
+          targetSchool: prefillSchool,
+          admits: prefillSchool ? [prefillSchool] : [],
+        };
+        await createSellerDraft(initialState);
+        if (prefillSchool) {
+          setListingSchool(prefillSchool);
+          setAdmits([prefillSchool]);
+        }
+        setGraduationYear(profileGraduationYear);
+        setSellStep(4);
+        setTimeout(() => uniRef.current?.focus(), 60);
+        return;
+      }
+
+      const state = draft.state || {};
+      const stateAdmits = Array.isArray(state.admits) ? state.admits.map(String) : [];
+      const stateEssays = Array.isArray(state.essays) ? state.essays as Array<Record<string, unknown>> : [];
+      const essayAssets = new Map(draft.assets.filter((asset) => asset.kind === 'essay').map((asset) => [asset.clientKey, asset]));
+      const proofAssets = new Map(draft.assets.filter((asset) => asset.kind === 'admitProof').map((asset) => [asset.clientKey, asset]));
+
+      setActiveDraftId(draft.id);
+      draftRevisionRef.current = draft.revision;
+      setCurrentUni(String(state.currentUniversity || lastSchool));
+      setCurrentMajor(String(state.currentMajor || ''));
+      setGraduationYear(String(state.graduationYear || profileGraduationYear));
+      setListingSchool(String(state.targetSchool || ''));
+      setApplicationType(
+        Object.entries(appLabels).find(([, label]) => label === state.applicationSystem)?.[0]
+          || (state.applicationSystem ? 'other' : ''),
+      );
+      setAdmits(stateAdmits);
+      setAnonMode(state.anonymity === 'full' ? 'public' : state.anonymity === 'revealOnPurchase' ? 'reveal' : 'anonymous');
+      setPackagePrice(state.packagePrice == null ? '' : String(state.packagePrice));
+      setTeaser(String(state.teaser || ''));
+      setAppliedMajors(String(state.appliedMajors || ''));
+      setSellerNote(String(state.sellerNote || ''));
+      setEssayRows(stateEssays.length ? stateEssays.map((essay, index) => {
+        const clientKey = String(essay.clientKey || `essay-${index + 1}`);
+        const asset = essayAssets.get(clientKey);
+        return {
+          clientKey,
+          sourceEssayId: essay.sourceEssayId ? String(essay.sourceEssayId) : null,
+          prompt: String(essay.prompt || ''),
+          question: String(essay.question || ''),
+          price: essay.price == null ? '' : String(essay.price),
+          fileName: asset?.fileName || String(essay.sourceFileName || ''),
+          file: null,
+          assetId: asset?.id || null,
+        };
+      }) : [newEssayRow()]);
+      setAdmitAssetIds(Object.fromEntries(stateAdmits.flatMap((label) => {
+        const key = schoolKey(label);
+        const asset = proofAssets.get(key.replace(/\s+/g, '-'));
+        return asset ? [[key, asset.id]] : [];
+      })));
+      setAdmitFileNames(Object.fromEntries(stateAdmits.flatMap((label) => {
+        const key = schoolKey(label);
+        const asset = proofAssets.get(key.replace(/\s+/g, '-'));
+        return asset ? [[key, asset.fileName]] : [];
+      })));
+      setDraftSaveLabel('Draft restored');
+      setSellStep(Math.max(4, Math.min(5, draft.step)));
+    } catch {
+      await createSellerDraft({ currentUniversity: lastSchool });
+      setSellStep(4);
+    }
+  }
 
   const emailAllowed = (e: string) => eduRe.test(e) || isLocalHost();
 
@@ -642,9 +927,18 @@ export default function Page() {
       const resp = await fetch('/api/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: val }),
+        body: JSON.stringify({ email: val, purpose: 'signup' }),
       });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
+      if (resp.status === 409 && data.code === 'ACCOUNT_EXISTS') {
+        setSlEmail(val.trim().toLowerCase());
+        setSlLoginErr('You already have a seller account. Log in or reset your password.');
+        setSlPane(1);
+        setSellOpen(false);
+        setLoginOpen(true);
+        setTimeout(() => slPwRef.current?.focus(), 60);
+        return;
+      }
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not send a code. Please try again.');
       setVerifiedEmail(val);
       setSellStep(2);
@@ -694,7 +988,7 @@ export default function Page() {
       const resp = await fetch('/api/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: verifiedEmail, code: joined }),
+        body: JSON.stringify({ email: verifiedEmail, code: joined, purpose: 'signup' }),
       });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; emailToken?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'That code is incorrect. Please try again.');
@@ -709,7 +1003,7 @@ export default function Page() {
   }
 
   // Password creation now happens on its own step, after the OTP is verified.
-  function handlePasswordNext() {
+  async function handlePasswordNext() {
     if (signupPw.length < 8) {
       setPwErr('Password must be at least 8 characters.');
       return;
@@ -719,19 +1013,60 @@ export default function Page() {
       return;
     }
     setPwErr('');
-    setSellStep(4);
-    setTimeout(() => uniRef.current?.focus(), 60);
+    setCreatingAccount(true);
+    try {
+      const resp = await fetch('/api/seller/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verifiedEmail, emailToken, password: signupPw }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
+      if (resp.status === 409 && data.code === 'ACCOUNT_EXISTS') {
+        setSlEmail(verifiedEmail.toLowerCase());
+        setSlLoginErr('You already have a seller account. Log in or reset your password.');
+        setSlPane(1);
+        setSellOpen(false);
+        setLoginOpen(true);
+        return;
+      }
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not create your account. Please try again.');
+      await createSellerDraft();
+      setSellStep(4);
+      setTimeout(() => uniRef.current?.focus(), 60);
+    } catch (err) {
+      setPwErr(err instanceof Error ? err.message : 'Could not create your account. Please try again.');
+    } finally {
+      setCreatingAccount(false);
+    }
   }
 
-  function handleUniNext() {
+  async function handleUniNext() {
     if (currentUni.trim() === '') {
       setUniErr('Please enter the university you’re attending.');
       uniRef.current?.focus();
       return;
     }
     setUniErr('');
-    setEssayRows((prev) => (prev.length ? prev : [newEssayRow()]));
-    setSellStep(5);
+    setSavingProfile(true);
+    try {
+      const resp = await fetch('/api/seller/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentUniversity: currentUni.trim(),
+          currentMajor: currentMajor.trim(),
+          graduationYear: graduationYear.trim(),
+        }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not save your profile. Please try again.');
+      setEssayRows((prev) => (prev.length ? prev : [newEssayRow()]));
+      setSellStep(5);
+    } catch (err) {
+      setUniErr(err instanceof Error ? err.message : 'Could not save your profile. Please try again.');
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   /* ---- admit tags ---- */
@@ -790,15 +1125,16 @@ export default function Page() {
     if (!applicationType) msg = 'Pick the application type for these essays.';
     else if (admits.length === 0) msg = 'Add at least one school you got into.';
     else if (!listingSchool || !admits.some((school) => sameSchool(school, listingSchool))) msg = 'Choose which college this listing is for.';
-    else if (admitProofRows.some((a) => !admitFiles[a.key])) msg = 'Upload proof for every school you got into.';
-    else if (admitProofRows.some((a) => (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each proof file must be 4MB or smaller.';
+    else if (admitProofRows.some((a) => !admitFiles[a.key] && !admitAssetIds[a.key])) msg = 'Upload proof for every school you got into.';
+    else if (admitProofRows.some((a) => admitFiles[a.key] && (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each proof file must be 4MB or smaller.';
     else if (admitProofRows.some((a) => {
-      const file = admitFiles[a.key] as File;
+      const file = admitFiles[a.key];
+      if (!file) return false;
       return !['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) && !/\.(pdf|png|jpe?g)$/i.test(file.name);
     })) msg = 'Proof must be a PDF, PNG, or JPG.';
     else if (rows.some((r) => !r.prompt)) msg = 'Choose a prompt type for every essay.';
     else if (rows.some((r) => /^other/i.test(r.prompt) && !r.question.trim())) msg = 'Type the essay question for every "Other" essay.';
-    else if (rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
+    else if (rows.some((r) => !r.file && !r.assetId && !r.sourceEssayId)) msg = 'Upload a PDF for every essay.';
     else if (rows.some((r) => r.file && r.file.size > 4 * 1024 * 1024)) msg = 'Each PDF must be 4MB or smaller.';
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
@@ -812,6 +1148,32 @@ export default function Page() {
     }
     setDetailsErr('');
 
+    if (activeDraftId) {
+      setSubmitting(true);
+      setSubmitLabel('Finalizing your saved draft…');
+      try {
+        const saved = await flushSellerDraft();
+        if (!saved) throw new Error('Your latest changes are not saved yet. Check your connection and try again.');
+        const resp = await fetch(`/api/seller/drafts/${activeDraftId}/finalize`, { method: 'POST' });
+        const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not submit your listing. Please try again.');
+      } catch (err) {
+        setDetailsErr(err instanceof Error ? err.message : 'Could not submit your listing. Please try again.');
+        setSubmitting(false);
+        setSubmitLabel('');
+        return;
+      }
+      setSubmitting(false);
+      setSubmitLabel('');
+      trackConversion(ANALYTICS_EVENTS.sellerListingSubmitted, {
+        essayCount: rows.length,
+        pricingMode,
+      });
+      setListingCount((count) => count + 1);
+      setSellStep(6);
+      return;
+    }
+
     let contentHashes: string[];
     try {
       contentHashes = await Promise.all(rows.map((row) => fileSha256(row.file as File)));
@@ -822,8 +1184,6 @@ export default function Page() {
 
     const payload = {
       email: verifiedEmail,
-      emailToken,
-      password: signupPw || undefined,
       school: currentUni.trim(),
       targetSchool: listingSchool,
       admitTags: admits,
@@ -1085,23 +1445,49 @@ export default function Page() {
   const closeLogin = useCallback(() => setLoginOpen(false), []);
 
   const openDashboard = useCallback((email: string) => {
+    try { sessionStorage.setItem('admitfolio:seller-active', '1'); } catch {}
     setSellerEmail(email || '');
     setListings([]);
     setMonthGross(0);
     setSellerAccounting(null);
     setSellerPayouts(null);
+    setSellerApplications([]);
+    setSellerProofs([]);
     setPayoutSetupError('');
     setDashErr('');
     setDashLoading(true);
     setDashOpen(true);
     setProfMsg({ text: '', kind: '' });
+    setResumableDraft(null);
+    fetch('/api/seller/drafts')
+      .then(async (r) => {
+        const d = (await r.json().catch(() => ({}))) as { ok?: boolean; drafts?: SellerDraftSummary[] };
+        if (r.ok && d.ok && d.drafts?.[0]) setResumableDraft(d.drafts[0]);
+      })
+      .catch(() => {});
     fetch('/api/seller/profile')
       .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { name?: string | null; bio?: string | null; backgroundTags?: string[] };
+        const d = (await r.json().catch(() => ({}))) as {
+          name?: string | null;
+          bio?: string | null;
+          backgroundTags?: string[];
+          currentUniversity?: string | null;
+          currentMajor?: string | null;
+          graduationYear?: string | null;
+        };
         if (!r.ok) return;
         setProfName(d.name || '');
         setProfBio(d.bio || '');
         setProfTags(Array.isArray(d.backgroundTags) ? d.backgroundTags : []);
+        setProfCurrentUniversity(d.currentUniversity || '');
+        setProfCurrentMajor(d.currentMajor || '');
+        setProfGraduationYear(d.graduationYear || '');
+      })
+      .catch(() => {});
+    fetch('/api/seller/proofs')
+      .then(async (r) => {
+        const d = (await r.json().catch(() => ({}))) as { ok?: boolean; proofs?: SellerProof[] };
+        if (r.ok && d.ok) setSellerProofs(Array.isArray(d.proofs) ? d.proofs : []);
       })
       .catch(() => {});
     fetch('/api/seller/listings')
@@ -1118,12 +1504,14 @@ export default function Page() {
           monthPlatformFeeCents?: number;
           monthStripeProcessingFeeCents?: number;
           payouts?: SellerPayouts | null;
+          applications?: SellerApplicationRecord[];
           error?: string;
         };
         if (!r.ok || !d.listings) throw new Error(d.error || 'Could not load your listings.');
         setListings(d.listings);
         setMonthGross(d.monthGross || 0);
         setSellerPayouts(d.payouts || null);
+        setSellerApplications(Array.isArray(d.applications) ? d.applications : []);
         if (
           typeof d.allTimeGrossCents === 'number' &&
           typeof d.allTimeSellerEarningsCents === 'number' &&
@@ -1187,7 +1575,7 @@ export default function Page() {
     setSlResetErr('');
     setSlSending(true);
     try {
-      const resp = await fetch('/api/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: val }) });
+      const resp = await fetch('/api/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: val, purpose: 'reset' }) });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not send the code. Please try again.');
     } catch (err) {
@@ -1214,7 +1602,7 @@ export default function Page() {
     setSlResetErr('');
     setSlBusy(true);
     try {
-      const vResp = await fetch('/api/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code: codeVal }) });
+      const vResp = await fetch('/api/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code: codeVal, purpose: 'reset' }) });
       const vData = (await vResp.json().catch(() => ({}))) as { ok?: boolean; error?: string; emailToken?: string };
       if (!vResp.ok || vData.ok === false || !vData.emailToken) throw new Error(vData.error || 'That code is incorrect. Please try again.');
       const rResp = await fetch('/api/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, emailToken: vData.emailToken, newPassword: slNewPw }) });
@@ -1241,11 +1629,24 @@ export default function Page() {
   const [dashErr, setDashErr] = useState('');
   const [payoutSetupBusy, setPayoutSetupBusy] = useState(false);
   const [payoutSetupError, setPayoutSetupError] = useState('');
+  const [resumableDraft, setResumableDraft] = useState<SellerDraftSummary | null>(null);
+  const [sellerApplications, setSellerApplications] = useState<SellerApplicationRecord[]>([]);
+  const [activeListingControlId, setActiveListingControlId] = useState<string | null>(null);
+  const [sellerProofs, setSellerProofs] = useState<SellerProof[]>([]);
+  const [proofUploadBusyId, setProofUploadBusyId] = useState<string | null>(null);
+  const [proofUploadError, setProofUploadError] = useState('');
+  const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
+  const [applicationClassYear, setApplicationClassYear] = useState('');
+  const [applicationEditBusy, setApplicationEditBusy] = useState(false);
+  const [applicationEditError, setApplicationEditError] = useState('');
 
   /* ---- Seller profile (name, bio, background tags; avatar = initials) ---- */
   const [profName, setProfName] = useState('');
   const [profBio, setProfBio] = useState('');
   const [profTags, setProfTags] = useState<string[]>([]);
+  const [profCurrentUniversity, setProfCurrentUniversity] = useState('');
+  const [profCurrentMajor, setProfCurrentMajor] = useState('');
+  const [profGraduationYear, setProfGraduationYear] = useState('');
   const [profMsg, setProfMsg] = useState<Msg>({ text: '', kind: '' });
   const [profBusy, setProfBusy] = useState(false);
 
@@ -1261,7 +1662,14 @@ export default function Page() {
       const resp = await fetch('/api/seller/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profName, bio: profBio, backgroundTags: profTags }),
+        body: JSON.stringify({
+          name: profName,
+          bio: profBio,
+          backgroundTags: profTags,
+          currentUniversity: profCurrentUniversity,
+          currentMajor: profCurrentMajor,
+          graduationYear: profGraduationYear,
+        }),
       });
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!resp.ok || data.ok === false) throw new Error(data.error || 'Could not save your profile.');
@@ -1347,7 +1755,7 @@ export default function Page() {
             ? { label: 'Bank payout', cents: latestBankPayout.amountCents, detail: 'Deposit failed. Review your payout account in Stripe.' }
             : { label: 'Pending payout', cents: 0, detail: 'No unpaid earnings' };
 
-  async function listingAction(id: string, action: 'takedown' | 'resubmit') {
+  async function listingAction(id: string, action: 'takedown') {
     try {
       const resp = await fetch('/api/seller/listing-status', {
         method: 'POST',
@@ -1357,6 +1765,12 @@ export default function Page() {
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; status?: string; error?: string };
       if (!resp.ok || !data.ok || !data.status) throw new Error(data.error || 'Could not update the listing.');
       setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: data.status as SellerListing['status'] } : l)));
+      setSellerApplications((previous) => previous.map((application) => ({
+        ...application,
+        listings: application.listings.map((listing) => listing.id === id
+          ? { ...listing, status: data.status as SellerApplicationRecord['listings'][number]['status'] }
+          : listing),
+      })));
     } catch (err) {
       setDashErr(err instanceof Error ? err.message : 'Could not update the listing.');
     }
@@ -1373,18 +1787,109 @@ export default function Page() {
         return l;
       }),
     );
+    if (data.packagePrice != null) {
+      setSellerApplications((previous) => previous.map((application) => ({
+        ...application,
+        listings: application.listings.map((listing) => listing.id === id
+          ? { ...listing, priceCents: data.packagePrice! * 100 }
+          : listing),
+      })));
+    }
+  }
+
+  function openApplicationListing(applicationKey?: string) {
+    const application = sellerApplications.find((item) => item.key === applicationKey);
+    void openSellFromDashboard(
+      sellerEmail,
+      profCurrentUniversity || listings[0]?.school || '',
+      application?.school || '',
+      '',
+      profGraduationYear,
+    );
+  }
+
+  function editApplicationOutcome(applicationKey: string) {
+    const application = sellerApplications.find((item) => item.key === applicationKey);
+    if (!application) return;
+    setEditingApplication(application);
+    setApplicationClassYear(application.classYear || '');
+    setApplicationEditError('');
+  }
+
+  async function saveApplicationOutcome() {
+    if (!editingApplication) return;
+    setApplicationEditBusy(true);
+    setApplicationEditError('');
+    try {
+      const response = await fetch('/api/seller/applications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ school: editingApplication.school, classYear: applicationClassYear }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; classYear?: string | null };
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save this application.');
+      setSellerApplications((previous) => previous.map((application) => application.key === editingApplication.key
+        ? { ...application, classYear: data.classYear || null }
+        : application));
+      setEditingApplication(null);
+    } catch (error) {
+      setApplicationEditError(error instanceof Error ? error.message : 'Could not save this application.');
+    } finally {
+      setApplicationEditBusy(false);
+    }
+  }
+
+  async function editWorkspaceListing(listingId: string) {
+    const listing = listings.find((item) => item.id === listingId);
+    if (!listing || !['rejected', 'removed'].includes(listing.status)) {
+      setActiveListingControlId(listingId);
+      return;
+    }
+    setDashErr('');
+    try {
+      const response = await fetch(`/api/seller/listings/${listingId}/revision`, { method: 'POST' });
+      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; draft?: { id: string } };
+      if (!response.ok || !data.ok || !data.draft) throw new Error(data.error || 'Could not open this listing for changes.');
+      await openSellFromDashboard(sellerEmail, listing.school, '', data.draft.id, profGraduationYear);
+    } catch (error) {
+      setDashErr(error instanceof Error ? error.message : 'Could not open this listing for changes.');
+    }
+  }
+
+  async function replaceSellerProof(proof: SellerProof, file: File | null) {
+    if (!file) return;
+    setProofUploadBusyId(proof.id);
+    setProofUploadError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch(`/api/seller/proofs/${proof.id}/upload`, { method: 'POST', body: form });
+      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not upload this proof.');
+      setSellerProofs((previous) => previous.map((item) => item.id === proof.id
+        ? { ...item, status: 'pending', statusLabel: 'Awaiting review', note: null, canReplace: false, hasFile: true }
+        : item));
+    } catch (error) {
+      setProofUploadError(error instanceof Error ? error.message : 'Could not upload this proof.');
+    } finally {
+      setProofUploadBusyId(null);
+    }
   }
 
   const closeDashboard = useCallback(() => {
+    try { sessionStorage.removeItem('admitfolio:seller-active'); } catch {}
     setDashOpen(false);
     setSellerEmail('');
   }, []);
 
   const handleSellerLogout = useCallback(() => {
     fetch('/api/seller/logout', { method: 'POST' }).catch(() => {});
+    try { sessionStorage.removeItem('admitfolio:seller-active'); } catch {}
     setDashOpen(false);
     setSellerEmail('');
     setListings([]);
+    setSellerApplications([]);
+    setSellerProofs([]);
   }, []);
 
   /* ============================ Global effects ============================ */
@@ -1418,7 +1923,7 @@ export default function Page() {
     let t: ReturnType<typeof setTimeout> | undefined;
     if (q.get('matches')) {
       t = setTimeout(() => openMatcher(), 200);
-    } else if (q.get('payouts')) {
+    } else if (q.get('payouts') || sessionStorage.getItem('admitfolio:seller-active') === '1') {
       t = setTimeout(() => {
         fetch('/api/seller/session')
           .then(async (response) => {
@@ -2140,7 +2645,7 @@ export default function Page() {
               <input type="password" id="signupPassword2" placeholder="Re-enter your password" autoComplete="new-password" value={signupPw2} onChange={(e) => { setSignupPw2(e.target.value); setPwErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordNext(); }} />
               <div className={`field-error${pwErr ? ' show' : ''}`}>{pwErr || 'Passwords must match and be at least 8 characters.'}</div>
             </div>
-            <button className="modal-btn" onClick={handlePasswordNext}>Continue</button>
+            <button className="modal-btn" onClick={handlePasswordNext} disabled={creatingAccount}>{creatingAccount ? 'Creating account…' : 'Create account & continue'}</button>
           </div>
 
           {/* Step 4: current university */}
@@ -2162,6 +2667,12 @@ export default function Page() {
             </div>
 
             <div className="field">
+              <label htmlFor="graduationYear">College class year <span className="floor-hint">(optional)</span></label>
+              <input type="text" id="graduationYear" maxLength={4} inputMode="numeric" placeholder="2028" value={graduationYear} onChange={(e) => setGraduationYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+              <div className="field-hint">Saved once and reused across your application listings.</div>
+            </div>
+
+            <div className="field">
               <label>How should your name appear on listings?</label>
               <div className="anon-toggle">
                 {([
@@ -2178,7 +2689,7 @@ export default function Page() {
               <div className="field-hint">Showing your real name adds credibility. Buyers tend to trust named sellers more. Anonymous listings sell well too.</div>
             </div>
 
-            <button className="modal-btn" onClick={handleUniNext}>Continue</button>
+            <button className="modal-btn" onClick={handleUniNext} disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Continue'}</button>
             <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
           </div>
 
@@ -2187,6 +2698,7 @@ export default function Page() {
             <div className="modal-eyebrow">Step 5 of 5 · Build a listing</div>
             <h3>Add your essays</h3>
             <p className="sub">Pick the application system your essays came from, then add every essay in that application so buyers get the complete set.</p>
+            {draftSaveLabel && <div className="field-hint" role="status">{draftSaveLabel}</div>}
 
             <div className="field">
               <label htmlFor="applicationType">Which application are these essays from?</label>
@@ -2243,20 +2755,26 @@ export default function Page() {
                 ) : (
                   admitProofRows.map((a) => {
                     const f = admitFiles[a.key];
+                    const savedFileName = admitFileNames[a.key];
                     return (
-                      <label key={a.key} className={`proof-row${f ? ' has-file' : ''}`}>
+                      <label key={a.key} className={`proof-row${f || savedFileName ? ' has-file' : ''}`}>
                         <span className="proof-school">{a.label}</span>
                         <input
                           type="file"
                           accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
                           hidden
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0] ?? null;
                             setAdmitFiles((prev) => ({ ...prev, [a.key]: file }));
+                            setAdmitFileNames((prev) => ({ ...prev, [a.key]: file?.name || '' }));
+                            if (file) {
+                              const assetId = await stageDraftAsset('admitProof', a.key.replace(/\s+/g, '-'), file);
+                              if (assetId) setAdmitAssetIds((prev) => ({ ...prev, [a.key]: assetId }));
+                            }
                             setDetailsErr('');
                           }}
                         />
-                        <span className="proof-file">{f ? f.name : 'Letter, portal, or email proof'}</span>
+                        <span className="proof-file">{f?.name || savedFileName || 'Letter, portal, or email proof'}</span>
                       </label>
                     );
                   })
@@ -2295,7 +2813,14 @@ export default function Page() {
                       </select>
                       <input type="text" className={`essay-question${isOther ? ' show' : ''}`} placeholder="Type the exact essay question being answered" value={row.question} onChange={(e) => updateEssayRow(i, { question: e.target.value })} />
                       <label className={`file-drop${row.fileName ? ' has-file' : ''}`} data-tip="Please include the essay question, the essay itself, and the word count after each essay.">
-                        <input type="file" accept="application/pdf,.pdf" className="essay-file" hidden onChange={(e) => { const f = e.target.files?.[0] ?? null; updateEssayRow(i, { fileName: f?.name ?? '', file: f }); }} />
+                        <input type="file" accept="application/pdf,.pdf" className="essay-file" hidden onChange={async (e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          updateEssayRow(i, { fileName: file?.name ?? '', file, assetId: null, sourceEssayId: null });
+                          if (file) {
+                            const assetId = await stageDraftAsset('essay', row.clientKey, file);
+                            if (assetId) updateEssayRow(i, { assetId });
+                          }
+                        }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
                       <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={99} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
@@ -2564,6 +3089,28 @@ export default function Page() {
         <div className="dash-body">
           {dashLoading && <div className="dash-empty-state" style={{ marginBottom: 16 }}>Loading your listings…</div>}
           {dashErr && <div className="dash-empty-state" style={{ marginBottom: 16, color: '#b3261e' }}>{dashErr}</div>}
+          {resumableDraft && (
+            <section className="dash-resume-card" aria-label="Resume saved application">
+              <div>
+                <div className="dash-resume-kicker">Saved automatically</div>
+                <h2>Continue your {String(resumableDraft.state.targetSchool || 'application')} listing</h2>
+                <p>
+                  Your answers and {resumableDraft.assets.length} uploaded {resumableDraft.assets.length === 1 ? 'file are' : 'files are'} still here.
+                  Last saved {new Date(resumableDraft.updatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.
+                </p>
+              </div>
+              <button
+                className="modal-btn dash-resume-button"
+                type="button"
+                onClick={() => openSellFromDashboard(
+                  sellerEmail,
+                  String(resumableDraft.state.currentUniversity || listings[0]?.school || ''),
+                )}
+              >
+                Resume application
+              </button>
+            </section>
+          )}
           {/* Earnings overview */}
           <section className="dash-section">
             <div className="dash-section-head">
@@ -2694,7 +3241,7 @@ export default function Page() {
           </section>
 
           {/* Seller profile: photo, bio, background tags */}
-          <section className="dash-section">
+          <section className="dash-section" id="seller-profile">
             <div className="dash-section-head">
               <h2 className="dash-h2">Your seller profile</h2>
             </div>
@@ -2741,6 +3288,22 @@ export default function Page() {
                 />
               </div>
 
+              <div className="dash-profile-education">
+                <div className="field">
+                  <label htmlFor="profUniversity">Current university</label>
+                  <input id="profUniversity" list="schoolOptions" value={profCurrentUniversity} onChange={(event) => setProfCurrentUniversity(event.target.value)} placeholder="University of Washington" />
+                </div>
+                <div className="field">
+                  <label htmlFor="profMajor">Current major</label>
+                  <input id="profMajor" value={profCurrentMajor} onChange={(event) => setProfCurrentMajor(event.target.value)} placeholder="Computer Science" />
+                </div>
+                <div className="field">
+                  <label htmlFor="profGraduationYear">College graduation year</label>
+                  <input id="profGraduationYear" value={profGraduationYear} onChange={(event) => setProfGraduationYear(event.target.value)} placeholder="2028" inputMode="numeric" />
+                </div>
+              </div>
+              <div className="field-hint">Saved once and prefilled when you add another school or listing.</div>
+
               <div className="field">
                 <label>Your background <span className="floor-hint">(pick any that apply)</span></label>
                 <div className="prof-tags">
@@ -2760,6 +3323,55 @@ export default function Page() {
                 <span className={`notify-msg ${profMsg.kind}`} style={{ marginTop: 0 }}>{profMsg.text}</span>
               </div>
             </div>
+          </section>
+
+          <section className="dash-section" id="seller-verification">
+            <div className="dash-section-head">
+              <div>
+                <h2 className="dash-h2">Admission verification</h2>
+                <p className="dash-section-copy">Upload once per school. Verified proof is reused for future listings from that application.</p>
+              </div>
+            </div>
+            <div className="dash-proof-list">
+              {sellerProofs.length === 0 ? (
+                <div className="dash-empty-state">No admission proof has been submitted yet.</div>
+              ) : sellerProofs.map((proof) => {
+                const info = schoolInfo(proof.school);
+                const label = info?.short || schoolShortName(proof.school);
+                return (
+                  <article className="dash-proof-card" key={proof.id}>
+                    <LogoBadge
+                      domain={info?.domain}
+                      letter={(label[0] || '?').toUpperCase()}
+                      color={schoolColor(proof.school)}
+                      school={proof.school}
+                      size={44}
+                      fontSize={16}
+                    />
+                    <div className="dash-proof-copy">
+                      <strong>{proof.school}</strong>
+                      <span>Submitted {new Date(proof.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      {proof.note && <p>Reviewer note: {proof.note}</p>}
+                    </div>
+                    <div className="dash-proof-actions">
+                      <span className={`dash-proof-status ${proof.status}`}>{proof.statusLabel}</span>
+                      {proof.canReplace && (
+                        <label className={`dash-proof-replace${proofUploadBusyId === proof.id ? ' busy' : ''}`}>
+                          {proofUploadBusyId === proof.id ? 'Uploading…' : proof.hasFile ? 'Replace proof' : 'Upload proof'}
+                          <input
+                            type="file"
+                            accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
+                            disabled={proofUploadBusyId === proof.id}
+                            onChange={(event) => void replaceSellerProof(proof, event.target.files?.[0] || null)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {proofUploadError && <div className="dash-payout-error" role="alert">{proofUploadError}</div>}
           </section>
 
           {/* Per-essay performance */}
@@ -2795,35 +3407,50 @@ export default function Page() {
             </div>
           </section>
 
-          {/* Listings management */}
+          {/* One reusable profile with school-level application groups. */}
           <section className="dash-section">
-            <div className="dash-section-head">
-              <h2 className="dash-h2">My listings</h2>
-              <button className="modal-btn" style={{ width: 'auto', margin: 0, padding: '10px 22px', fontSize: '14px' }} onClick={() => openSellFromDashboard(sellerEmail, listings[0]?.school || '')}>+ Add new essay</button>
-            </div>
-            <div>
-              {([
-                { key: 'approved', label: 'Published', dot: 'published', statuses: ['approved'] },
-                { key: 'pending', label: 'Pending review', dot: 'pending', statuses: ['pending'] },
-                { key: 'draft', label: 'Rejected / Removed', dot: 'draft', statuses: ['rejected', 'removed'] },
-              ] as const).map((g) => {
-                const items = listings.filter((l) => (g.statuses as readonly string[]).includes(l.status));
-                return (
-                  <div className="dash-status-group" key={g.key}>
-                    <div className="dash-status-label">
-                      <span className={`dash-status-dot ${g.dot}`}></span>
-                      {g.label}
-                      <span style={{ color: 'var(--faint)', fontWeight: 500 }}>({items.length})</span>
-                    </div>
-                    {items.length === 0 ? (
-                      <div className="dash-empty-state">None yet.</div>
-                    ) : (
-                      items.map((l) => <ListingCard key={l.id} listing={l} onAction={listingAction} onPriceSaved={priceSaved} />)
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            {editingApplication && (
+              <div className="dash-application-editor" role="region" aria-label={`Edit ${editingApplication.school} outcome`}>
+                <div>
+                  <div className="dash-resume-kicker">Shared application details</div>
+                  <h3>{editingApplication.school}</h3>
+                  <p>The admission outcome stays factual. Verification is managed separately below.</p>
+                </div>
+                <label>
+                  Decision
+                  <input value="Admitted" disabled />
+                </label>
+                <label>
+                  College class year
+                  <input value={applicationClassYear} inputMode="numeric" placeholder="2028" onChange={(event) => setApplicationClassYear(event.target.value)} />
+                </label>
+                <div className="dash-application-editor-actions">
+                  <button className="modal-btn" type="button" disabled={applicationEditBusy} onClick={() => void saveApplicationOutcome()}>{applicationEditBusy ? 'Saving…' : 'Save outcome'}</button>
+                  <button className="secondary-btn" type="button" disabled={applicationEditBusy} onClick={() => setEditingApplication(null)}>Cancel</button>
+                  {applicationEditError && <span role="alert">{applicationEditError}</span>}
+                </div>
+              </div>
+            )}
+            <SellerApplicationsWorkspace
+              profile={{ displayName: profName || null, bio: profBio || null, backgroundTags: profTags }}
+              applications={sellerApplications}
+              onEditProfile={() => document.getElementById('seller-profile')?.scrollIntoView({ behavior: 'smooth' })}
+              onAddApplication={() => openApplicationListing()}
+              onEditApplication={editApplicationOutcome}
+              onAddListing={openApplicationListing}
+              onEditListing={(id) => void editWorkspaceListing(id)}
+              onTakeDownListing={(id) => void listingAction(id, 'takedown')}
+            />
+            {activeListingControlId && listings.find((listing) => listing.id === activeListingControlId) && (
+              <div className="dash-listing-controls" aria-label="Selected listing controls">
+                <button className="dash-listing-controls-close" type="button" onClick={() => setActiveListingControlId(null)}>Close controls</button>
+                <ListingCard
+                  listing={listings.find((listing) => listing.id === activeListingControlId)!}
+                  onAction={listingAction}
+                  onPriceSaved={priceSaved}
+                />
+              </div>
+            )}
           </section>
 
           <div className="dash-footer">
@@ -3432,7 +4059,7 @@ function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) 
 
 function ListingCard({ listing: l, onAction, onPriceSaved }: {
   listing: SellerListing;
-  onAction: (id: string, action: 'takedown' | 'resubmit') => void;
+  onAction: (id: string, action: 'takedown') => void;
   onPriceSaved: (id: string, data: { packagePrice?: number; essayPrices?: Record<string, number> }) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -3550,7 +4177,6 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
         <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
         {!editing && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
         {l.status === 'approved' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
-        {(l.status === 'removed' || l.status === 'rejected') && <button className="dash-action-btn" onClick={() => onAction(l.id, 'resubmit')}>Resubmit for review</button>}
       </div>
     </div>
   );

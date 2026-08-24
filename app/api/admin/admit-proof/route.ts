@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
 // different weight - approving a listing publishes it, verifying a proof is
 // what lets the catalogue call that admit confirmed.
 export async function POST(req: Request) {
-  if (!currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const admin = currentAdmin();
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { proofId?: string; status?: string; note?: string };
   try {
@@ -48,11 +49,36 @@ export async function POST(req: Request) {
     );
   }
 
-  const updated = await prisma.admitProof.update({
-    where: { id: proof.id },
-    data: { status, adminNote: note, reviewedAt: new Date() },
-    select: { id: true, status: true, adminNote: true, reviewedAt: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const changed = await tx.admitProof.updateMany({
+      where: { id: proof.id, version: proof.version },
+      data: { status, adminNote: note, reviewedAt: new Date() },
+    });
+    if (changed.count !== 1) return null;
+    const run = await tx.verificationRun.findFirst({
+      where: { proofId: proof.id, proofVersion: proof.version },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    await tx.verificationDecision.create({
+      data: {
+        proofId: proof.id,
+        proofVersion: proof.version,
+        runId: run?.id || null,
+        actorType: 'admin',
+        actorId: admin.email,
+        status,
+        note,
+      },
+    });
+    return tx.admitProof.findUnique({
+      where: { id: proof.id },
+      select: { id: true, status: true, adminNote: true, reviewedAt: true },
+    });
   });
+  if (!updated) {
+    return NextResponse.json({ error: 'This proof changed while it was being reviewed. Reload and try again.' }, { status: 409 });
+  }
 
   return NextResponse.json({ ok: true, proof: updated });
 }
