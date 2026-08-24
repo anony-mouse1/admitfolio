@@ -3263,55 +3263,51 @@ function ListingDetail({
           </details>
         </div>
 
-        {admittedColleges.length > 0 && (
-          <div className="d-sec">
-            <h4>Admitted to</h4>
-            <div className="d-schools">
-              {admittedColleges.map((t) => (
-                <SchoolChip key={t} name={t} verified={verified.has(t)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="d-sec">
-          <h4>Now attends</h4>
-          <div className="d-schools">
-            <SchoolChip name={listing.school} />
-          </div>
-        </div>
-
-        {majors.length > 0 && (
-          <div className="d-sec">
-            <h4>Applied as</h4>
-            <div className="d-schools">
-              {majors.map((m) => (
-                <span key={m} className="etag">{m}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="d-sec">
-          <h4>Seller</h4>
-          <div className="d-profile">
-            <div className="d-profile-row">
-              <LogoBadge letter="V" color="#4a1d6b" school={listing.seller.displayName} size={40} fontSize={16} />
-              <div>
-                <div className="d-profile-name">{listing.seller.displayName}</div>
-                <div className="d-profile-note">
-                  {anonymityNote(listing.seller.anonymity)} Listed {listed}.
-                </div>
-              </div>
-            </div>
-            {sellerTags.length > 0 && (
-              <div className="ecard-tags">
-                {sellerTags.map((t) => (
-                  <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{cardTagLabel(t)}</span>
+        <div className="d-sec d-overview" aria-label="Listing overview">
+          {admittedColleges.length > 0 && (
+            <div className="d-overview-row">
+              <div className="d-overview-label">Admitted to</div>
+              <div className="d-schools">
+                {admittedColleges.map((t) => (
+                  <SchoolChip key={t} name={t} verified={verified.has(t)} />
                 ))}
               </div>
-            )}
+            </div>
+          )}
+          <div className="d-overview-row">
+            <div className="d-overview-label">Now attends</div>
+            <div className="d-schools">
+              <SchoolChip name={listing.school} />
+            </div>
           </div>
+          {majors.length > 0 && (
+            <div className="d-overview-row">
+              <div className="d-overview-label">Applied as</div>
+              <div className="d-schools">
+                {majors.map((m) => (
+                  <span key={m} className="etag">{m}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="d-sec d-seller-strip" aria-label="Seller information">
+          <LogoBadge letter="V" color="#4a1d6b" school={listing.seller.displayName} size={40} fontSize={16} />
+          <div className="d-seller-copy">
+            <span className="d-seller-kicker">Seller</span>
+            <div className="d-profile-name">{listing.seller.displayName}</div>
+            <div className="d-profile-note">
+              {anonymityNote(listing.seller.anonymity)} Listed {listed}.
+            </div>
+          </div>
+          {sellerTags.length > 0 && (
+            <div className="d-seller-tags">
+              {sellerTags.map((t) => (
+                <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{cardTagLabel(t)}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {otherListings.length > 0 && (
