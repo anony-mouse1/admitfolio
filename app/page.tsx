@@ -3163,6 +3163,18 @@ function ListingDetail({
     year: 'numeric',
   });
   const count = listing.essays.length;
+  const firstEssayLabel = listing.essays[0]?.prompt
+    .replace(/\s*·\s*/g, ' ')
+    .replace(/Personal Statement/g, 'personal statement')
+    .replace(/Supplement/g, 'supplement') || 'Essay';
+  const remainingEssays = listing.essays.slice(1);
+  const remainingAreSupplements = remainingEssays.length > 0
+    && remainingEssays.every((essay) => /supplement/i.test(essay.prompt));
+  const essayPreview = count === 1
+    ? firstEssayLabel
+    : `${firstEssayLabel} + ${count - 1} ${remainingAreSupplements
+      ? `supplement${count === 2 ? '' : 's'}`
+      : 'more'}`;
   const title = publicListingTitle(listing);
   const admittedColleges = collegeAdmitTags(listing);
   const questBridge = questBridgeLabel(listing);
@@ -3226,16 +3238,29 @@ function ListingDetail({
         </div>
 
         <div className="d-sec">
-          <h4>What you get</h4>
-          <ul className="d-essays">
-            {listing.essays.map((e, i) => (
-              <li key={i}>
-                <div className="p">{e.prompt}</div>
-                {e.question && <div className="q">{e.question}</div>}
-                {e.wordCount ? <div className="q">{e.wordCount} words</div> : null}
-              </li>
-            ))}
-          </ul>
+          <details className="d-essay-details">
+            <summary>
+              <span className="d-essay-summary-copy">
+                <strong>{count === 1 ? 'One essay included' : `${count} essays included`}</strong>
+                <span>{essayPreview}</span>
+              </span>
+              <span className="d-essay-summary-count">{count} {count === 1 ? 'essay' : 'essays'}</span>
+              <span className="d-essay-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </summary>
+            <ul className="d-essays">
+              {listing.essays.map((e, i) => (
+                <li key={i}>
+                  <div className="p">{e.prompt}</div>
+                  {e.question && <div className="q">{e.question}</div>}
+                  {e.wordCount ? <div className="q">{e.wordCount} words</div> : null}
+                </li>
+              ))}
+            </ul>
+          </details>
         </div>
 
         {admittedColleges.length > 0 && (
