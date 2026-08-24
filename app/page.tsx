@@ -1530,7 +1530,6 @@ export default function Page() {
                 <span className="editorial-action-arrow" aria-hidden="true">→</span>
               </button>
             </div>
-            <div className="editorial-proof"><span className="editorial-proof-seal">✓</span><span>Admission proof checked before an essay is listed</span></div>
           </div>
           <div className="essay-hero-art">
             <HeroEssayLoop />

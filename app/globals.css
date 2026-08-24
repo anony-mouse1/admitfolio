@@ -1923,8 +1923,8 @@ body { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 1000px) {
   .editorial-hero + .trust { margin-top: -12px; }
-  .editorial-hero-inner { grid-template-columns: 1fr; padding-top: 55px; }
-  .essay-hero-art { width: min(590px, 100%); margin: 24px auto 0; }
+  .editorial-hero-inner { grid-template-columns: 1fr; gap: 0; padding-top: 55px; }
+  .essay-hero-art { width: min(590px, 100%); margin: -48px auto 0; }
   .hero-loop-frame { width: 100%; margin: 0 auto; }
 }
 @media (max-width: 560px) {
