@@ -249,11 +249,15 @@ a { color: inherit; }
 .d-essay-chevron {
   width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 34px;
   border: 1px solid #dfd8cf; border-radius: 50%; color: var(--accent); background: #fff;
-  transition: transform .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+  transition: transform .18s ease, background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
 .d-essay-chevron svg { width: 16px; height: 16px; display: block; }
-.d-essay-details summary:hover .d-essay-chevron { border-color: var(--accent); color: #fff; background: var(--accent); }
+.d-essay-details summary:hover .d-essay-chevron {
+  border-color: #691826; color: #fff; background: #691826;
+  box-shadow: 0 10px 22px rgba(125,29,45,.24); transform: translateY(-2px);
+}
 .d-essay-details[open] .d-essay-chevron { transform: rotate(180deg); }
+.d-essay-details[open] summary:hover .d-essay-chevron { transform: translateY(-2px) rotate(180deg); }
 .d-essays { list-style: none; margin: 0; padding: 0 16px 4px; border-top: 1px solid var(--card-line); }
 .d-essays li { padding: 13px 0; border-bottom: 1px solid #f0ece6; }
 .d-essays li:last-child { border-bottom: 0; }
