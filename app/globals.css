@@ -1610,7 +1610,7 @@ body { -webkit-tap-highlight-color: transparent; }
   display: grid;
   grid-template-columns: .92fr 1.08fr;
   gap: 5%;
-  align-items: center;
+  align-items: start;
 }
 .editorial-hero-copy { position: relative; z-index: 2; font-family: 'Manrope', var(--sans); }
 .editorial-hero .editorial-eyebrow {
