@@ -2006,6 +2006,48 @@ export default function Page() {
         </div>
       </section>
 
+      {/* ===== Frequently asked questions ===== */}
+      <section className="faq-section" id="faq">
+        <div className="faq-section-inner">
+          <h2>Frequently asked questions</h2>
+
+          <div className="faq-list">
+            <details className="faq-item" open>
+              <summary className="faq-summary">How do I know the essays are real?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">We verify each seller through their school email, manually review every listing, and check proof of admission before an essay can go live.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">What do I get when I buy a listing?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">Right after checkout, you get a secure link to read every essay included in that listing. Some listings contain one essay and others contain a full set, so you will always see what is included before you pay.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">Can I use an essay in my own application?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">No. Admitfolio essays are for inspiration and learning only. Use them to understand voice, structure, and approach, but never copy, paraphrase, or submit someone else&apos;s work as your own.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">Who can sell essays on Admitfolio?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">Current or recent college students who are at least 18 can apply to sell. Sellers verify a supported school email, provide proof of admission, and must upload only their own original work.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">Can sellers stay anonymous?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">Yes. Sellers choose whether to stay anonymous, reveal their first name only to buyers, or show their full name publicly. That choice is made separately for each listing.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">What if a listing is not what it claimed to be?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">Tell us within 7 days if an essay materially differs from its listing, such as being for a different school or prompt. We will investigate, and confirmed misrepresented listings are refunded.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">Who built Admitfolio?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">Admitfolio was built by Fatimah Hussain, the student creator behind Fatimah&apos;s Guide, where she shares college and career resources with 300K followers across social media. As a first-generation immigrant, she had to navigate the entire college journey by herself. She built Admitfolio in hopes that it can help other students feel less lost and more supported. You can <a href="https://www.instagram.com/fatimahs.guide/" target="_blank" rel="noopener noreferrer">read about the founder here</a>.</div>
+            </details>
+            <details className="faq-item">
+              <summary className="faq-summary">What if I have another question?<span className="faq-caret" aria-hidden="true"></span></summary>
+              <div className="faq-answer">Email Fatimah at <a href="mailto:hello@admitfolio.com">hello@admitfolio.com</a> or send a message to <a href="https://www.instagram.com/fatimahs.guide/" target="_blank" rel="noopener noreferrer">@fatimahs.guide</a>.</div>
+            </details>
+          </div>
+        </div>
+      </section>
+
       {/* ===== Footer ===== */}
       <footer>
         <div className="foot-inner">

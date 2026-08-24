@@ -654,6 +654,44 @@ body.bg-soft .release-essays::after {
 .seller-actions a:hover { transform: translateY(-2px); }
 .seller-actions .note { font-size: 13.5px; color: var(--faint); }
 
+/* ---- Frequently asked questions ---- */
+.faq-section {
+  border-top: 1px solid var(--line);
+  background: radial-gradient(600px 340px at 12% 24%, rgba(125,29,45,0.055), transparent 70%), var(--bg);
+}
+.faq-section-inner { max-width: 920px; margin: 0 auto; padding: 104px 40px 112px; }
+.faq-section h2 {
+  margin: 0 0 42px;
+  font-family: var(--serif); font-size: 44px; line-height: 1.08; font-weight: 700;
+  letter-spacing: -0.025em; white-space: nowrap;
+}
+.faq-list { border-top: 1px solid #d8d2c8; }
+.faq-item { border-bottom: 1px solid #d8d2c8; }
+.faq-summary {
+  display: grid; grid-template-columns: 1fr 32px; align-items: center; gap: 24px;
+  min-height: 78px; padding: 20px 0; cursor: pointer; list-style: none;
+  font-family: var(--serif); font-size: 19px; font-weight: 650; line-height: 1.3;
+}
+.faq-summary::-webkit-details-marker { display: none; }
+.faq-summary:focus-visible { outline: 3px solid rgba(125,29,45,0.2); outline-offset: 4px; }
+.faq-caret {
+  position: relative; justify-self: center;
+  width: 10px; height: 10px; margin-top: -5px;
+  border-right: 2px solid var(--faint); border-bottom: 2px solid var(--faint);
+  transform: rotate(45deg);
+  transition: border-color .2s ease, transform .2s ease;
+}
+.faq-summary:hover .faq-caret { border-color: var(--accent); }
+.faq-item[open] .faq-caret { transform: translateY(5px) rotate(225deg); }
+.faq-answer {
+  max-width: 620px; margin: -3px 48px 0 0; padding: 0 0 26px;
+  color: var(--muted); font-size: 15.5px; line-height: 1.7;
+}
+.faq-answer a {
+  color: var(--accent); font-weight: 650;
+  text-decoration-thickness: 1px; text-underline-offset: 3px;
+}
+
 /* ---- Footer ---- */
 footer { background: #1b1a17; color: #cfccc4; }
 .foot-inner { max-width: 1200px; margin: 0 auto; padding: 64px 40px 40px; }
@@ -707,6 +745,10 @@ footer { background: #1b1a17; color: #cfccc4; }
   .hero-sub-short { display: inline; }
   .featured, .trust, .seller { padding-left: 20px; padding-right: 20px; }
   .how-inner, .why-inner, .foot-inner { padding-left: 20px; padding-right: 20px; }
+  .faq-section-inner { padding: 72px 20px 80px; }
+  .faq-section h2 { margin-bottom: 32px; font-size: 34px; white-space: normal; }
+  .faq-summary { grid-template-columns: 1fr 30px; gap: 16px; min-height: 74px; font-size: 17px; }
+  .faq-answer { margin-right: 8px; font-size: 15px; }
   .grid { grid-template-columns: 1fr; }
   .foot-grid { grid-template-columns: 1fr; }
   .featured-head h2, .how h2, .why h2 { font-size: 32px; }
