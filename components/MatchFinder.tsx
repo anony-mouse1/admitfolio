@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { listingHeadline } from '@/lib/listingSchool';
-import { schoolColor, schoolInfo, schoolShortName } from '@/lib/schools';
+import { nationalUniversityRank, schoolColor, schoolInfo, schoolShortName } from '@/lib/schools';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
 
 type MatchListing = {
@@ -37,6 +37,7 @@ const SUGGESTIONS = [
 ];
 
 const SUBJECTS: { words: string[]; matches: string[] }[] = [
+  { words: ['stem'], matches: ['computer science', 'computing', 'software', 'engineering', 'biology', 'biomedical', 'health', 'neuroscience', 'data', 'statistic', 'mathematics', 'math', 'physics', 'chemistry'] },
   { words: ['computer science', 'programming', 'coding', 'software', ' cs '], matches: ['computer science', 'computing', 'software'] },
   { words: ['engineering', 'engineer'], matches: ['engineering'] },
   { words: ['business', 'entrepreneur'], matches: ['business', 'entrepreneur', 'management'] },
@@ -69,6 +70,43 @@ function normalize(value: string): string {
   return ` ${value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
 }
 
+function majorText(listing: MatchListing): string {
+  return (listing.appliedMajors || '').toLowerCase();
+}
+
+function promptText(listing: MatchListing): string {
+  return listing.essays.map((essay) => `${essay.prompt} ${essay.question || ''}`).join(' ').toLowerCase();
+}
+
+function tagText(listing: MatchListing): string {
+  return `${listing.seller.backgroundTags.join(' ')} ${listing.admitTags.join(' ')}`.toLowerCase();
+}
+
+function matchesSubjects(listing: MatchListing, subjects: typeof SUBJECTS): boolean {
+  const major = majorText(listing);
+  return subjects.some((subject) => subject.matches.some((word) => major.includes(word)));
+}
+
+function matchesBackgrounds(listing: MatchListing, backgrounds: typeof BACKGROUNDS): boolean {
+  const tags = tagText(listing);
+  return backgrounds.some((background) => tags.includes(background.label.toLowerCase()));
+}
+
+function spreadSchools(results: MatchResult[]): MatchResult[] {
+  const seen = new Set<string>();
+  const firstFromSchool: MatchResult[] = [];
+  const repeats: MatchResult[] = [];
+  for (const result of results) {
+    const school = schoolInfo(targetSchool(result.listing))?.domain || normalize(targetSchool(result.listing));
+    if (seen.has(school)) repeats.push(result);
+    else {
+      seen.add(school);
+      firstFromSchool.push(result);
+    }
+  }
+  return [...firstFromSchool, ...repeats];
+}
+
 function runMatch(listings: MatchListing[], raw: string): { results: MatchResult[]; budget: number | null; summary: string } {
   const query = normalize(raw);
   const budget = parseBudget(raw);
@@ -92,6 +130,7 @@ function runMatch(listings: MatchListing[], raw: string): { results: MatchResult
   const wantsCommonApp = /common app|personal statement/.test(query);
   const wantsUc = /\buc\b|piq|personal insight/.test(query);
   const wantsWhy = /why school|why-school|why us/.test(query);
+  const hasContentRequirement = subjects.length > 0 || backgrounds.length > 0 || wantsCommonApp || wantsUc || wantsWhy || wantsPackage || wantsSingle;
 
   let pool = listings.filter((listing) => listing.price != null && (budget == null || listing.price <= budget));
   if (schoolMatches.length) {
@@ -101,13 +140,22 @@ function runMatch(listings: MatchListing[], raw: string): { results: MatchResult
   if (wantsPackage) pool = pool.filter((listing) => listing.essays.length > 1);
   if (wantsSingle) pool = pool.filter((listing) => listing.essays.length === 1);
 
-  const results = pool
+  // Requirements are constraints, not tiny scoring bonuses. If a student asks
+  // for a subject, background, or essay type, unrelated listings should not
+  // keep winning simply because they are slightly cheaper.
+  if (subjects.length) pool = pool.filter((listing) => matchesSubjects(listing, subjects));
+  if (backgrounds.length) pool = pool.filter((listing) => matchesBackgrounds(listing, backgrounds));
+  if (wantsCommonApp) pool = pool.filter((listing) => /common app|personal statement/.test(promptText(listing)));
+  if (wantsUc) pool = pool.filter((listing) => /personal insight|piq|uc /.test(promptText(listing)));
+  if (wantsWhy) pool = pool.filter((listing) => /why-school|why school|why us/.test(promptText(listing)));
+
+  const ranked = pool
     .map((listing): MatchResult => {
       const reasons: string[] = [];
       let score = 0;
-      const major = (listing.appliedMajors || '').toLowerCase();
-      const promptText = listing.essays.map((essay) => `${essay.prompt} ${essay.question || ''}`).join(' ').toLowerCase();
-      const tagText = `${listing.seller.backgroundTags.join(' ')} ${listing.admitTags.join(' ')}`.toLowerCase();
+      const major = majorText(listing);
+      const prompts = promptText(listing);
+      const tags = tagText(listing);
 
       if (schoolMatches.length && schoolMatches.some((school) => schoolInfo(school)?.domain === schoolInfo(targetSchool(listing))?.domain)) {
         score += 10;
@@ -121,19 +169,31 @@ function runMatch(listings: MatchListing[], raw: string): { results: MatchResult
         }
       }
       for (const background of backgrounds) {
-        if (tagText.includes(background.label.toLowerCase().replace('questbridge', 'questbridge'))) {
+        if (tags.includes(background.label.toLowerCase())) {
           score += 3;
           reasons.push(background.label.toLowerCase());
         }
       }
-      if (wantsCommonApp && /common app|personal statement/.test(promptText)) { score += 5; reasons.push('personal statement included'); }
-      if (wantsUc && /personal insight|piq|uc /.test(promptText)) { score += 5; reasons.push('UC PIQs included'); }
-      if (wantsWhy && /why-school|why school|why us/.test(promptText)) { score += 5; reasons.push('why-school essay included'); }
+      if (wantsCommonApp && /common app|personal statement/.test(prompts)) { score += 5; reasons.push('personal statement included'); }
+      if (wantsUc && /personal insight|piq|uc /.test(prompts)) { score += 5; reasons.push('UC PIQs included'); }
+      if (wantsWhy && /why-school|why school|why us/.test(prompts)) { score += 5; reasons.push('why-school essay included'); }
+      if (budget != null) reasons.push('under your budget');
       if (listing.essays.length > 1) score += 0.5;
+      // Once a student gives a content requirement, rank strong relevant
+      // universities ahead of merely cheap ties. Budget-only searches keep
+      // affordability as their primary signal.
+      if (hasContentRequirement && !schoolMatches.length) {
+        const rank = nationalUniversityRank(targetSchool(listing));
+        if (rank != null) score += Math.max(0, (60 - rank) / 8);
+      }
       if (listing.price != null) score += Math.max(0, (200 - listing.price) / 400);
       return { listing, score, reasons };
     })
     .sort((a, b) => b.score - a.score || (a.listing.price || 0) - (b.listing.price || 0));
+
+  // A broad request should show a range of universities. Repeated listings
+  // from one school remain available after the first result from each school.
+  const results = schoolMatches.length ? ranked : spreadSchools(ranked);
 
   const parsed = [
     schoolMatches.length ? schoolMatches.map(schoolShortName).join(', ') : '',
@@ -236,9 +296,10 @@ export default function MatchFinder({
     ]);
     setInput('');
 
-    const countWord = results.length === 1 ? 'one' : results.length === 2 ? 'two' : 'three';
     const answer = results.length
-      ? `I found ${countWord} essay${results.length === 1 ? '' : 's'} that fit what you asked for. ${results.length === 1 ? 'This is the strongest place' : 'These are the strongest places'} to start.`
+      ? results.length === 1
+        ? 'This is the strongest place to start.'
+        : 'These are the strongest places to start.'
       : 'I could not find a close match yet. Try a higher budget, a broader subject, or a different school.';
     const botId = ++messageId.current;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
