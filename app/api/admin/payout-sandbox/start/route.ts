@@ -13,7 +13,7 @@ import {
 export const runtime = 'nodejs';
 
 export async function POST() {
-  const admin = currentAdmin();
+  const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const stripe = payoutSandboxStripe();
@@ -24,7 +24,7 @@ export async function POST() {
     );
   }
 
-  let state = readPayoutSandboxState(admin.email) || newPayoutSandboxState(admin.email);
+  let state = await readPayoutSandboxState(admin.email) || newPayoutSandboxState(admin.email);
   try {
     if (!state.accountId) {
       const account = await stripe.v2.core.accounts.create(

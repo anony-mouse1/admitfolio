@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 // catalogue title; the seller's current university and acceptance claims stay
 // separate and untouched.
 export async function POST(req: Request) {
-  if (!currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!await currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { id?: string; targetSchool?: string };
   try {

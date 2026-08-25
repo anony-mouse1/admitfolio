@@ -66,7 +66,7 @@ const login = read('app/api/seller-login/route.ts');
 assert.match(login, /email: \{ equals: email, mode: 'insensitive' \}/);
 
 const submit = read('app/api/submit-listing/route.ts');
-assert.match(submit, /const session = currentSeller\(\)/);
+assert.match(submit, /const session = await currentSeller\(\)/);
 assert.match(submit, /email: \{ equals: email, mode: 'insensitive' \}/);
 assert.doesNotMatch(submit, /emailToken\?:|password\?:|verifyEmailToken|hashPassword|makeSession/);
 assert.doesNotMatch(submit, /prisma\.seller\.(?:create|upsert|update)/, 'listing submission must not create or alter accounts');

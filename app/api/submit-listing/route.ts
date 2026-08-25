@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   // Account creation is a separate, completed step. Listing submission may
   // only use the authenticated seller and can never create an account or alter
   // its password.
-  const session = currentSeller();
+  const session = await currentSeller();
   if (!session) {
     return NextResponse.json(
       { error: 'Log in before submitting a listing.' },

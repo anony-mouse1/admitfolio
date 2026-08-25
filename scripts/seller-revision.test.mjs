@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const revision = fs.readFileSync(new URL('../app/api/seller/listings/[id]/revision/route.ts', import.meta.url), 'utf8');
 assert.match(revision, /authenticatedSeller\(\)/, 'revision creation must require seller authentication');
-assert.match(revision, /id:\s*params\.id, sellerId:\s*seller\.id/, 'revision creation must enforce listing ownership');
+assert.match(revision, /id, sellerId:\s*seller\.id/, 'revision creation must enforce listing ownership');
 assert.match(revision, /\['rejected', 'removed'\]/, 'only rejected and removed listings can become revision drafts');
 assert.match(revision, /sourceListingId:\s*listing\.id/, 'a revision must retain its immutable source listing');
 assert.match(revision, /sourceEssayId:\s*essay\.id/, 'unchanged files must reference the purchased source essay');

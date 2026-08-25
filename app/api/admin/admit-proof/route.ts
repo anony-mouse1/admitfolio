@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 // different weight - approving a listing publishes it, verifying a proof is
 // what lets the catalogue call that admit confirmed.
 export async function POST(req: Request) {
-  const admin = currentAdmin();
+  const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { proofId?: string; status?: string; note?: string };

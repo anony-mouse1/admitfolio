@@ -39,8 +39,8 @@ export default function EssayReader({ essayId, token, label }: Props) {
       setState('loading');
       setAccessiblePages([]);
       try {
-        // Next 14's webpack runtime corrupts pdf.js's ESM module when it is
-        // bundled as a dynamic import. Load the unchanged browser build from
+        // Bundling pdf.js's browser ESM build through the framework runtime
+        // has caused worker/module corruption in past releases. Load the unchanged browser build from
         // our own public assets instead. It stays on our origin and is still
         // fetched only after the buyer clicks "Read essay".
         const moduleUrl = '/vendor/pdfjs/pdf.min.mjs';

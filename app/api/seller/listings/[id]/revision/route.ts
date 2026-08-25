@@ -21,12 +21,13 @@ function storedFileName(path: string | null, index: number): string {
   return part && part.toLowerCase().endsWith('.pdf') ? part : `Previously uploaded essay ${index + 1}.pdf`;
 }
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const seller = await authenticatedSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
 
   const listing = await prisma.listing.findFirst({
-    where: { id: params.id, sellerId: seller.id },
+    where: { id, sellerId: seller.id },
     include: { essays: { orderBy: { sortOrder: 'asc' } } },
   });
   if (!listing) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });

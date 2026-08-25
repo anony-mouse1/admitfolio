@@ -38,7 +38,7 @@ function shape(seller: {
 }
 
 export async function GET() {
-  const session = currentSeller();
+  const session = await currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const seller = await prisma.seller.findUnique({ where: { email: session.email } });
@@ -48,7 +48,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = currentSeller();
+  const session = await currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: {

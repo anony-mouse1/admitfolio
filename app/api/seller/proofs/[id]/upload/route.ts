@@ -5,8 +5,8 @@ import { replaceAdmitProofFile } from '@/lib/admitProofUpload';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = currentSeller();
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const seller = await prisma.seller.findUnique({
@@ -15,8 +15,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { id } = await params;
   const proof = await prisma.admitProof.findFirst({
-    where: { id: params.id, sellerId: seller.id },
+    where: { id, sellerId: seller.id },
     select: { id: true, sellerId: true, schoolKey: true, status: true, version: true, pdfPath: true },
   });
   if (!proof) return NextResponse.json({ error: 'Proof not found.' }, { status: 404 });

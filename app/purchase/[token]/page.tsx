@@ -29,8 +29,9 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default async function PurchasePage({ params }: { params: { token: string } }) {
-  const verified = verifyAccessToken(params.token);
+export default async function PurchasePage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const verified = verifyAccessToken(token);
   const purchase = verified
     ? await prisma.purchase.findUnique({
         where: { id: verified.purchaseId },
@@ -99,7 +100,7 @@ export default async function PurchasePage({ params }: { params: { token: string
           <EssayReader
             key={e.id}
             essayId={e.id}
-            token={params.token}
+            token={token}
             label={e.question || e.prompt}
           />
         ) : (

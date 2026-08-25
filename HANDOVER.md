@@ -37,6 +37,9 @@ in a separate worktree and did not alter them.
   unsupported 24-month access-log promise with an accurate purpose-based
   retention statement.
 - Added `test:launch-hardening` regression coverage.
+- Upgraded Next.js from 14.2.5 to 16.3.2 and React from 18.3.1 to 19.2.8,
+  migrated App Router route and page parameters to the required async API, and
+  replaced the removed `next lint` command with the existing TypeScript check.
 
 ## Database and production changes
 
@@ -47,10 +50,11 @@ payment, seller record, or deployed environment variable was changed.
 
 - Prisma Client generation
 - `tsc --noEmit`
-- All 23 `test:*` scripts
+- All 25 `*.test.mjs` files
 - Production `next build` with build-only placeholder values and without
   running `prisma migrate deploy`
 - Fresh npm audit confirmed the PDF.js advisory is gone
+- A fresh production dependency audit reports zero known vulnerabilities
 - Local production responses confirmed both launch-gated APIs return 503 before
   database or Stripe access when launch is off
 - Local production responses confirmed CSP, `X-Frame-Options`,
@@ -64,8 +68,5 @@ payment, seller record, or deployed environment variable was changed.
 - After deployment, verify the live security headers and exercise one existing
   paid-reading link to confirm the patched worker and accessible text load with
   real purchased content. Do not create a payment for this check.
-- The repository still uses Next.js 14.2.5. Its separate framework advisories
-  were outside this requested PDF-reader change and should be handled in a
-  dedicated framework upgrade.
 - Legal wording should still receive counsel review before it is treated as
   legal advice or a complete compliance determination.

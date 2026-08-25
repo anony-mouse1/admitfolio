@@ -11,8 +11,9 @@ export const metadata: Metadata = {
 // Stripe redirects here after payment. The webhook usually lands first and
 // has already recorded the purchase; if it hasn't yet, the email arrives in
 // a minute either way.
-export default async function SuccessPage({ searchParams }: { searchParams: { session_id?: string } }) {
-  const sid = String(searchParams?.session_id || '');
+export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ session_id?: string }> }) {
+  const { session_id } = await searchParams;
+  const sid = String(session_id || '');
   const purchase = sid
     ? await prisma.purchase.findUnique({ where: { stripeSessionId: sid } })
     : null;

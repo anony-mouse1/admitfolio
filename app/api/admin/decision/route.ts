@@ -5,7 +5,7 @@ import { applyListingDecision } from '@/lib/listingDecision';
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  if (!currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!await currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { id?: string; decision?: string; note?: string };
   try {

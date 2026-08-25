@@ -16,10 +16,10 @@ import {
 export const runtime = 'nodejs';
 
 export async function POST() {
-  const admin = currentAdmin();
+  const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const stripe = payoutSandboxStripe();
-  const current = readPayoutSandboxState(admin.email);
+  const current = await readPayoutSandboxState(admin.email);
   if (!stripe || !current?.accountId) {
     return NextResponse.json({ error: 'Start the payout setup first.' }, { status: 409 });
   }

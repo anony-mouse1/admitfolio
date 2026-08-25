@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 // unchanged.
 
 export async function POST(req: Request) {
-  const seller = currentSeller();
+  const seller = await currentSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { listingId?: string; action?: string };

@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 // /api/admin/decision for exactly that reason - a decision is a message to a
 // student, this is a note to yourself.
 export async function POST(req: Request) {
-  if (!currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!await currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { id?: string; saved?: boolean };
   try {

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const route = fs.readFileSync(new URL('../app/api/seller/proofs/route.ts', import.meta.url), 'utf8');
 
-assert.match(route, /currentSeller\(\)/, 'proof status must require a seller session');
+assert.match(route, /await currentSeller\(\)/, 'proof status must require an awaited seller session');
 assert.match(route, /where:\s*\{\s*email:\s*session\.email\s*\}/, 'proofs must be scoped to the signed-in seller');
 assert.doesNotMatch(route, /sellerId:\s*true/, 'the seller proof response must not expose seller IDs');
 assert.match(route, /canReplace:\s*status === 'rejected' \|\| !proof\.pdfPath/, 'rejected or missing proof should be uploadable');
@@ -13,8 +13,8 @@ const uploadRoute = fs.readFileSync(
   new URL('../app/api/seller/proofs/[id]/upload/route.ts', import.meta.url),
   'utf8',
 );
-assert.match(uploadRoute, /currentSeller\(\)/, 'replacement upload must require a seller session');
-assert.match(uploadRoute, /id:\s*params\.id, sellerId:\s*seller\.id/, 'replacement must enforce proof ownership');
+assert.match(uploadRoute, /await currentSeller\(\)/, 'replacement upload must require an awaited seller session');
+assert.match(uploadRoute, /id, sellerId:\s*seller\.id/, 'replacement must enforce proof ownership');
 assert.match(uploadRoute, /proof\.status !== 'rejected' && proof\.pdfPath/, 'only rejected or missing proofs can be replaced');
 assert.match(uploadRoute, /replaceAdmitProofFile\(proof, file\)/, 'replacement must use the shared safe upload path');
 

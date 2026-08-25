@@ -75,7 +75,7 @@ try {
   assert.match(
     readerSource,
     /webpackIgnore:\s*true/,
-    'the browser must load pdf.js without passing its ESM build through Next 14 webpack',
+    'the browser must load pdf.js without passing its ESM build through the framework bundler',
   );
   assert.match(
     readerSource,

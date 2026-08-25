@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 // shows are enforced here, so they can't be bypassed with a direct request.
 
 export async function POST(req: Request) {
-  const seller = currentSeller();
+  const seller = await currentSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { listingId?: string; packagePrice?: number; essayPrices?: Record<string, number> };

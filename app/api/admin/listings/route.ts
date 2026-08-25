@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 const SIGNED_URL_TTL_S = 3600;
 
 export async function GET() {
-  if (!currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!await currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const rows = await prisma.listing.findMany({
     orderBy: { createdAt: 'desc' },

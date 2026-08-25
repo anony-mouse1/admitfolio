@@ -6,10 +6,10 @@ import { payoutSandboxStripe, readPayoutSandboxState } from '@/lib/payoutSandbox
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const admin = currentAdmin();
+  const admin = await currentAdmin();
   if (!admin) return NextResponse.redirect(`${SITE_URL}/admin`);
   const stripe = payoutSandboxStripe();
-  const state = readPayoutSandboxState(admin.email);
+  const state = await readPayoutSandboxState(admin.email);
   if (!stripe || !state?.accountId) {
     return NextResponse.redirect(`${SITE_URL}/admin/payout-sandbox?error=not-ready`);
   }

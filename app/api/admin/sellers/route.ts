@@ -6,6 +6,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  if (!currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!await currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   return NextResponse.json({ sellers: await getSellerDirectory() });
 }

@@ -8,12 +8,13 @@ import { ESSAYS_BUCKET, MAX_PDF_BYTES, supabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const seller = await authenticatedSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
 
   const draft = await prisma.sellerApplicationDraft.findFirst({
-    where: { id: params.id, sellerId: seller.id, status: 'draft' },
+    where: { id, sellerId: seller.id, status: 'draft' },
     select: { id: true },
   });
   if (!draft) return NextResponse.json({ error: 'Draft not found.' }, { status: 404 });

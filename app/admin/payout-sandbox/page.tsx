@@ -4,8 +4,8 @@ import PayoutSandboxClient from './PayoutSandboxClient';
 
 export const dynamic = 'force-dynamic';
 
-export default function PayoutSandboxPage({ searchParams }: { searchParams?: { preview?: string } }) {
-  const preview = process.env.NODE_ENV === 'development' && searchParams?.preview === '1';
-  if (!preview && !currentAdmin()) redirect('/admin');
+export default async function PayoutSandboxPage({ searchParams }: { searchParams?: Promise<{ preview?: string }> }) {
+  const preview = process.env.NODE_ENV === 'development' && (await searchParams)?.preview === '1';
+  if (!preview && !await currentAdmin()) redirect('/admin');
   return <PayoutSandboxClient preview={preview} />;
 }

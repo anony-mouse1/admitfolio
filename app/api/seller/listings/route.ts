@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // aggregates, for the dashboard.
 
 export async function GET() {
-  const session = currentSeller();
+  const session = await currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const seller = await prisma.seller.findUnique({

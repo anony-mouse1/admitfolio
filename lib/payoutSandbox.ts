@@ -40,8 +40,8 @@ export function encodePayoutSandboxState(state: PayoutSandboxState): string {
   return `${payload}.${signature(payload)}`;
 }
 
-export function readPayoutSandboxState(adminEmail: string): PayoutSandboxState | null {
-  const token = cookies().get(PAYOUT_SANDBOX_COOKIE)?.value;
+export async function readPayoutSandboxState(adminEmail: string): Promise<PayoutSandboxState | null> {
+  const token = (await cookies()).get(PAYOUT_SANDBOX_COOKIE)?.value;
   if (!token) return null;
   const [payload, supplied] = token.split('.');
   if (!payload || !supplied) return null;

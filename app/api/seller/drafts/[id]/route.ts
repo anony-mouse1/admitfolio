@@ -7,11 +7,12 @@ import { safeDraftStep, sanitizeSellerDraftState } from '@/lib/sellerDraft';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const seller = await authenticatedSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
   const draft = await prisma.sellerApplicationDraft.findFirst({
-    where: { id: params.id, sellerId: seller.id },
+    where: { id, sellerId: seller.id },
     include: {
       assets: {
         where: { status: 'ready' },
@@ -24,9 +25,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json({ ok: true, draft });
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const seller = await authenticatedSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
 
   let body: { revision?: unknown; state?: unknown; step?: unknown };
   try {
@@ -40,7 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const updated = await prisma.sellerApplicationDraft.updateMany({
-    where: { id: params.id, sellerId: seller.id, status: 'draft', revision },
+    where: { id, sellerId: seller.id, status: 'draft', revision },
     data: {
       state: sanitizeSellerDraftState(body.state) as unknown as Prisma.InputJsonValue,
       step: safeDraftStep(body.step),
@@ -49,7 +51,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
   if (updated.count === 0) {
     const current = await prisma.sellerApplicationDraft.findFirst({
-      where: { id: params.id, sellerId: seller.id },
+      where: { id, sellerId: seller.id },
       select: { revision: true, updatedAt: true, status: true },
     });
     if (!current) return NextResponse.json({ error: 'Draft not found.' }, { status: 404 });
@@ -60,17 +62,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const draft = await prisma.sellerApplicationDraft.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, status: true, step: true, state: true, revision: true, updatedAt: true },
   });
   return NextResponse.json({ ok: true, draft });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const seller = await authenticatedSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
   const updated = await prisma.sellerApplicationDraft.updateMany({
-    where: { id: params.id, sellerId: seller.id, status: 'draft' },
+    where: { id, sellerId: seller.id, status: 'draft' },
     data: { status: 'abandoned' },
   });
   if (updated.count === 0) return NextResponse.json({ error: 'Draft not found.' }, { status: 404 });

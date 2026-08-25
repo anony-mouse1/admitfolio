@@ -14,12 +14,13 @@ import { reviewListing } from '@/lib/reviewRunner';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const seller = await authenticatedSeller();
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
 
   const draft = await prisma.sellerApplicationDraft.findFirst({
-    where: { id: params.id, sellerId: seller.id },
+    where: { id, sellerId: seller.id },
     include: {
       assets: { where: { status: 'ready' } },
       sourceListing: {

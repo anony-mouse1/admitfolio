@@ -21,7 +21,7 @@ export const maxDuration = 60;
 //
 // Now every read is authenticated against the purchase, logged with the caller's
 // IP, and served as a copy watermarked for that specific buyer.
-export async function GET(req: Request, { params }: { params: { essayId: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ essayId: string }> }) {
   const token = new URL(req.url).searchParams.get('t');
   const verified = verifyAccessToken(token);
   if (!verified) {
@@ -39,7 +39,8 @@ export async function GET(req: Request, { params }: { params: { essayId: string 
   // The token proves which PURCHASE the caller holds; it says nothing about
   // which essay they asked for. Without this check a valid token would read any
   // essay on the platform by id.
-  const essay = purchase.listing.essays.find((e) => e.id === params.essayId);
+  const { essayId } = await params;
+  const essay = purchase.listing.essays.find((e) => e.id === essayId);
   if (!essay) {
     return NextResponse.json({ error: 'Not part of this purchase' }, { status: 403 });
   }

@@ -10,7 +10,7 @@ import { stripe, SITE_URL } from '@/lib/stripe';
 export const runtime = 'nodejs';
 
 export async function POST() {
-  const session = currentSeller();
+  const session = await currentSeller();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!stripe) return NextResponse.json({ error: 'Payout setup is not configured yet.' }, { status: 503 });
 

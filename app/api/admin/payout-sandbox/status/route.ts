@@ -11,11 +11,11 @@ import { payoutSandboxStripe, readPayoutSandboxState, safeStripeError } from '@/
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const admin = currentAdmin();
+  const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const stripe = payoutSandboxStripe();
-  const state = readPayoutSandboxState(admin.email);
+  const state = await readPayoutSandboxState(admin.email);
   if (!stripe) {
     return NextResponse.json({
       configured: false,

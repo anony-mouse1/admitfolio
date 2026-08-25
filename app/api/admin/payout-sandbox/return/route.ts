@@ -5,6 +5,6 @@ import { SITE_URL } from '@/lib/stripe';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  if (!currentAdmin()) return NextResponse.redirect(`${SITE_URL}/admin`);
+  if (!await currentAdmin()) return NextResponse.redirect(`${SITE_URL}/admin`);
   return NextResponse.redirect(`${SITE_URL}/admin/payout-sandbox?returned=1`);
 }
