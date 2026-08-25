@@ -249,17 +249,26 @@ export default function MatchFinder({
   }, []);
 
   useEffect(() => {
-    const startedAt = Date.now();
-    const checkBrowseIntent = () => {
-      const hasBrowsedLongEnough = Date.now() - startedAt >= 8000;
-      const hasSeenEnoughCards = window.scrollY > Math.max(560, window.innerHeight * 0.75);
-      if (hasBrowsedLongEnough && hasSeenEnoughCards) setNudgeReady(true);
+    const checkPrimaryAction = () => {
+      const primaryAction = document.querySelector<HTMLElement>('.browse-match-btn');
+      if (!primaryAction) {
+        setNudgeReady(false);
+        return;
+      }
+      const buttonRect = primaryAction.getBoundingClientRect();
+      if (buttonRect.width === 0) {
+        setNudgeReady(window.scrollY > 360);
+        return;
+      }
+      const navBottom = document.querySelector<HTMLElement>('.nav')?.getBoundingClientRect().bottom || 0;
+      setNudgeReady(buttonRect.bottom <= navBottom + 8);
     };
-    const timer = window.setInterval(checkBrowseIntent, 1000);
-    window.addEventListener('scroll', checkBrowseIntent, { passive: true });
+    checkPrimaryAction();
+    window.addEventListener('scroll', checkPrimaryAction, { passive: true });
+    window.addEventListener('resize', checkPrimaryAction);
     return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('scroll', checkBrowseIntent);
+      window.removeEventListener('scroll', checkPrimaryAction);
+      window.removeEventListener('resize', checkPrimaryAction);
     };
   }, []);
 
@@ -377,13 +386,6 @@ export default function MatchFinder({
 
       {!open && !bandVisible && nudgeReady && !nudgeDismissed && (
         <aside className="mf-nudge" aria-label="Need help choosing an essay?">
-          <span className="mf-nudge-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
-              <path d="m5.6 5.6 2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
-              <circle cx="12" cy="12" r="3.2" />
-            </svg>
-          </span>
           <button
             className="mf-nudge-main"
             type="button"
@@ -392,9 +394,8 @@ export default function MatchFinder({
               onOpenChange(true);
             }}
           >
-            <strong>Still deciding?</strong>
-            <span>Get a short list based on your school, essay type and budget.</span>
-            <b>Find my matches →</b>
+            <strong>Find my matches</strong>
+            <span aria-hidden="true">→</span>
           </button>
           <button className="mf-nudge-x" type="button" aria-label="Dismiss" onClick={() => setNudgeDismissed(true)}>&times;</button>
         </aside>

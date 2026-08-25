@@ -2174,9 +2174,13 @@ export default function Page() {
               <div>
                 <h2>Browse essays</h2>
                 <p>Shop by the school you want to get into. Every listing is from a verified admit, with the essays that got them in.</p>
+                <button className="browse-match-btn" type="button" onClick={openMatcher}>
+                  <span className="browse-match-spark" aria-hidden="true">✦</span>
+                  <span className="browse-match-label">Find me matches</span>
+                  <span className="browse-match-arrow" aria-hidden="true">→</span>
+                </button>
               </div>
               <div className="browse-controls">
-                <button className="browse-match-btn" type="button" onClick={openMatcher}>Find me matches</button>
                 <label className="pub-search">
                   <svg className="pub-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <circle cx="11" cy="11" r="7" />
@@ -3933,7 +3937,7 @@ function ListingDetail({
       <div className="sheet">
         <button className="sheet-x mobile-page-close" type="button" aria-label="Back to essays" onClick={onClose}>
           <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
-          <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
+          <span className="mobile-page-back-label" aria-hidden="true">←</span>
         </button>
 
         <div className="d-head">
