@@ -18,6 +18,7 @@ const adminAuth = read('lib/adminAuth.ts');
 const sellerAuth = read('lib/sellerAuth.ts');
 const layout = read('app/layout.tsx');
 const styles = read('app/globals.css');
+const page = read('app/page.tsx');
 
 assert.equal(packageJson.dependencies.next, '16.3.2');
 assert.equal(packageJson.dependencies.react, '19.2.8');
@@ -68,6 +69,10 @@ assert.match(layout, /fonts\.gstatic\.com/);
 assert.match(styles, /html\s*\{[\s\S]*?overflow-x:\s*hidden;[\s\S]*?overscroll-behavior-x:\s*none;/);
 assert.match(styles, /@supports \(overflow:\s*clip\)\s*\{\s*html, body \{ overflow-x:\s*clip; \}\s*\}/);
 assert.match(styles, /\.trust-marquee\s*\{[\s\S]*?contain:\s*paint;[\s\S]*?touch-action:\s*pan-y;/);
+assert.match(page, /modal-overlay buy-overlay/);
+assert.match(page, /sheet-x mobile-page-close/);
+assert.match(styles, /\.sheet\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);
+assert.match(styles, /\.buy-overlay \.modal\.buy-modal\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);
 
 assert.doesNotMatch(terms, /Sales are split 60\/40/);
 assert.doesNotMatch(terms, /Purchasing is not yet live/);
