@@ -2149,6 +2149,70 @@ body { -webkit-tap-highlight-color: transparent; }
   .nav { grid-template-columns: 1fr auto; }
   .nav .nav-cta { grid-column: 2; }
 }
+@media (min-width: 561px) and (max-width: 900px) {
+  .nav-burger {
+    width: 40px;
+    height: 40px;
+    padding: 0 9px;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .nav-burger span { display: block; height: 2.5px; border-radius: 2px; background: var(--ink); transition: transform .22s ease; }
+  .nav-burger.open span:first-child { transform: translateY(4.25px) rotate(45deg); }
+  .nav-burger.open span:last-child { transform: translateY(-4.25px) rotate(-45deg); }
+  .nav-menu-backdrop { display: block; position: fixed; inset: 0; background: transparent; }
+  .nav-menu {
+    position: absolute;
+    z-index: 2;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 270px;
+    padding: 10px;
+    display: block;
+    border: 1px solid rgba(83, 66, 55, .18);
+    border-radius: 18px;
+    background: rgba(255, 250, 244, .96);
+    box-shadow: 0 18px 42px rgba(63, 42, 31, .16);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    animation: menuDown .22s ease both;
+  }
+  .nav-menu-mobile-content { display: none; }
+  .nav-menu-group { display: grid; }
+  .nav-menu-label {
+    padding: 8px 12px 6px;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .nav-menu a, .nav-menu button {
+    width: 100%;
+    min-height: 50px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    border-radius: 11px;
+    color: var(--ink);
+    background: transparent;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 650;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .nav-menu a:hover, .nav-menu button:hover { background: rgba(125, 29, 45, .06); }
+  .nav-menu-arrow { color: var(--accent); font-size: 18px; font-weight: 500; }
+}
 @media (max-width: 560px) {
   .nav,
   .nav[data-scrolled='true'] {
@@ -2180,6 +2244,7 @@ body { -webkit-tap-highlight-color: transparent; }
     background: var(--bg);
     box-shadow: none;
   }
+  .nav-menu-tablet-content { display: none; }
 }
 @media (max-width: 360px) {
   .nav { padding: 0 5px 0 12px; gap: 4px; }
