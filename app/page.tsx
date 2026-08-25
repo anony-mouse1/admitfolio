@@ -2033,8 +2033,12 @@ export default function Page() {
             </p>
             <div className="hero-actions editorial-actions">
               <a className="btn-primary" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse verified essays</a>
-              <button className="btn-ghost" type="button" onClick={openMatcher}>
+              <button className="btn-ghost editorial-action-match" type="button" onClick={openMatcher}>
                 <span className="editorial-action-label">Find my matches</span>
+                <span className="editorial-action-arrow" aria-hidden="true">→</span>
+              </button>
+              <button className="btn-ghost editorial-action-sell" type="button" onClick={openSell}>
+                <span className="editorial-action-label">Sell my essays</span>
                 <span className="editorial-action-arrow" aria-hidden="true">→</span>
               </button>
             </div>
