@@ -1923,6 +1923,8 @@ export default function Page() {
     let t: ReturnType<typeof setTimeout> | undefined;
     if (q.get('matches')) {
       t = setTimeout(() => openMatcher(), 200);
+    } else if (q.get('sell')) {
+      t = setTimeout(() => openSell(), 200);
     } else if (q.get('payouts') || sessionStorage.getItem('admitfolio:seller-active') === '1') {
       t = setTimeout(() => {
         fetch('/api/seller/session')
@@ -1940,7 +1942,7 @@ export default function Page() {
       document.body.classList.remove('layout-frame', 'layout-backdrop', 'bg-soft');
       if (t) clearTimeout(t);
     };
-  }, [openDashboard, openLogin, openMatcher]);
+  }, [openDashboard, openLogin, openMatcher, openSell]);
 
   // Escape closes the top-most overlay.
   useEffect(() => {
@@ -2010,11 +2012,28 @@ export default function Page() {
         {menuOpen && (
           <>
             <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)}></div>
-            <div className="nav-menu">
-              <a href="#browse" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openBrowse(); }}>Browse essays</a>
-              <a href="#featured" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openFeatured(); }}>High schooler?</a>
-              {LAUNCHED && <a onClick={() => { setMenuOpen(false); openMatcher(); }}>Find my matches</a>}
-              <a onClick={() => { setMenuOpen(false); openLogin(); }}>Seller login</a>
+            <div className="nav-menu" role="navigation" aria-label="Mobile navigation">
+              <div className="nav-menu-group">
+                <div className="nav-menu-label">For applicants</div>
+                <a href="#browse" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openBrowse(); }}>
+                  <span>Browse essays</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+                </a>
+                {LAUNCHED && (
+                  <button type="button" onClick={() => { setMenuOpen(false); openMatcher(); }}>
+                    <span>Find my matches</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+                  </button>
+                )}
+              </div>
+              <div className="nav-menu-divider" aria-hidden="true"></div>
+              <div className="nav-menu-group">
+                <div className="nav-menu-label">For sellers</div>
+                <button type="button" onClick={() => { setMenuOpen(false); openLogin(); }}>
+                  <span>Seller login</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+                </button>
+                <button type="button" className="nav-menu-signup" onClick={() => { setMenuOpen(false); openSell(); }}>
+                  <span>Start selling</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+                </button>
+              </div>
             </div>
           </>
         )}
