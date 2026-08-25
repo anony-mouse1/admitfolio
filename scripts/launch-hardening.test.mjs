@@ -16,6 +16,7 @@ const privacy = read('app/privacy/page.tsx');
 const packageJson = JSON.parse(read('package.json'));
 const adminAuth = read('lib/adminAuth.ts');
 const sellerAuth = read('lib/sellerAuth.ts');
+const layout = read('app/layout.tsx');
 
 assert.equal(packageJson.dependencies.next, '16.3.2');
 assert.equal(packageJson.dependencies.react, '19.2.8');
@@ -59,7 +60,10 @@ for (const header of [
   assert.ok(config.includes(header), `missing security header: ${header}`);
 }
 assert.match(config, /frame-ancestors 'none'/);
+assert.match(config, /frame-src 'self'/);
 assert.match(config, /https:\/\/checkout\.stripe\.com/);
+assert.match(layout, /fonts\.googleapis\.com/);
+assert.match(layout, /fonts\.gstatic\.com/);
 
 assert.doesNotMatch(terms, /Sales are split 60\/40/);
 assert.doesNotMatch(terms, /Purchasing is not yet live/);
