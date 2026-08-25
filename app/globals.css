@@ -18,9 +18,18 @@
 * { box-sizing: border-box; }
 /* Smooth in-page scrolling; scroll-padding offsets the sticky nav so section
    headings aren't hidden underneath it when jumped to from the navbar. */
-html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  scroll-behavior: smooth;
+  scroll-padding-top: 84px;
+}
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -28,6 +37,10 @@ body {
   color: var(--ink);
   background: var(--bg);
   overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+@supports (overflow: clip) {
+  html, body { overflow-x: clip; }
 }
 a { color: inherit; }
 
@@ -160,6 +173,9 @@ a { color: inherit; }
 .trust-label { text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); text-transform: uppercase; }
 .trust-marquee {
   overflow: hidden;
+  overflow: clip;
+  contain: paint;
+  touch-action: pan-y;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
 }
