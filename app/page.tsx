@@ -2046,9 +2046,12 @@ export default function Page() {
           <div className="editorial-hero-copy">
             <p className="editorial-eyebrow">Real essays from students who got in</p>
             <h1>Stuck on your college essay? <em>Start here.</em></h1>
-            <p className="editorial-description">
+            <p className="editorial-description editorial-description-desktop">
               <span>The hardest part of a college essay is finding the right words.</span>
               <span>See how T20 admits shaped their stories, then tell yours.</span>
+            </p>
+            <p className="editorial-description editorial-description-mobile">
+              See how T20 admits found the right words, then find yours.
             </p>
             <div className="hero-actions editorial-actions">
               <a className="btn-primary" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>Browse verified essays</a>
