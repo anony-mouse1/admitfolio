@@ -2150,17 +2150,19 @@ body { -webkit-tap-highlight-color: transparent; }
   .nav .nav-cta { grid-column: 2; }
 }
 @media (max-width: 560px) {
-  .nav {
+  .nav,
+  .nav[data-scrolled='true'] {
     top: 7px;
     width: calc(100% - 14px);
     min-height: 62px;
     padding: 0 9px 0 16px;
     gap: 8px;
-    border-color: rgba(83, 66, 55, .14);
-    background: rgba(255, 252, 247, .82);
-    box-shadow: 0 2px 4px rgba(35,26,21,.04), 0 12px 30px rgba(63,42,31,.11), inset 0 1px rgba(255,255,255,.8);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-color: rgba(83, 66, 55, .26);
+    border-radius: 24px;
+    background: rgba(255, 252, 247, .94);
+    box-shadow: 0 3px 7px rgba(35,26,21,.08), 0 14px 34px rgba(63,42,31,.16), inset 0 1px rgba(255,255,255,.9);
+    backdrop-filter: blur(20px) saturate(145%);
+    -webkit-backdrop-filter: blur(20px) saturate(145%);
   }
   .nav-spacer { height: 76px; }
   .nav .logo-word { font-size: 23px; }
