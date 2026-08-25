@@ -27,16 +27,19 @@ export default function EssayReader({ essayId, token, label }: Props) {
   const holder = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [pages, setPages] = useState(0);
+  const [accessiblePages, setAccessiblePages] = useState<Array<{ page: number; text: string }>>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    let loadingTask: import('pdfjs-dist').PDFDocumentLoadingTask | null = null;
 
     (async () => {
       setState('loading');
+      setAccessiblePages([]);
       try {
-        // Next 14's webpack runtime corrupts pdf.js 5's ESM module when it is
+        // Next 14's webpack runtime corrupts pdf.js's ESM module when it is
         // bundled as a dynamic import. Load the unchanged browser build from
         // our own public assets instead. It stays on our origin and is still
         // fetched only after the buyer clicks "Read essay".
@@ -46,12 +49,13 @@ export default function EssayReader({ essayId, token, label }: Props) {
         );
         pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.mjs';
 
-        const doc = await pdfjs.getDocument({
+        loadingTask = pdfjs.getDocument({
           url: `/api/essay/${essayId}?t=${encodeURIComponent(token)}`,
           // Do not let pdf.js keep its own copy around longer than needed.
           disableAutoFetch: false,
           disableStream: false,
-        }).promise;
+        });
+        const doc = await loadingTask.promise;
         if (cancelled) return;
 
         setPages(doc.numPages);
@@ -63,15 +67,24 @@ export default function EssayReader({ essayId, token, label }: Props) {
         // canvases; devicePixelRatio keeps it sharp on retina screens.
         const targetWidth = Math.min(host.clientWidth || 720, 900);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const extractedPages: Array<{ page: number; text: string }> = [];
 
         for (let n = 1; n <= doc.numPages; n++) {
           if (cancelled) return;
           const page = await doc.getPage(n);
           const base = page.getViewport({ scale: 1 });
           const viewport = page.getViewport({ scale: (targetWidth / base.width) * dpr });
+          const textContent = await page.getTextContent();
+          const text = textContent.items
+            .map((item) => ('str' in item ? item.str : ''))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          extractedPages.push({ page: n, text });
 
           const canvas = document.createElement('canvas');
           canvas.draggable = false;
+          canvas.setAttribute('aria-hidden', 'true');
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           canvas.style.width = '100%';
@@ -85,7 +98,10 @@ export default function EssayReader({ essayId, token, label }: Props) {
           host.appendChild(canvas);
           await page.render({ canvas, canvasContext: ctx, viewport }).promise;
         }
-        if (!cancelled) setState('ready');
+        if (!cancelled) {
+          setAccessiblePages(extractedPages);
+          setState('ready');
+        }
       } catch (e) {
         console.error('essay render failed:', e);
         if (!cancelled) setState('error');
@@ -94,6 +110,7 @@ export default function EssayReader({ essayId, token, label }: Props) {
 
     return () => {
       cancelled = true;
+      void loadingTask?.destroy();
     };
   }, [open, essayId, token]);
 
@@ -128,12 +145,26 @@ export default function EssayReader({ essayId, token, label }: Props) {
               {pages} page{pages === 1 ? '' : 's'} · watermarked for your account
             </p>
           )}
+          {state === 'ready' && accessiblePages.length > 0 && (
+            <div
+              className="essay-reader-accessible sr-only"
+              role="document"
+              aria-label={`${label}. Accessible text of purchased essay.`}
+            >
+              {accessiblePages.map((page) => (
+                <section key={page.page} aria-label={`Page ${page.page} of ${pages}`}>
+                  <h3>Page {page.page}</h3>
+                  <p>{page.text || 'This page has no extractable text.'}</p>
+                </section>
+              ))}
+            </div>
+          )}
           {/* onContextMenu is a speed bump, not a control - it stops the
               right-click "Save image as" reflex and nothing more. */}
           <div
             ref={holder}
             className="essay-reader-pages"
-            aria-label="Purchased essay pages. Copying is disabled."
+            aria-hidden="true"
           />
         </>
       )}

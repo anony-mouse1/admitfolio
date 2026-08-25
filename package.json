@@ -2,6 +2,9 @@
   "name": "admitfolio",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma migrate deploy && next build",
@@ -30,6 +33,7 @@
     "test:seller-draft-retention": "node scripts/seller-draft-retention.test.mjs",
     "test:seller-revision": "node scripts/seller-revision.test.mjs",
     "test:seller-applications": "node scripts/seller-applications.test.mjs",
+    "test:launch-hardening": "node scripts/launch-hardening.test.mjs",
     "report:seller-flow-impact": "node scripts/report-seller-flow-migration-impact.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",
     "db:push": "prisma db push",
@@ -46,7 +50,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "next": "14.2.5",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^5.6.205",
+    "pdfjs-dist": "6.2.108",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "server-only": "^0.0.1",

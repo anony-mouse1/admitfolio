@@ -4,6 +4,7 @@ import { stripe, SITE_URL } from '@/lib/stripe';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { checkoutSessionParams, quoteListing } from '@/lib/commerce';
 import { clientIpFromHeaders } from '@/lib/requestIp';
+import { marketplaceIsLaunched } from '@/lib/launch';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +23,10 @@ function throttled(ip: string): boolean {
 }
 
 export async function POST(req: Request) {
+  if (!marketplaceIsLaunched()) {
+    return NextResponse.json({ error: 'Purchasing is not open yet.' }, { status: 503 });
+  }
+
   if (!stripe) {
     return NextResponse.json({ error: 'Payments are not configured yet.' }, { status: 503 });
   }

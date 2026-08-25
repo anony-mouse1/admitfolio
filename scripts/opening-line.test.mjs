@@ -23,16 +23,17 @@ const samplePage = samplePdf.addPage([300, 200]);
 const sampleFont = await samplePdf.embedFont(StandardFonts.Helvetica);
 samplePage.drawText('Admitfolio review route works', { x: 30, y: 120, size: 14, font: sampleFont });
 const sampleBytes = await samplePdf.save();
-const parsedPdf = await pdfjs.getDocument({
+const loadingTask = pdfjs.getDocument({
   data: new Uint8Array(sampleBytes),
   isEvalSupported: false,
   useSystemFonts: false,
-}).promise;
+});
+const parsedPdf = await loadingTask.promise;
 const sampleText = (await (await parsedPdf.getPage(1)).getTextContent()).items
   .map((item) => item.str || '')
   .join(' ');
 assert.match(sampleText, /Admitfolio review route works/);
-await parsedPdf.destroy();
+await loadingTask.destroy();
 process.getBuiltinModule = originalGetBuiltinModule;
 
 assert.equal(

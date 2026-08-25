@@ -4,6 +4,7 @@ import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { schoolKey } from '@/lib/admitProof';
 import { publicDisplayName, normalizeAnonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline } from '@/lib/listingSchool';
+import { marketplaceIsLaunched } from '@/lib/launch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,13 @@ function hookKey(value: string): string {
 }
 
 export async function GET() {
+  if (!marketplaceIsLaunched()) {
+    return NextResponse.json(
+      { error: 'The marketplace is not open yet.' },
+      { status: 503, headers: { 'Cache-Control': 'private, no-store' } },
+    );
+  }
+
   const rows = await prisma.listing.findMany({
     // Only whole-set priced listings are purchasable; price-less legacy rows
     // would render as unbuyable cards.

@@ -398,18 +398,19 @@ export async function extractOpeningLineForListing(l, used = new Set(), clipMax 
     let blocks, chars;
     try {
       const pdfjs = await loadPdfjsForTextExtraction();
-      const doc = await pdfjs.getDocument({
+      const loadingTask = pdfjs.getDocument({
         data: new Uint8Array(await download(essay.pdfPath)),
         isEvalSupported: false,
         useSystemFonts: false,
-      }).promise;
+      });
+      const doc = await loadingTask.promise;
       let lines = itemsToLines((await (await doc.getPage(1)).getTextContent()).items);
       chars = lines.reduce((n, x) => n + x.text.length, 0);
       if (chars < 400 && doc.numPages > 1) {
         lines = lines.concat(itemsToLines((await (await doc.getPage(2)).getTextContent()).items));
       }
       blocks = linesToBlocks(lines);
-      await doc.destroy();
+      await loadingTask.destroy();
     } catch (e) {
       stats.failed += 1;
       continue;

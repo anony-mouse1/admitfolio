@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyUploadToken } from '@/lib/uploadToken';
 import { supabaseAdmin, ESSAYS_BUCKET, MAX_PDF_BYTES } from '@/lib/supabase';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { waitUntil } from '@vercel/functions';
 import { reviewListing } from '@/lib/reviewRunner';
 
@@ -28,11 +28,34 @@ export async function POST(req: Request) {
   const essayId = String(form.get('essayId') || '');
   const essay = essayId ? await prisma.essay.findUnique({
     where: { id: essayId },
-    include: { listing: { select: { sellerId: true } } },
+    include: {
+      listing: {
+        select: {
+          sellerId: true,
+          status: true,
+          aiReviewStartedAt: true,
+          aiReviewedAt: true,
+        },
+      },
+    },
   }) : null;
   if (!essay) return NextResponse.json({ error: 'Essay not found.' }, { status: 404 });
   if (essay.listingId !== token.listingId) {
     return NextResponse.json({ error: 'Not allowed.' }, { status: 403 });
+  }
+  // A submitted file is immutable. Revisions create a new draft and a new
+  // listing submission; an old upload token must never replace bytes that an
+  // automated or human reviewer may already have seen.
+  if (
+    essay.pdfPath ||
+    essay.listing.status !== 'pending' ||
+    essay.listing.aiReviewStartedAt ||
+    essay.listing.aiReviewedAt
+  ) {
+    return NextResponse.json(
+      { error: 'This essay has already been submitted. Start a revision to upload a new version.' },
+      { status: 409 },
+    );
   }
 
   const file = form.get('file');
@@ -74,16 +97,28 @@ export async function POST(req: Request) {
     );
   }
 
-  const path = `listings/${essay.listingId}/${essay.id}.pdf`;
+  // A content hash plus a unique suffix and upsert:false make each storage
+  // object immutable, even if two requests race before the database update.
+  const path = `listings/${essay.listingId}/${essay.id}/${contentHash}-${randomUUID()}.pdf`;
   const { error } = await supabaseAdmin.storage
     .from(ESSAYS_BUCKET)
-    .upload(path, buffer, { contentType: 'application/pdf', upsert: true });
+    .upload(path, buffer, { contentType: 'application/pdf', upsert: false });
   if (error) {
     console.error('essay upload failed:', error.message);
     return NextResponse.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
   }
 
-  await prisma.essay.update({ where: { id: essay.id }, data: { pdfPath: path, contentHash } });
+  const updated = await prisma.essay.updateMany({
+    where: { id: essay.id, pdfPath: null },
+    data: { pdfPath: path, contentHash },
+  });
+  if (updated.count !== 1) {
+    await supabaseAdmin.storage.from(ESSAYS_BUCKET).remove([path]);
+    return NextResponse.json(
+      { error: 'This essay has already been submitted. Start a revision to upload a new version.' },
+      { status: 409 },
+    );
+  }
 
   // Proofs upload first and essays upload in order, so the request that stores
   // the final essay is the first point where the complete submission is ready.

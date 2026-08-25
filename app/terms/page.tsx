@@ -17,7 +17,7 @@ export default function TermsPage() {
       </header>
 
       <h1>Terms of Service</h1>
-      <p className="legal-date">Effective date: July 13, 2026</p>
+      <p className="legal-date">Effective date: August 24, 2026</p>
 
       <p>
         Welcome to Admitfolio. These Terms of Service (&ldquo;Terms&rdquo;) are an agreement between you and
@@ -27,7 +27,7 @@ export default function TermsPage() {
         these Terms and to our <a href="/privacy">Privacy Policy</a>.
       </p>
       <p>
-        If you have questions, contact us at <Mail /> or through the contact page on our site.
+        If you have questions, contact us at <Mail />.
       </p>
 
       <h2>1. What Admitfolio is</h2>
@@ -89,8 +89,7 @@ export default function TermsPage() {
       </p>
       <p>
         <b>Pricing.</b> Prices are subject to minimum price floors that we set based on the schools
-        involved. We may adjust floor levels over time; changes will not reduce your agreed share of past
-        sales.
+        involved. We may adjust floor levels over time; changes apply only to future sales.
       </p>
       <p>
         <b>Identity display.</b> You choose how you appear to Buyers: always anonymous, anonymous until
@@ -98,12 +97,6 @@ export default function TermsPage() {
         your full name on the listing. Regardless of your choice, our review team can see your full
         details, as described in our{' '}
         <a href="/privacy">Privacy Policy</a>.
-      </p>
-      <p>
-        <b>Getting paid.</b> Sales are split 60/40, with 60% going to the Seller and 40% to
-        Admitfolio. Payouts will be made through a third-party payment processor after a
-        purchase clears, subject to any payout schedule, minimum amounts, and verification requirements
-        described in your seller dashboard. You are responsible for any taxes on your earnings.
       </p>
       <p>
         <b>What you promise us.</b> By listing an essay, you represent that you wrote it, that you have the
@@ -128,9 +121,8 @@ export default function TermsPage() {
       </p>
 
       <h2>6. Payments and refunds</h2>
-      <p>Purchasing is not yet live; this section applies once it launches.</p>
       <p>
-        Payments will be processed by Stripe or another third-party payment processor. We never store your
+        Payments are processed by Stripe or another third-party payment processor. We never store your
         full card details.
       </p>
       <p>
@@ -228,14 +220,14 @@ export default function TermsPage() {
 
       <h2>14. Changes to these Terms</h2>
       <p>
-        We may update these Terms as the Service evolves (for example, when purchasing launches). If we make
+        We may update these Terms as the Service evolves. If we make
         material changes, we will update the effective date above and notify account holders by email.
         Continued use of the Service after changes take effect means you accept the updated Terms.
       </p>
 
       <h2>15. Contact</h2>
       <p>
-        Questions about these Terms: <Mail /> or the contact page at admitfolio.com.
+        Questions about these Terms: <Mail />.
       </p>
     </main>
   );

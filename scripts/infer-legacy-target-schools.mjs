@@ -95,11 +95,12 @@ async function download(storagePath) {
 }
 
 async function pdfText(storagePath) {
-  const doc = await pdfjs.getDocument({
+  const loadingTask = pdfjs.getDocument({
     data: await download(storagePath),
     isEvalSupported: false,
     useSystemFonts: false,
-  }).promise;
+  });
+  const doc = await loadingTask.promise;
   const pages = [];
   try {
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
@@ -108,7 +109,7 @@ async function pdfText(storagePath) {
       pages.push(content.items.map((item) => item.str || '').join(' '));
     }
   } finally {
-    await doc.destroy();
+    await loadingTask.destroy();
   }
   return pages.join(' ');
 }

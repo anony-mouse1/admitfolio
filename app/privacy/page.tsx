@@ -17,7 +17,7 @@ export default function PrivacyPage() {
       </header>
 
       <h1>Privacy Policy</h1>
-      <p className="legal-date">Effective date: July 13, 2026</p>
+      <p className="legal-date">Effective date: August 24, 2026</p>
 
       <p>
         Admitfolio (&ldquo;Admitfolio,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) operates admitfolio.com, a
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
         it, and the choices you have. We keep it in plain language on purpose.
       </p>
       <p>
-        If you have any questions, contact us at <Mail /> or through the contact page on our site.
+        If you have any questions, contact us at <Mail />.
       </p>
 
       <h2>1. Information we collect</h2>
@@ -34,15 +34,16 @@ export default function PrivacyPage() {
       <p><b>If you join the waitlist:</b> your email address.</p>
       <p>
         <b>If you sell essays:</b> we collect your school email address (used to verify current or recent
-        enrollment via a one-time code), a password, the schools you were admitted to, the essays you upload
-        as PDF files, your listing details (essay prompts, pricing, and an optional note to our review team),
+        enrollment via a one-time code), a password, the schools you were admitted to, admission letters or
+        other proof of admission, the essays you upload as PDF files, your listing details (essay prompts,
+        pricing, and an optional note to our review team),
         and your display preference (always anonymous, anonymous until bought, or full name). After your
         first sale, Stripe collects the identity and bank information required to send your payouts. That
         sensitive information is submitted directly to Stripe and is not stored by Admitfolio.
       </p>
       <p>
-        <b>If you buy essays (when purchasing launches):</b> your email address and your order history.
-        Payments will be processed by Stripe, a third-party payment processor. Card numbers and full payment
+        <b>If you buy essays:</b> your email address and your order history.
+        Payments are processed by Stripe, a third-party payment processor. Card numbers and full payment
         details go directly to Stripe and are never stored on our servers. Stripe&rsquo;s handling of your
         information is described in Stripe&rsquo;s own privacy policy.
       </p>
@@ -68,10 +69,11 @@ export default function PrivacyPage() {
         your purchase. We also store the IP address used at checkout.
       </p>
       <p>
-        We use this only to enforce the licence — to investigate redistribution or other misuse of a
-        student&apos;s work — and to resolve payment disputes. We do not use it for advertising or
-        profiling, and we do not sell it. Access records are kept for 24 months and then deleted;
-        watermarks remain in any copy that has already been issued. If you believe a record is
+        We use this only to enforce the license, investigate redistribution or other misuse of a
+        student&apos;s work, and resolve payment disputes. We do not use it for advertising or
+        profiling, and we do not sell it. We keep access records only as long as reasonably needed to
+        investigate misuse, resolve disputes, meet legal obligations, and protect the marketplace, then
+        delete or anonymize them. Watermarks remain in any copy that has already been issued. If you believe a record is
         inaccurate, or you want to ask us to delete yours, contact us using the details below.
       </p>
 
@@ -89,8 +91,9 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          Every listing is reviewed by our team before it goes live. Our reviewers can see your essay, your
-          name, your school email, and your note to the review team.
+          Every listing is reviewed before it goes live. Our team and our automated review provider,
+          Anthropic, can process your essay, admission proof, listing details, and note to help check
+          authenticity, safety, and quality. A human makes publication decisions.
         </li>
         <li>
           You control how you appear to buyers: fully anonymous, anonymous until someone buys (your first
@@ -108,8 +111,8 @@ export default function PrivacyPage() {
       <ul>
         <li>Verify that sellers are current or recent college students</li>
         <li>Create and secure your account (passwords are stored hashed, never in plain text)</li>
-        <li>Review, publish, and manage essay listings</li>
-        <li>Process purchases and pay sellers their share (when purchasing launches)</li>
+        <li>Review, publish, and manage essay listings, including automated pre-screening by Anthropic</li>
+        <li>Process purchases and pay sellers their earnings</li>
         <li>Send transactional emails such as verification codes and account notices (via Resend, our email provider)</li>
         <li>Let waitlist members know when essays go live</li>
         <li>Understand aggregate site usage and keep the site fast and secure</li>
@@ -130,6 +133,10 @@ export default function PrivacyPage() {
         <li><b>Vercel</b> hosts the website and provides the cookieless analytics described above</li>
         <li><b>Resend</b> delivers our transactional emails, such as verification codes</li>
         <li><b>Stripe</b> processes buyer payments and verifies and pays eligible Sellers</li>
+        <li>
+          <b>Anthropic</b> processes submitted essays, admission proofs, and listing information to provide
+          automated authenticity, safety, and quality checks before our human review
+        </li>
       </ul>
       <p>
         These providers process data on our behalf under their own security and privacy commitments. Beyond
@@ -185,7 +192,7 @@ export default function PrivacyPage() {
 
       <h2>11. Contact</h2>
       <p>
-        Questions, concerns, or requests: <Mail /> or the contact page at admitfolio.com.
+        Questions, concerns, or requests: <Mail />.
       </p>
     </main>
   );
