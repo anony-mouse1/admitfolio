@@ -2358,6 +2358,13 @@ body { -webkit-tap-highlight-color: transparent; }
   display: flex; align-items: center; justify-content: flex-end; gap: 12px;
   flex: 1 1 560px;
 }
+.browse-match-btn {
+  min-height: 44px; padding: 9px 17px; flex: none;
+  border: 1px solid color-mix(in srgb,var(--accent) 38%,#fff); border-radius: 999px;
+  color: var(--accent); background: #fff; font-family: var(--sans); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.browse-match-btn:hover { border-color: var(--accent); background: #faf5f5; transform: translateY(-1px); }
 .catalog-section { padding-top: 44px; }
 .pub-search {
   position: relative; display: flex; align-items: center;
@@ -2672,6 +2679,7 @@ body { -webkit-tap-highlight-color: transparent; }
   .browse-controls {
     flex: 1 1 100%; margin-top: 18px; align-items: stretch; flex-direction: column;
   }
+  .browse-match-btn { display: none; }
   .pub-search { flex: 1 1 100%; min-width: 0; }
   .view-toggle { align-self: flex-start; }
   .public-grid { gap: 14px; padding: 10px 0 0; }
@@ -2891,9 +2899,29 @@ body { -webkit-tap-highlight-color: transparent; }
   transform: none;
 }
 
-/* On phones, listing details and checkout are destination screens rather than
-   bottom sheets. Desktop keeps the existing centered modal treatment. */
+/* Listing details keep the existing content but open as a full page instead of
+   a popup. */
 .mobile-page-back-label { display: none; }
+.ov {
+  padding: 0;
+  align-items: stretch;
+  background: #fff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: none;
+}
+.ov .sheet {
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  padding: 88px max(34px,calc((100vw - 720px) / 2)) 70px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
 @media (max-width: 560px) {
   .ov {
     padding: 0;
@@ -2903,7 +2931,7 @@ body { -webkit-tap-highlight-color: transparent; }
     -webkit-backdrop-filter: none;
     animation: none;
   }
-  .sheet {
+  .ov .sheet {
     width: 100%;
     max-width: none;
     height: 100vh;

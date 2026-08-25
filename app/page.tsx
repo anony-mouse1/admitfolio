@@ -2176,6 +2176,7 @@ export default function Page() {
                 <p>Shop by the school you want to get into. Every listing is from a verified admit, with the essays that got them in.</p>
               </div>
               <div className="browse-controls">
+                <button className="browse-match-btn" type="button" onClick={openMatcher}>Find me matches</button>
                 <label className="pub-search">
                   <svg className="pub-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <circle cx="11" cy="11" r="7" />
