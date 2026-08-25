@@ -2995,9 +2995,12 @@ export default function Page() {
       )}
 
       {/* ===== Buyer checkout modal ===== */}
-      <div className={`modal-overlay${buyOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) closeBuy(); }}>
+      <div className={`modal-overlay buy-overlay${buyOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) closeBuy(); }}>
         <div className="modal buy-modal">
-          <button className="modal-close" aria-label="Close" onClick={closeBuy}>&times;</button>
+          <button className="modal-close mobile-page-close" aria-label="Back to essays" onClick={closeBuy}>
+            <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
+            <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
+          </button>
           <section className="buy-order">
             <div className="buy-order-logo"><span>admitfolio</span><i /></div>
             <button className="buy-back" type="button" onClick={closeBuy}>← Back to listing</button>
@@ -3927,8 +3930,9 @@ function ListingDetail({
       }}
     >
       <div className="sheet">
-        <button className="sheet-x" type="button" aria-label="Close" onClick={onClose}>
-          &times;
+        <button className="sheet-x mobile-page-close" type="button" aria-label="Back to essays" onClick={onClose}>
+          <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
+          <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
         </button>
 
         <div className="d-head">
