@@ -7,7 +7,7 @@ const contentSecurityPolicy = [
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://*.stripe.com",
   "connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://*.stripe.com https://vitals.vercel-insights.com https://*.vercel-insights.com",
-  "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
   "worker-src 'self' blob:",
   "media-src 'self' blob:",
   "object-src 'none'",

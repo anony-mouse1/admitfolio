@@ -42,10 +42,27 @@ type CmpRow = { feature: string; mineText?: string; diy: string; agency: string;
 type Msg = { text: string; kind: '' | 'ok' | 'err' };
 
 function HeroEssayLoop() {
+  const [embedHtml, setEmbedHtml] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetch('/hero-loop-embed.html')
+      .then((response) => response.text())
+      .then((html) => {
+        if (active) setEmbedHtml(html);
+      })
+      .catch(() => {
+        if (active) setEmbedHtml('');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <iframe
       className="hero-loop-frame"
-      src="/hero-loop-embed.html"
+      srcDoc={embedHtml}
       title="Animated preview of finding and unlocking Admitfolio essays"
       aria-hidden="true"
       tabIndex={-1}
