@@ -13,6 +13,7 @@ const reader = read('components/EssayReader.tsx');
 const config = read('next.config.js');
 const terms = read('app/terms/page.tsx');
 const privacy = read('app/privacy/page.tsx');
+const site = read('lib/site.ts');
 const packageJson = JSON.parse(read('package.json'));
 const adminAuth = read('lib/adminAuth.ts');
 const sellerAuth = read('lib/sellerAuth.ts');
@@ -26,6 +27,7 @@ assert.equal(packageJson.dependencies['react-dom'], '19.2.8');
 assert.equal(packageJson.scripts.lint, 'tsc --noEmit');
 assert.match(adminAuth, /await cookies\(\)/, 'Next 16 cookie access must stay asynchronous');
 assert.match(sellerAuth, /await cookies\(\)/, 'Next 16 cookie access must stay asynchronous');
+assert.match(site, /'hello@admitfolio\.com'/, 'public contact email must default to the canonical inbox');
 
 for (const route of [listings, checkout]) {
   assert.match(route, /marketplaceIsLaunched\(\)/, 'public commerce routes must enforce launch state');

@@ -1,7 +1,6 @@
-// Public site constants. The contact address comes from env so the repo
-// (which is public) never contains a personal email; swap the env var for a
-// domain inbox later without touching code.
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contact@admitfolio.com';
+// Public site constants. The contact address can be overridden by env, while
+// the public fallback stays on Admitfolio's canonical support inbox.
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'hello@admitfolio.com';
 
 // Background tags a seller can pick for their profile. Shared by the wizard
 // UI and the profile API (which validates against this exact list).
