@@ -19,9 +19,10 @@ export function GuideHeader() {
       </div>
       <div className="nav-cta">
         <Link className="login" href="/?login=1"><span className="login-prefix">Seller </span>login</Link>
-        <button className="btn-primary" type="button" onClick={() => window.location.assign('/?matches=1')}>
+        <button className="btn-primary nav-guide-primary" type="button" onClick={() => window.location.assign('/?matches=1')}>
           Find my matches
         </button>
+        <Link className="btn-primary nav-mobile-browse" href="/#browse">Browse essays</Link>
         <button
           type="button"
           className={`nav-burger${menuOpen ? ' open' : ''}`}
@@ -36,11 +37,26 @@ export function GuideHeader() {
       {menuOpen && (
         <>
           <div className="nav-menu-backdrop" onClick={() => setMenuOpen(false)} />
-          <div className="nav-menu">
-            <Link href="/#browse" onClick={() => setMenuOpen(false)}>Browse essays</Link>
-            <Link href="/#featured" onClick={() => setMenuOpen(false)}>High schooler?</Link>
-            <Link href="/?matches=1" onClick={() => setMenuOpen(false)}>Find my matches</Link>
-            <Link href="/?login=1" onClick={() => setMenuOpen(false)}>Seller login</Link>
+          <div className="nav-menu" role="navigation" aria-label="Mobile navigation">
+            <div className="nav-menu-group">
+              <div className="nav-menu-label">For applicants</div>
+              <Link href="/#browse" onClick={() => setMenuOpen(false)}>
+                <span>Browse essays</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+              </Link>
+              <Link href="/?matches=1" onClick={() => setMenuOpen(false)}>
+                <span>Find my matches</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+              </Link>
+            </div>
+            <div className="nav-menu-divider" aria-hidden="true"></div>
+            <div className="nav-menu-group">
+              <div className="nav-menu-label">For sellers</div>
+              <Link href="/?login=1" onClick={() => setMenuOpen(false)}>
+                <span>Seller login</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+              </Link>
+              <Link className="nav-menu-signup" href="/?sell=1" onClick={() => setMenuOpen(false)}>
+                <span>Start selling</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+              </Link>
+            </div>
           </div>
         </>
       )}
