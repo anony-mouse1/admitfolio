@@ -1,72 +1,48 @@
-# Handover: launch security hardening
+# Handover: remove seller verification UI
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/launch-security-hardening`
+Branch: `codex/remove-seller-verification`
 
-Base: `origin/main` at `37e7f21`.
+Base: `origin/main` at `41a39c4`.
 
-Worktree: `/private/tmp/admitfolio-launch-hardening`
+Worktree: `/private/tmp/admitfolio-remove-verification`
 
 The main worktree had unrelated uncommitted changes, so this work was isolated
-in a separate worktree and did not alter them.
+and did not alter them.
 
 ## What changed
 
-- Upgraded `pdfjs-dist` to patched version `6.2.108`, pinned the required Node
-  runtime to 22.13 or newer, refreshed both vendored browser assets, and updated
-  the PDF.js loading-task cleanup used by opening-line extraction.
-- Made submitted essay PDFs immutable. Old upload tokens cannot replace an
-  existing, reviewed, in-review, approved, or otherwise non-pending file.
-  New uploads use content-hash-prefixed unique storage paths with overwrite
-  disabled.
-- Added server-side launch checks to both `/api/listings` and `/api/checkout`.
-  When `NEXT_PUBLIC_LAUNCH` is not `1`, neither inventory nor checkout can be
-  reached by bypassing the client UI.
-- Added a screen-reader-only text representation for every purchased PDF page.
-  Visual canvases are now hidden from assistive technology.
-- Added an enforced Content Security Policy plus clickjacking, MIME sniffing,
-  referrer, browser-permission, and cross-domain-policy headers. The CSP keeps
-  the Stripe Checkout, Vercel analytics, PDF worker, and Google Font origins
-  needed by the current app.
-- Removed the seller payout split paragraph from the Terms. Updated the Terms
-  and Privacy Policy for live purchasing, removed dead contact-page references,
-  disclosed admission-proof collection and Anthropic review, and replaced the
-  unsupported 24-month access-log promise with an accurate purpose-based
-  retention statement.
-- Added `test:launch-hardening` regression coverage.
-- Upgraded Next.js from 14.2.5 to 16.3.2 and React from 18.3.1 to 19.2.8,
-  migrated App Router route and page parameters to the required async API, and
-  replaced the removed `next lint` command with the existing TypeScript check.
+- Removed the Admission verification section from the seller dashboard.
+- Removed verification status pills and start or upload verification buttons
+  from the application library.
+- Removed the now-unused seller proof fetch, upload state, and dashboard event
+  handlers.
+- Simplified shared application details to decision, class year, and school.
+- Kept the underlying admission-proof records, APIs, admin review, and proof
+  requirements during listing submission unchanged.
 
 ## Database and production changes
 
-None. There is no migration or backfill. No production data, Stripe session,
-payment, seller record, or deployed environment variable was changed.
+There is no migration, backfill, or production data write. The change is UI and
+client code only. Deploying `main` makes the simplified dashboard live.
 
 ## Verification
 
-- Prisma Client generation
-- `tsc --noEmit`
-- All 25 `*.test.mjs` files
-- Production `next build` with build-only placeholder values and without
+- `npm run lint`
+- `npm run test:seller-applications`
+- `npm run test:seller-verification`
+- `npm run test:seller-profile`
+- Direct Next.js production build with a build-only session secret and without
   running `prisma migrate deploy`
-- Fresh npm audit confirmed the PDF.js advisory is gone
-- A fresh production dependency audit reports zero known vulnerabilities
-- Local production responses confirmed both launch-gated APIs return 503 before
-  database or Stripe access when launch is off
-- Local production responses confirmed CSP, `X-Frame-Options`,
-  `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`
-- Visible Terms and Privacy checks at 1280px and 390px with zero horizontal
-  overflow
+- Visible localhost mock-up showing the profile, performance, and applications
+  flowing together without a verification section
+- `git diff --check`
 
 ## What is left
 
-- Merge and deploy this branch. Production has not changed yet.
-- After deployment, verify the live security headers and exercise one existing
-  paid-reading link to confirm the patched worker and accessible text load with
-  real purchased content. Do not create a payment for this check.
-- Legal wording should still receive counsel review before it is treated as
-  legal advice or a complete compliance determination.
+- Verify that the Vercel production deployment is Ready and that
+  `https://admitfolio.com/api/version` returns the final commit.
+- No manual database or backfill step is required.

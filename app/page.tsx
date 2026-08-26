@@ -200,17 +200,6 @@ type SellerDraftSummary = {
   assets: Array<{ id: string; kind: string; clientKey: string; fileName: string }>;
 };
 
-type SellerProof = {
-  id: string;
-  school: string;
-  status: 'pending' | 'verified' | 'rejected';
-  statusLabel: string;
-  note: string | null;
-  submittedAt: string;
-  hasFile: boolean;
-  canReplace: boolean;
-};
-
 const essays: Essay[] = [
   { id: 1, school: 'Stanford', domain: 'stanford.edu', letter: 'S', color: '#8C1515', year: "'27", major: 'Electrical Engineering', prompt: 'Common App · Personal Statement', hook: "The summer I taught my grandfather's old radio to sing again.", price: '$14', rating: '4.9', words: 648, cats: ['Common App', 'STEM'], sellerTags: ['First-generation', 'Rural hometown'] },
   { id: 2, school: 'Yale', domain: 'yale.edu', letter: 'Y', color: '#00356B', year: "'26", major: 'History', prompt: 'Why Yale · Supplement', hook: 'I found home in the margins of a 200-year-old library book.', price: '$12', rating: '4.8', words: 412, cats: ['Supplements', 'Humanities'], sellerTags: ['Transfer student'] },
@@ -1469,7 +1458,6 @@ export default function Page() {
     setSellerAccounting(null);
     setSellerPayouts(null);
     setSellerApplications([]);
-    setSellerProofs([]);
     setPayoutSetupError('');
     setDashErr('');
     setDashLoading(true);
@@ -1499,12 +1487,6 @@ export default function Page() {
         setProfCurrentUniversity(d.currentUniversity || '');
         setProfCurrentMajor(d.currentMajor || '');
         setProfGraduationYear(d.graduationYear || '');
-      })
-      .catch(() => {});
-    fetch('/api/seller/proofs')
-      .then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { ok?: boolean; proofs?: SellerProof[] };
-        if (r.ok && d.ok) setSellerProofs(Array.isArray(d.proofs) ? d.proofs : []);
       })
       .catch(() => {});
     fetch('/api/seller/listings')
@@ -1649,10 +1631,6 @@ export default function Page() {
   const [resumableDraft, setResumableDraft] = useState<SellerDraftSummary | null>(null);
   const [sellerApplications, setSellerApplications] = useState<SellerApplicationRecord[]>([]);
   const [activeListingControlId, setActiveListingControlId] = useState<string | null>(null);
-  const [sellerProofs, setSellerProofs] = useState<SellerProof[]>([]);
-  const [proofUploadBusyId, setProofUploadBusyId] = useState<string | null>(null);
-  const [proofUploadError, setProofUploadError] = useState('');
-  const [verificationStartBusyKey, setVerificationStartBusyKey] = useState<string | null>(null);
   const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
   const [applicationClassYear, setApplicationClassYear] = useState('');
   const [applicationEditBusy, setApplicationEditBusy] = useState(false);
@@ -1857,32 +1835,6 @@ export default function Page() {
     }
   }
 
-  async function startApplicationVerification(applicationKey: string) {
-    const application = sellerApplications.find((item) => item.key === applicationKey);
-    if (!application) return;
-    setVerificationStartBusyKey(applicationKey);
-    setProofUploadError('');
-    try {
-      const response = await fetch('/api/seller/proofs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ school: application.school }),
-      });
-      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; proof?: SellerProof; error?: string };
-      if (!response.ok || !data.ok || !data.proof) throw new Error(data.error || 'Could not start verification.');
-      const proof = data.proof;
-      setSellerProofs((previous) => [proof, ...previous.filter((item) => item.id !== proof.id)]);
-      setSellerApplications((previous) => previous.map((item) => item.key === applicationKey
-        ? { ...item, verificationStatus: proof.hasFile ? 'reviewing' : 'needs_proof', verificationLabel: proof.hasFile ? null : 'Proof needs to be uploaded' }
-        : item));
-      requestAnimationFrame(() => document.getElementById('seller-verification')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    } catch (error) {
-      setProofUploadError(error instanceof Error ? error.message : 'Could not start verification.');
-    } finally {
-      setVerificationStartBusyKey(null);
-    }
-  }
-
   async function editWorkspaceListing(listingId: string) {
     const listing = listings.find((item) => item.id === listingId);
     if (!listing || !['rejected', 'removed'].includes(listing.status)) {
@@ -1900,29 +1852,6 @@ export default function Page() {
     }
   }
 
-  async function replaceSellerProof(proof: SellerProof, file: File | null) {
-    if (!file) return;
-    setProofUploadBusyId(proof.id);
-    setProofUploadError('');
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const response = await fetch(`/api/seller/proofs/${proof.id}/upload`, { method: 'POST', body: form });
-      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not upload this proof.');
-      setSellerProofs((previous) => previous.map((item) => item.id === proof.id
-        ? { ...item, status: 'pending', statusLabel: 'Awaiting review', note: null, canReplace: false, hasFile: true }
-        : item));
-      setSellerApplications((previous) => previous.map((application) => sameSchool(application.school, proof.school)
-        ? { ...application, verificationStatus: 'reviewing', verificationLabel: null }
-        : application));
-    } catch (error) {
-      setProofUploadError(error instanceof Error ? error.message : 'Could not upload this proof.');
-    } finally {
-      setProofUploadBusyId(null);
-    }
-  }
-
   const closeDashboard = useCallback(() => {
     try { sessionStorage.removeItem('admitfolio:seller-active'); } catch {}
     setDashOpen(false);
@@ -1936,7 +1865,6 @@ export default function Page() {
     setSellerEmail('');
     setListings([]);
     setSellerApplications([]);
-    setSellerProofs([]);
   }, []);
 
   /* ============================ Global effects ============================ */
@@ -3423,55 +3351,6 @@ export default function Page() {
             </div>
           </section>
 
-          <section className="dash-section" id="seller-verification">
-            <div className="dash-section-head">
-              <div>
-                <h2 className="dash-h2">Admission verification</h2>
-                <p className="dash-section-copy">Upload once per school. Verified proof is reused for future listings from that application.</p>
-              </div>
-            </div>
-            <div className="dash-proof-list">
-              {sellerProofs.length === 0 ? (
-                <div className="dash-empty-state">No admission proof has been submitted yet.</div>
-              ) : sellerProofs.map((proof) => {
-                const info = schoolInfo(proof.school);
-                const label = info?.short || schoolShortName(proof.school);
-                return (
-                  <article className="dash-proof-card" key={proof.id}>
-                    <LogoBadge
-                      domain={info?.domain}
-                      letter={(label[0] || '?').toUpperCase()}
-                      color={schoolColor(proof.school)}
-                      school={proof.school}
-                      size={44}
-                      fontSize={16}
-                    />
-                    <div className="dash-proof-copy">
-                      <strong>{proof.school}</strong>
-                      <span>{proof.hasFile ? 'Submitted' : 'Started'} {new Date(proof.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      {proof.note && <p>Reviewer note: {proof.note}</p>}
-                    </div>
-                    <div className="dash-proof-actions">
-                      <span className={`dash-proof-status ${proof.status}`}>{proof.statusLabel}</span>
-                      {proof.canReplace && (
-                        <label className={`dash-proof-replace${proofUploadBusyId === proof.id ? ' busy' : ''}`}>
-                          {proofUploadBusyId === proof.id ? 'Uploading…' : proof.hasFile ? 'Replace proof' : 'Upload proof'}
-                          <input
-                            type="file"
-                            accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
-                            disabled={proofUploadBusyId === proof.id}
-                            onChange={(event) => void replaceSellerProof(proof, event.target.files?.[0] || null)}
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-            {proofUploadError && <div className="dash-payout-error" role="alert">{proofUploadError}</div>}
-          </section>
-
           {/* Per-essay performance */}
           <section className="dash-section">
             <div className="dash-section-head">
@@ -3512,7 +3391,7 @@ export default function Page() {
                 <div>
                   <div className="dash-resume-kicker">Shared application details</div>
                   <h3>{editingApplication.school}</h3>
-                  <p>The admission outcome stays factual. Verification is managed separately below.</p>
+                  <p>The admission outcome stays factual and is reused across related listings.</p>
                 </div>
                 <label>
                   Decision
@@ -3535,8 +3414,6 @@ export default function Page() {
               onEditProfile={() => document.getElementById('seller-profile')?.scrollIntoView({ behavior: 'smooth' })}
               onAddApplication={() => openApplicationListing()}
               onEditApplication={editApplicationOutcome}
-              onStartVerification={(applicationKey) => void startApplicationVerification(applicationKey)}
-              verificationBusyKey={verificationStartBusyKey}
               onAddListing={openApplicationListing}
               onEditListing={(id) => void editWorkspaceListing(id)}
               onTakeDownListing={(id) => void listingAction(id, 'takedown')}

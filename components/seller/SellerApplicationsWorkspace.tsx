@@ -6,13 +6,11 @@ import {
   anonymitySummary,
   applicationDecisionLabel,
   applicationsForFilter,
-  applicationVerificationLabel,
   isSafeLocalLogoPath,
   listingActionLabel,
   listingFilterCounts,
   listingFilterForStatus,
   listingStatusLabel,
-  verifiedOutcomeClaim,
   type SellerApplicationRecord,
   type SellerListingFilter,
   type SellerProfileSummary,
@@ -24,8 +22,6 @@ export type SellerApplicationsWorkspaceProps = {
   onEditProfile: () => void;
   onAddApplication: () => void;
   onEditApplication: (applicationKey: string) => void;
-  onStartVerification: (applicationKey: string) => void;
-  verificationBusyKey?: string | null;
   onAddListing: (applicationKey: string) => void;
   onEditListing: (listingId: string) => void;
   onTakeDownListing?: (listingId: string) => void;
@@ -60,20 +56,12 @@ function formatPrice(cents: number | null): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
-function verificationTone(status: SellerApplicationRecord['verificationStatus']): string {
-  if (status === 'verified') return styles.verified;
-  if (status === 'reviewing') return styles.reviewing;
-  return styles.needsProof;
-}
-
 export default function SellerApplicationsWorkspace({
   profile,
   applications,
   onEditProfile,
   onAddApplication,
   onEditApplication,
-  onStartVerification,
-  verificationBusyKey,
   onAddListing,
   onEditListing,
   onTakeDownListing,
@@ -145,7 +133,6 @@ export default function SellerApplicationsWorkspace({
         </div>
       ) : visibleApplications.map((application) => {
         const isCollapsed = collapsed.has(application.key);
-        const claim = verifiedOutcomeClaim(application);
         return (
           <article className={styles.applicationCard} key={application.key} data-testid="seller-application-group">
             <button
@@ -168,9 +155,6 @@ export default function SellerApplicationsWorkspace({
                 <strong>{application.school}</strong>
                 <span>{application.cycleLabel} application</span>
               </span>
-              <span className={`${styles.verificationPill} ${verificationTone(application.verificationStatus)}`}>
-                {applicationVerificationLabel(application)}
-              </span>
               <span className={styles.listingCount}>{application.listings.length} {application.listings.length === 1 ? 'listing' : 'listings'}</span>
               <span className={isCollapsed ? styles.chevronCollapsed : styles.chevron} aria-hidden="true">⌄</span>
             </button>
@@ -185,24 +169,7 @@ export default function SellerApplicationsWorkspace({
                   <div className={styles.facts}>
                     <div><span>Decision</span><strong>{applicationDecisionLabel(application.decision)}</strong></div>
                     <div><span>Class year</span><strong>{application.classYear || 'Not set'}</strong></div>
-                    <div>
-                      <span>Verification</span>
-                      <strong>{applicationVerificationLabel(application)}</strong>
-                      {(application.verificationStatus === 'not_started' || application.verificationStatus === 'needs_proof') && (
-                        <button
-                          className={styles.verificationAction}
-                          data-testid="seller-start-verification"
-                          type="button"
-                          disabled={verificationBusyKey === application.key}
-                          onClick={() => onStartVerification(application.key)}
-                        >
-                          {verificationBusyKey === application.key
-                            ? 'Starting…'
-                            : application.verificationStatus === 'not_started' ? 'Start verification' : 'Upload proof'}
-                        </button>
-                      )}
-                    </div>
-                    <div><span>Buyer-visible outcome</span><strong className={claim ? styles.safeClaim : undefined}>{claim || 'Hidden until verification finishes'}</strong></div>
+                    <div><span>School</span><strong>{application.school}</strong></div>
                   </div>
                 </div>
 

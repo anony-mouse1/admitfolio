@@ -19,10 +19,10 @@ assert.match(proofsRoute, /sellerId_schoolKey/, 'starting verification must reus
 assert.match(proofsRoute, /matchesSellerApplication/, 'proof creation must be limited to an application owned by the seller');
 
 const workspace = fs.readFileSync(new URL('../components/seller/SellerApplicationsWorkspace.tsx', import.meta.url), 'utf8');
-assert.match(workspace, /seller-start-verification/, 'applications needing proof must expose a visible verification action');
-assert.match(workspace, /onStartVerification/, 'the verification action must reach the authenticated dashboard flow');
+assert.doesNotMatch(workspace, /seller-start-verification/, 'the seller application workspace must not expose a verification action');
+assert.doesNotMatch(workspace, /onStartVerification/, 'the seller application workspace must not depend on the verification component');
 
 const page = fs.readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
-assert.match(page, /verificationStatus:\s*'reviewing'/, 'the application status must refresh after a proof upload');
+assert.doesNotMatch(page, /id="seller-verification"/, 'the seller dashboard must not render the admission verification component');
 
 console.log('seller applications workspace checks passed');
