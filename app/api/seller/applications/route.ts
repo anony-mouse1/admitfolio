@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticatedSeller } from '@/lib/authenticatedSeller';
-import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
-import { sameSchool } from '@/lib/schools';
+import { parseAdmitTags } from '@/lib/listingSchool';
+import { matchesSellerApplication } from '@/lib/sellerApplications';
 
 export const runtime = 'nodejs';
 
@@ -28,12 +28,11 @@ export async function PATCH(req: Request) {
     select: { id: true, school: true, targetSchool: true, admitTags: true },
   });
   const listingIds = listings.filter((listing) => {
-    const target = catalogSchool({
+    return matchesSellerApplication({
       school: listing.school,
       targetSchool: listing.targetSchool,
       admitTags: parseAdmitTags(listing.admitTags),
-    });
-    return Boolean(target && sameSchool(target, school));
+    }, school);
   }).map((listing) => listing.id);
   if (!listingIds.length) return NextResponse.json({ error: 'Application not found.' }, { status: 404 });
 

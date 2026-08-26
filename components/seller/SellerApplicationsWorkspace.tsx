@@ -24,6 +24,8 @@ export type SellerApplicationsWorkspaceProps = {
   onEditProfile: () => void;
   onAddApplication: () => void;
   onEditApplication: (applicationKey: string) => void;
+  onStartVerification: (applicationKey: string) => void;
+  verificationBusyKey?: string | null;
   onAddListing: (applicationKey: string) => void;
   onEditListing: (listingId: string) => void;
   onTakeDownListing?: (listingId: string) => void;
@@ -70,6 +72,8 @@ export default function SellerApplicationsWorkspace({
   onEditProfile,
   onAddApplication,
   onEditApplication,
+  onStartVerification,
+  verificationBusyKey,
   onAddListing,
   onEditListing,
   onTakeDownListing,
@@ -181,7 +185,23 @@ export default function SellerApplicationsWorkspace({
                   <div className={styles.facts}>
                     <div><span>Decision</span><strong>{applicationDecisionLabel(application.decision)}</strong></div>
                     <div><span>Class year</span><strong>{application.classYear || 'Not set'}</strong></div>
-                    <div><span>Verification</span><strong>{applicationVerificationLabel(application)}</strong></div>
+                    <div>
+                      <span>Verification</span>
+                      <strong>{applicationVerificationLabel(application)}</strong>
+                      {(application.verificationStatus === 'not_started' || application.verificationStatus === 'needs_proof') && (
+                        <button
+                          className={styles.verificationAction}
+                          data-testid="seller-start-verification"
+                          type="button"
+                          disabled={verificationBusyKey === application.key}
+                          onClick={() => onStartVerification(application.key)}
+                        >
+                          {verificationBusyKey === application.key
+                            ? 'Starting…'
+                            : application.verificationStatus === 'not_started' ? 'Start verification' : 'Upload proof'}
+                        </button>
+                      )}
+                    </div>
                     <div><span>Buyer-visible outcome</span><strong className={claim ? styles.safeClaim : undefined}>{claim || 'Hidden until verification finishes'}</strong></div>
                   </div>
                 </div>

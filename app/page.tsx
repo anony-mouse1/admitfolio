@@ -1652,6 +1652,7 @@ export default function Page() {
   const [sellerProofs, setSellerProofs] = useState<SellerProof[]>([]);
   const [proofUploadBusyId, setProofUploadBusyId] = useState<string | null>(null);
   const [proofUploadError, setProofUploadError] = useState('');
+  const [verificationStartBusyKey, setVerificationStartBusyKey] = useState<string | null>(null);
   const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
   const [applicationClassYear, setApplicationClassYear] = useState('');
   const [applicationEditBusy, setApplicationEditBusy] = useState(false);
@@ -1856,6 +1857,32 @@ export default function Page() {
     }
   }
 
+  async function startApplicationVerification(applicationKey: string) {
+    const application = sellerApplications.find((item) => item.key === applicationKey);
+    if (!application) return;
+    setVerificationStartBusyKey(applicationKey);
+    setProofUploadError('');
+    try {
+      const response = await fetch('/api/seller/proofs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ school: application.school }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; proof?: SellerProof; error?: string };
+      if (!response.ok || !data.ok || !data.proof) throw new Error(data.error || 'Could not start verification.');
+      const proof = data.proof;
+      setSellerProofs((previous) => [proof, ...previous.filter((item) => item.id !== proof.id)]);
+      setSellerApplications((previous) => previous.map((item) => item.key === applicationKey
+        ? { ...item, verificationStatus: proof.hasFile ? 'reviewing' : 'needs_proof', verificationLabel: proof.hasFile ? null : 'Proof needs to be uploaded' }
+        : item));
+      requestAnimationFrame(() => document.getElementById('seller-verification')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    } catch (error) {
+      setProofUploadError(error instanceof Error ? error.message : 'Could not start verification.');
+    } finally {
+      setVerificationStartBusyKey(null);
+    }
+  }
+
   async function editWorkspaceListing(listingId: string) {
     const listing = listings.find((item) => item.id === listingId);
     if (!listing || !['rejected', 'removed'].includes(listing.status)) {
@@ -1886,6 +1913,9 @@ export default function Page() {
       setSellerProofs((previous) => previous.map((item) => item.id === proof.id
         ? { ...item, status: 'pending', statusLabel: 'Awaiting review', note: null, canReplace: false, hasFile: true }
         : item));
+      setSellerApplications((previous) => previous.map((application) => sameSchool(application.school, proof.school)
+        ? { ...application, verificationStatus: 'reviewing', verificationLabel: null }
+        : application));
     } catch (error) {
       setProofUploadError(error instanceof Error ? error.message : 'Could not upload this proof.');
     } finally {
@@ -3418,7 +3448,7 @@ export default function Page() {
                     />
                     <div className="dash-proof-copy">
                       <strong>{proof.school}</strong>
-                      <span>Submitted {new Date(proof.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span>{proof.hasFile ? 'Submitted' : 'Started'} {new Date(proof.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       {proof.note && <p>Reviewer note: {proof.note}</p>}
                     </div>
                     <div className="dash-proof-actions">
@@ -3505,6 +3535,8 @@ export default function Page() {
               onEditProfile={() => document.getElementById('seller-profile')?.scrollIntoView({ behavior: 'smooth' })}
               onAddApplication={() => openApplicationListing()}
               onEditApplication={editApplicationOutcome}
+              onStartVerification={(applicationKey) => void startApplicationVerification(applicationKey)}
+              verificationBusyKey={verificationStartBusyKey}
               onAddListing={openApplicationListing}
               onEditListing={(id) => void editWorkspaceListing(id)}
               onTakeDownListing={(id) => void listingAction(id, 'takedown')}

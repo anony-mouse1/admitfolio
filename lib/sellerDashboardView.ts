@@ -7,7 +7,7 @@ import { connectedAccountStatus } from './sellerPayoutsCore';
 import { buildAdminPayoutSummary, summarizeSellerAccounting } from './sellerDashboardCore';
 import { summarizeBankPayouts } from './sellerBankPayoutCore';
 import { schoolKey } from './admitProof';
-import { catalogSchool } from './listingSchool';
+import { sellerApplicationSchool } from './sellerApplications';
 import { schoolInfo } from './schools';
 import { schoolLogoSrc } from './schoolLogos';
 import type { SellerApplicationRecord } from '@/components/seller';
@@ -152,11 +152,11 @@ export async function getSellerDashboardView(sellerId: string) {
   const proofBySchool = new Map(seller.admitProofs.map((proof) => [proof.schoolKey, proof]));
   const applicationsByKey = new Map<string, SellerApplicationRecord>();
   for (const listing of listings) {
-    const school = catalogSchool({
+    const school = sellerApplicationSchool({
       school: listing.school,
       targetSchool: listing.targetSchool,
       admitTags: listing.admitTags,
-    }) || listing.targetSchool || listing.school;
+    });
     const classYearNumber = Number(listing.gradYear);
     const cycleLabel = Number.isInteger(classYearNumber) && classYearNumber >= 2020
       ? String(classYearNumber - 4)
