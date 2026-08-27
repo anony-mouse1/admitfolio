@@ -15,6 +15,12 @@ const connectJs = ts.transpileModule(connectSource, {
 }).outputText;
 const connectMod = await import(`data:text/javascript;base64,${Buffer.from(connectJs).toString('base64')}`);
 
+const webhookSource = fs.readFileSync(new URL('../lib/stripeConnectWebhookCore.ts', import.meta.url), 'utf8');
+const webhookJs = ts.transpileModule(webhookSource, {
+  compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const webhookMod = await import(`data:text/javascript;base64,${Buffer.from(webhookJs).toString('base64')}`);
+
 assert.equal(mod.isLivePurchase('cs_live_real'), true);
 assert.equal(mod.isLivePurchase('cs_test_fake'), false);
 assert.equal(mod.isLivePurchase(null), false);
@@ -150,9 +156,10 @@ assert.deepEqual(connectMod.stripeConnectErrorDetails({
 });
 
 const stripe = new Stripe('sk_test_webhook_verification_only', {
-  apiVersion: '2026-06-24.dahlia',
+  apiVersion: '2026-07-29.dahlia',
 });
 const webhookSecret = 'whsec_seller_payout_test';
+const snapshotWebhookSecret = 'whsec_connected_account_snapshot_test';
 const v2Payload = JSON.stringify({
   id: 'evt_test_v2',
   object: 'v2.core.event',
@@ -174,6 +181,49 @@ assert.equal(notification.type, 'v2.core.account[configuration.recipient].capabi
 assert.equal('related_object' in notification && notification.related_object?.id, 'acct_test_v2');
 assert.throws(
   () => stripe.parseEventNotification(`${v2Payload} `, v2Header, webhookSecret),
+  /signature/i,
+);
+
+const parsedV2 = webhookMod.parseConnectWebhook(
+  stripe,
+  v2Payload,
+  v2Header,
+  { v2: webhookSecret, snapshot: snapshotWebhookSecret },
+  () => false,
+);
+assert.deepEqual(parsedV2, { kind: 'account', accountId: 'acct_test_v2' });
+
+const snapshotPayload = JSON.stringify({
+  id: 'evt_test_snapshot',
+  object: 'event',
+  account: 'acct_connected_snapshot',
+  created: 1_777_000_000,
+  livemode: true,
+  type: 'payout.paid',
+  data: { object: { id: 'po_snapshot', object: 'payout' } },
+});
+const snapshotHeader = stripe.webhooks.generateTestHeaderString({
+  payload: snapshotPayload,
+  secret: snapshotWebhookSecret,
+});
+const parsedSnapshot = webhookMod.parseConnectWebhook(
+  stripe,
+  snapshotPayload,
+  snapshotHeader,
+  { v2: webhookSecret, snapshot: snapshotWebhookSecret },
+  (eventType) => eventType.startsWith('payout.'),
+);
+assert.equal(parsedSnapshot.kind, 'payout');
+assert.equal(parsedSnapshot.accountId, 'acct_connected_snapshot');
+assert.equal(parsedSnapshot.event.type, 'payout.paid');
+assert.throws(
+  () => webhookMod.parseConnectWebhook(
+    stripe,
+    snapshotPayload,
+    snapshotHeader,
+    { v2: webhookSecret, snapshot: '' },
+    (eventType) => eventType.startsWith('payout.'),
+  ),
   /signature/i,
 );
 

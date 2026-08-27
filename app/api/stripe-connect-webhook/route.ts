@@ -5,71 +5,58 @@ import { releaseSellerEarnings, retrieveConnectedAccount, syncConnectedAccount }
 import { connectedAccountReady } from '@/lib/sellerPayoutsCore';
 import { isBankPayoutEvent } from '@/lib/sellerBankPayoutCore';
 import { recordSellerBankPayout } from '@/lib/sellerBankPayouts';
-import { stripe, STRIPE_CONNECT_WEBHOOK_SECRET } from '@/lib/stripe';
+import {
+  stripe,
+  STRIPE_CONNECT_SNAPSHOT_WEBHOOK_SECRET,
+  STRIPE_CONNECT_WEBHOOK_SECRET,
+} from '@/lib/stripe';
+import { parseConnectWebhook } from '@/lib/stripeConnectWebhookCore';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  if (!stripe || !STRIPE_CONNECT_WEBHOOK_SECRET) {
+  if (!stripe || (!STRIPE_CONNECT_WEBHOOK_SECRET && !STRIPE_CONNECT_SNAPSHOT_WEBHOOK_SECRET)) {
     return NextResponse.json({ error: 'Connect webhook not configured.' }, { status: 503 });
   }
 
   const raw = await req.text();
   const signature = req.headers.get('stripe-signature') || '';
-  let accountId: string | null = null;
-  let accountEvent = false;
-  let payoutEvent: Stripe.Event | null = null;
+  let parsed: ReturnType<typeof parseConnectWebhook>;
   try {
-    const object = (JSON.parse(raw) as { object?: unknown }).object;
-    if (object === 'v2.core.event') {
-      const notification = stripe.parseEventNotification(
-        raw,
-        signature,
-        STRIPE_CONNECT_WEBHOOK_SECRET,
-      );
-      if (!notification.type.startsWith('v2.core.account')) {
-        return NextResponse.json({ ok: true, ignored: notification.type });
-      }
-      accountEvent = true;
-      accountId = 'related_object' in notification
-        ? notification.related_object?.id || null
-        : null;
-    } else {
-      const event = stripe.webhooks.constructEvent(raw, signature, STRIPE_CONNECT_WEBHOOK_SECRET);
-      if (isBankPayoutEvent(event.type)) {
-        accountId = event.account || null;
-        payoutEvent = event;
-      }
-      if (!payoutEvent && event.type !== 'account.updated') {
-        return NextResponse.json({ ok: true, ignored: event.type });
-      }
-      if (!payoutEvent) {
-        accountEvent = true;
-        accountId = event.account || (event.data.object as { id?: string }).id || null;
-      }
-    }
+    parsed = parseConnectWebhook(
+      stripe,
+      raw,
+      signature,
+      {
+        v2: STRIPE_CONNECT_WEBHOOK_SECRET,
+        snapshot: STRIPE_CONNECT_SNAPSHOT_WEBHOOK_SECRET,
+      },
+      isBankPayoutEvent,
+    );
   } catch {
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
   }
-  if (payoutEvent) {
-    if (!accountId) return NextResponse.json({ ok: true, ignored: 'missing connected account' });
+  if (parsed.kind === 'ignored') {
+    return NextResponse.json({ ok: true, ignored: parsed.eventType });
+  }
+  if (parsed.kind === 'payout') {
+    if (!parsed.accountId) return NextResponse.json({ ok: true, ignored: 'missing connected account' });
     const result = await recordSellerBankPayout({
-      stripeAccountId: accountId,
-      eventId: payoutEvent.id,
-      eventCreated: payoutEvent.created,
-      payout: payoutEvent.data.object as Stripe.Payout,
+      stripeAccountId: parsed.accountId,
+      eventId: parsed.event.id,
+      eventCreated: parsed.event.created,
+      payout: parsed.event.data.object as Stripe.Payout,
     });
     return NextResponse.json({ ok: true, recorded: result.recorded, reason: result.reason });
   }
-  if (!accountId) return NextResponse.json({ ok: true, ignored: 'missing account' });
-  if (!accountEvent) return NextResponse.json({ ok: true, ignored: 'unsupported event' });
+  if (!parsed.accountId) return NextResponse.json({ ok: true, ignored: 'missing account' });
   const seller = await prisma.seller.findUnique({
-    where: { stripeAccountId: accountId },
+    where: { stripeAccountId: parsed.accountId },
     select: { id: true },
   });
   if (!seller) return NextResponse.json({ ok: true, ignored: 'unknown account' });
 
-  const account = await retrieveConnectedAccount(accountId);
+  const account = await retrieveConnectedAccount(parsed.accountId);
   await syncConnectedAccount(account);
   if (connectedAccountReady(account)) await releaseSellerEarnings(seller.id);
   return NextResponse.json({ ok: true });
