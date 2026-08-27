@@ -17,7 +17,7 @@ export default function PrivacyPage() {
       </header>
 
       <h1>Privacy Policy</h1>
-      <p className="legal-date">Effective date: August 24, 2026</p>
+      <p className="legal-date">Effective date: August 26, 2026</p>
 
       <p>
         Admitfolio (&ldquo;Admitfolio,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) operates admitfolio.com, a
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
 
       <h2>1. Information we collect</h2>
       <h3>Information you give us</h3>
-      <p><b>If you join the waitlist:</b> your email address.</p>
+      <p><b>If you sign up for product updates:</b> your email address.</p>
       <p>
         <b>If you sell essays:</b> we collect your school email address (used to verify current or recent
         enrollment via a one-time code), a password, the schools you were admitted to, admission letters or
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
         <li>Review, publish, and manage essay listings, including automated pre-screening by Anthropic</li>
         <li>Process purchases and pay sellers their earnings</li>
         <li>Send transactional emails such as verification codes and account notices (via Resend, our email provider)</li>
-        <li>Let waitlist members know when essays go live</li>
+        <li>Send requested product updates</li>
         <li>Understand aggregate site usage and keep the site fast and secure</li>
         <li>Comply with legal obligations</li>
       </ul>
@@ -150,7 +150,8 @@ export default function PrivacyPage() {
         We keep your information for as long as your account is active or as needed to provide the service.
         If you delete your account or ask us to delete your data, we remove your personal information and
         uploaded essays within 30 days, except where we need to keep limited records for legal, tax, or
-        fraud-prevention purposes. Waitlist emails are kept until you unsubscribe or the waitlist is retired.
+        fraud-prevention purposes. Email addresses collected for optional product updates are kept until you
+        unsubscribe or ask us to delete them.
       </p>
 
       <h2>7. Security</h2>
@@ -167,7 +168,7 @@ export default function PrivacyPage() {
         <li><b>Access or update</b> your account information by signing in to your seller dashboard</li>
         <li><b>Unlist an essay</b> at any time from your dashboard</li>
         <li><b>Delete your account and data</b> by contacting us at the email above</li>
-        <li><b>Unsubscribe</b> from waitlist emails using the link in any email we send</li>
+        <li><b>Unsubscribe</b> from optional product emails using the link in any email we send</li>
       </ul>
       <p>
         Depending on where you live, you may have additional legal rights over your personal information,

@@ -80,6 +80,8 @@ assert.doesNotMatch(terms, /Sales are split 60\/40/);
 assert.doesNotMatch(terms, /Purchasing is not yet live/);
 assert.doesNotMatch(privacy, /when purchasing launches/i);
 assert.doesNotMatch(privacy, /Access records are kept for 24 months/);
+assert.doesNotMatch(privacy, /waitlist/i);
+assert.match(privacy, /sign up for product updates/i);
 assert.match(privacy, /Anthropic/);
 assert.match(privacy, /admission letters or/);
 
