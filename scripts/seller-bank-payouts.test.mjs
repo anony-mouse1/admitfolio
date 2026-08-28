@@ -73,7 +73,7 @@ assert.match(payout.safeBankPayoutFailureMessage('account_closed'), /bank accoun
 assert.doesNotMatch(payout.safeBankPayoutFailureMessage('unknown_private_reason'), /unknown_private_reason/);
 
 const stripe = new Stripe('sk_test_webhook_verification_only', {
-  apiVersion: '2026-06-24.dahlia',
+  apiVersion: '2026-07-29.dahlia',
 });
 const secret = 'whsec_connected_payout_test';
 const payload = JSON.stringify({
