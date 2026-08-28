@@ -198,6 +198,7 @@ export type ListingQuote = {
 export function checkoutSessionParams(
   quote: ListingQuote,
   buyerIp: string | null,
+  deliveryEmail: string,
   siteUrl: string,
 ) {
   const origin = siteUrl.replace(/\/$/, '');
@@ -210,6 +211,9 @@ export function checkoutSessionParams(
     excluded_payment_method_types: ['amazon_pay' as const],
     // Keep payment_method_types omitted. Stripe's dynamic payment methods then
     // show real Link, Apple Pay and card options when the buyer is eligible.
+    // Fulfillment uses this buyer-confirmed address even when Link or a saved
+    // card supplies a different billing email during payment.
+    customer_email: deliveryEmail,
     client_reference_id: quote.listingId,
     line_items: [
       {
@@ -348,7 +352,7 @@ export function paidListingSession(session: StripeSessionLike): PaidSessionResul
   const currency = typeof session.currency === 'string' ? session.currency.toLowerCase() : '';
   const metadata = session.metadata ?? {};
   const listingId = metadata.listingId?.trim() ?? '';
-  const buyerEmailValue = session.customer_details?.email ?? session.customer_email;
+  const buyerEmailValue = session.customer_email ?? session.customer_details?.email;
   const buyerEmail = typeof buyerEmailValue === 'string' ? buyerEmailValue.trim().toLowerCase() : '';
   const checkoutVersion = metadata.checkoutVersion?.trim() || null;
 

@@ -1284,6 +1284,8 @@ export default function Page() {
   // enter Admitfolio's React state or touch our servers.
   const [curItem, setCurItem] = useState<{ listingId?: string; school?: string; price?: number; summary?: string | null; essayCount?: number }>({});
   const [buyErr, setBuyErr] = useState('');
+  const [buyDeliveryEmail, setBuyDeliveryEmail] = useState('');
+  const [buyEmailConfirmed, setBuyEmailConfirmed] = useState(false);
 
   const openBuy = useCallback((item: { listingId: string; school: string; price: number; summary?: string | null; essayCount?: number }) => {
     trackConversion(ANALYTICS_EVENTS.checkoutStarted, {
@@ -1292,9 +1294,22 @@ export default function Page() {
     });
     setCurItem(item);
     setBuyErr('');
+    setBuyDeliveryEmail('');
+    setBuyEmailConfirmed(false);
     setBuyOpen(true);
   }, []);
   const closeBuy = useCallback(() => setBuyOpen(false), []);
+
+  function confirmBuyDeliveryEmail() {
+    const email = buyDeliveryEmail.trim().toLowerCase();
+    if (!emailRe.test(email)) {
+      setBuyErr('Enter a valid delivery email.');
+      return;
+    }
+    setBuyDeliveryEmail(email);
+    setBuyErr('');
+    setBuyEmailConfirmed(true);
+  }
 
   function handleUnlock(essay: Essay) {
     // Sample cards are teasers - they are not purchasable.
@@ -2988,30 +3003,68 @@ export default function Page() {
           </section>
 
           <section className="buy-payment">
-            <div className="modal-eyebrow">Secure checkout</div>
-            <h4>Pay without leaving Admitfolio</h4>
-            <p>Stripe shows Link, Apple Pay, or card when each option is available on your device.</p>
-            <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-            <div className="buy-stripe-card">
-              <div className="buy-stripe-head">
-                <div className="buy-stripe-head-main">
-                  <span className="buy-stripe-shield" aria-hidden="true">✓</span>
-                  <span><strong>Secure payment</strong><small>Encrypted from end to end</small></span>
+            {!buyEmailConfirmed ? (
+              <>
+                <div className="modal-eyebrow">Step 1 of 2 · Delivery</div>
+                <h4>Where should we send your essays?</h4>
+                <p>Confirm the email for your private reading link. Your card or Link account can use a different email.</p>
+                <div className="buy-email-field">
+                  <label htmlFor="buyDeliveryEmail">Delivery email</label>
+                  <input
+                    id="buyDeliveryEmail"
+                    type="email"
+                    maxLength={254}
+                    autoComplete="email"
+                    spellCheck={false}
+                    value={buyDeliveryEmail}
+                    onChange={(event) => { setBuyDeliveryEmail(event.target.value); setBuyErr(''); }}
+                    onKeyDown={(event) => { if (event.key === 'Enter') confirmBuyDeliveryEmail(); }}
+                    placeholder="you@email.com"
+                  />
+                  <small>We will send the receipt and reading link to this exact address.</small>
                 </div>
-                <span className="buy-stripe-brand">Powered by Stripe</span>
-              </div>
-              {buyOpen && curItem.listingId && (
-                <EmbeddedListingCheckout
-                  key={curItem.listingId}
-                  listingId={curItem.listingId}
-                  onError={setBuyErr}
-                />
-              )}
-            </div>
-            <div className="buy-secure">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-              Payments handled by Stripe · Card details never touch our servers
-            </div>
+                <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
+                <button className="buy-email-continue" type="button" onClick={confirmBuyDeliveryEmail}>
+                  Continue to secure payment
+                </button>
+                <div className="buy-secure">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                  Card details are still handled securely by Stripe
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="modal-eyebrow">Step 2 of 2 · Secure checkout</div>
+                <h4>Pay without leaving Admitfolio</h4>
+                <p>Stripe shows Link, Apple Pay, or card when each option is available on your device.</p>
+                <div className="buy-email-confirmed">
+                  <span>Delivery to <b>{buyDeliveryEmail}</b></span>
+                  <button type="button" onClick={() => { setBuyEmailConfirmed(false); setBuyErr(''); }}>Change</button>
+                </div>
+                <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
+                <div className="buy-stripe-card">
+                  <div className="buy-stripe-head">
+                    <div className="buy-stripe-head-main">
+                      <span className="buy-stripe-shield" aria-hidden="true">✓</span>
+                      <span><strong>Secure payment</strong><small>Encrypted from end to end</small></span>
+                    </div>
+                    <span className="buy-stripe-brand">Powered by Stripe</span>
+                  </div>
+                  {buyOpen && curItem.listingId && (
+                    <EmbeddedListingCheckout
+                      key={`${curItem.listingId}:${buyDeliveryEmail}`}
+                      listingId={curItem.listingId}
+                      deliveryEmail={buyDeliveryEmail}
+                      onError={setBuyErr}
+                    />
+                  )}
+                </div>
+                <div className="buy-secure">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                  Payments handled by Stripe · Card details never touch our servers
+                </div>
+              </>
+            )}
           </section>
         </div>
       </div>

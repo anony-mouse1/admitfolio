@@ -9,10 +9,11 @@ const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 type EmbeddedListingCheckoutProps = {
   listingId: string;
+  deliveryEmail: string;
   onError: (message: string) => void;
 };
 
-export default function EmbeddedListingCheckout({ listingId, onError }: EmbeddedListingCheckoutProps) {
+export default function EmbeddedListingCheckout({ listingId, deliveryEmail, onError }: EmbeddedListingCheckoutProps) {
   const requestRef = useRef<Promise<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,7 +26,7 @@ export default function EmbeddedListingCheckout({ listingId, onError }: Embedded
         const response = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listingId }),
+          body: JSON.stringify({ listingId, deliveryEmail }),
         });
         const data = (await response.json().catch(() => ({}))) as {
           clientSecret?: string;
@@ -48,7 +49,7 @@ export default function EmbeddedListingCheckout({ listingId, onError }: Embedded
     })();
 
     return requestRef.current;
-  }, [listingId, onError]);
+  }, [listingId, deliveryEmail, onError]);
 
   if (!stripePromise) {
     return (

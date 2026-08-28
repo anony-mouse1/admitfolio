@@ -1099,6 +1099,31 @@ footer { background: #1b1a17; color: #cfccc4; }
   font-size: 36px; line-height: 1.08; letter-spacing: -.025em;
 }
 .buy-payment > p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.buy-email-field { display: grid; gap: 8px; margin-top: 26px; }
+.buy-email-field label { color: var(--ink); font-size: 13px; font-weight: 800; }
+.buy-email-field input {
+  width: 100%; padding: 14px 15px; border: 1.5px solid #ae9489; border-radius: 12px;
+  color: var(--ink); background: #fff; font: inherit; font-size: 16px; outline: none;
+}
+.buy-email-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(125,29,45,.1); }
+.buy-email-field small { color: var(--faint); font-size: 12px; line-height: 1.45; }
+.buy-email-continue {
+  width: 100%; margin-top: 22px; padding: 13px 18px; border: 2px solid #4f101d; border-radius: 999px;
+  color: #fff; background: linear-gradient(180deg,#8b2639,#6d1528);
+  box-shadow: inset 0 2px rgba(255,255,255,.16), inset 0 -2px rgba(40,5,13,.18), 0 12px 25px rgba(89,24,38,.25);
+  font-size: 15px; font-weight: 800; cursor: pointer;
+}
+.buy-email-continue:hover { background: linear-gradient(180deg,#7e2033,#611021); }
+.buy-email-confirmed {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin: 0 0 16px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px;
+  color: var(--muted); background: #fbf8f4; font-size: 12.5px;
+}
+.buy-email-confirmed b { color: var(--ink); }
+.buy-email-confirmed button {
+  flex: none; padding: 0; border: 0; color: var(--accent); background: none;
+  font: inherit; font-weight: 800; cursor: pointer;
+}
 .buy-stripe-card {
   position: relative; overflow: hidden; padding: 20px;
   border: 1px solid #dfd4cc; border-radius: 22px; background: rgba(255,255,255,.9);

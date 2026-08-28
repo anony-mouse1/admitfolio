@@ -194,7 +194,7 @@ try {
   assert.equal(quotedListing.ok, true);
   if (!quotedListing.ok) throw new Error('Expected listing quote.');
   assert.deepEqual(
-    checkoutSessionParams(quotedListing.quote, '203.0.113.8', 'https://admitfolio.com/'),
+    checkoutSessionParams(quotedListing.quote, '203.0.113.8', 'buyer@example.edu', 'https://admitfolio.com/'),
     {
       mode: 'payment',
       ui_mode: 'embedded_page',
@@ -202,6 +202,7 @@ try {
       integration_identifier: 'admitfolio_nqvzkjhf',
       managed_payments: { enabled: false },
       excluded_payment_method_types: ['amazon_pay'],
+      customer_email: 'buyer@example.edu',
       client_reference_id: 'listing_1',
       line_items: [
         {
@@ -299,6 +300,19 @@ try {
       checkoutVersion: CHECKOUT_VERSION,
     },
   });
+  const confirmedDeliveryEmail = paidListingSession({
+    ...validSession,
+    customer_email: 'Delivery@Berkeley.edu ',
+    customer_details: { email: 'saved-card@example.com' },
+  });
+  assert.equal(confirmedDeliveryEmail.ok, true);
+  if (confirmedDeliveryEmail.ok) {
+    assert.equal(
+      confirmedDeliveryEmail.session.buyerEmail,
+      'delivery@berkeley.edu',
+      'the buyer-confirmed delivery email must win over a saved card or Link email',
+    );
+  }
   assert.deepEqual(paidListingSession({ ...validSession, payment_status: 'unpaid' }), {
     ok: false,
     deferred: true,

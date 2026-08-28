@@ -36,11 +36,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Too many attempts. Please wait a minute.' }, { status: 429 });
   }
 
-  let body: { listingId?: string };
+  let body: { listingId?: string; deliveryEmail?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
+  }
+
+  const deliveryEmail = String(body?.deliveryEmail || '').trim().toLowerCase();
+  if (deliveryEmail.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(deliveryEmail)) {
+    return NextResponse.json({ error: 'Enter a valid delivery email.' }, { status: 400 });
   }
 
   const listing = body?.listingId
@@ -64,7 +69,7 @@ export async function POST(req: Request) {
 
   try {
     const session = await stripe.checkout.sessions.create(
-      checkoutSessionParams(quote, buyerIp, SITE_URL),
+      checkoutSessionParams(quote, buyerIp, deliveryEmail, SITE_URL),
     );
     if (!session.client_secret) {
       throw new Error('Stripe did not return an embedded Checkout client secret.');
