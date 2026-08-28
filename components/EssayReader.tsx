@@ -24,6 +24,7 @@ type Props = {
 };
 
 export default function EssayReader({ essayId, token, label }: Props) {
+  const essayUrl = `/api/essay/${essayId}?t=${encodeURIComponent(token)}`;
   const holder = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [pages, setPages] = useState(0);
@@ -43,14 +44,17 @@ export default function EssayReader({ essayId, token, label }: Props) {
         // has caused worker/module corruption in past releases. Load the unchanged browser build from
         // our own public assets instead. It stays on our origin and is still
         // fetched only after the buyer clicks "Read essay".
-        const moduleUrl = '/vendor/pdfjs/pdf.min.mjs';
+        // The modern pdf.js build only targets current Safari releases. Use
+        // the upstream legacy build so purchased essays also open on older
+        // iPhones and iPads that still receive security updates.
+        const moduleUrl = '/vendor/pdfjs-legacy/pdf.min.mjs';
         const pdfjs: typeof import('pdfjs-dist') = await import(
           /* webpackIgnore: true */ moduleUrl
         );
-        pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.mjs';
+        pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs-legacy/pdf.worker.min.mjs';
 
         loadingTask = pdfjs.getDocument({
-          url: `/api/essay/${essayId}?t=${encodeURIComponent(token)}`,
+          url: essayUrl,
           // Do not let pdf.js keep its own copy around longer than needed.
           disableAutoFetch: false,
           disableStream: false,
@@ -112,7 +116,7 @@ export default function EssayReader({ essayId, token, label }: Props) {
       cancelled = true;
       void loadingTask?.destroy();
     };
-  }, [open, essayId, token]);
+  }, [open, essayId, token, essayUrl]);
 
   return (
     <div
@@ -135,10 +139,15 @@ export default function EssayReader({ essayId, token, label }: Props) {
         <>
           {state === 'loading' && <p className="essay-reader-note">Preparing your copy…</p>}
           {state === 'error' && (
-            <p className="essay-reader-note">
-              This essay couldn&apos;t be displayed. Reply to your purchase email and we&apos;ll sort
-              it out.
-            </p>
+            <div className="essay-reader-fallback">
+              <p className="essay-reader-note">
+                The protected reader is not supported in this browser. Your watermarked essay is
+                still available.
+              </p>
+              <a href={essayUrl} target="_blank" rel="noreferrer">
+                Open watermarked essay
+              </a>
+            </div>
           )}
           {state === 'ready' && pages > 0 && (
             <p className="essay-reader-note">

@@ -79,14 +79,19 @@ try {
   );
   assert.match(
     readerSource,
-    /\}, \[open, essayId, token\]\);/,
+    /\}, \[open, essayId, token, essayUrl\]\);/,
     'loading state changes must not cancel the active PDF render effect',
+  );
+  assert.match(
+    readerSource,
+    /href=\{essayUrl\} target="_blank" rel="noreferrer"/,
+    'a failed canvas render must still expose the protected watermarked PDF',
   );
   for (const asset of ['pdf.min.mjs', 'pdf.worker.min.mjs']) {
     assert.deepEqual(
-      fs.readFileSync(path.join(root, 'public/vendor/pdfjs', asset)),
-      fs.readFileSync(path.join(root, 'node_modules/pdfjs-dist/build', asset)),
-      `${asset} must match the installed pdf.js version`,
+      fs.readFileSync(path.join(root, 'public/vendor/pdfjs-legacy', asset)),
+      fs.readFileSync(path.join(root, 'node_modules/pdfjs-dist/legacy/build', asset)),
+      `${asset} must match the installed legacy pdf.js version`,
     );
   }
 
