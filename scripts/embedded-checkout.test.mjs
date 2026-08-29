@@ -10,6 +10,7 @@ const route = read('app/api/checkout/route.ts');
 const page = read('app/page.tsx');
 const component = read('components/EmbeddedListingCheckout.tsx');
 const commerce = read('lib/commerce.ts');
+const styles = read('app/globals.css');
 
 assert.match(route, /clientSecret:\s*session\.client_secret/);
 assert.doesNotMatch(route, /url:\s*session\.url/);
@@ -31,5 +32,7 @@ assert.match(commerce, /excluded_payment_method_types:\s*\['amazon_pay'/);
 assert.match(commerce, /return_url:/);
 assert.doesNotMatch(commerce, /success_url:/);
 assert.doesNotMatch(commerce, /cancel_url:/);
+assert.match(styles, /\.modal-overlay\.buy-overlay\s*\{[\s\S]*align-items:\s*stretch;\s*padding:\s*0;[\s\S]*backdrop-filter:\s*none;/);
+assert.match(styles, /\.modal-overlay\.buy-overlay \.buy-modal\s*\{[\s\S]*width:\s*100%;\s*max-width:\s*none;\s*height:\s*100dvh;\s*max-height:\s*none;[\s\S]*border-radius:\s*0;/);
 
 console.log('embedded checkout wiring tests passed');
