@@ -214,6 +214,15 @@ export function checkoutSessionParams(
     // Fulfillment uses this buyer-confirmed address even when Link or a saved
     // card supplies a different billing email during payment.
     customer_email: deliveryEmail,
+    // Stripe only returns an abandoned shopper's email to the recovery
+    // webhook when they explicitly opt in to promotional messages.
+    consent_collection: { promotions: 'auto' as const },
+    after_expiration: {
+      recovery: {
+        enabled: true,
+        allow_promotion_codes: false,
+      },
+    },
     client_reference_id: quote.listingId,
     line_items: [
       {

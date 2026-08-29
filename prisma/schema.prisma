@@ -304,6 +304,29 @@ model Purchase {
   @@index([sellerTransferredAt])
 }
 
+// One cart-recovery reminder per opted-in buyer. Email is unique on purpose:
+// repeated Checkout Sessions must never turn into repeated marketing emails.
+// A short send lease makes webhook retries safe without permanently stranding
+// a failed provider request.
+model CheckoutRecoveryEmail {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  stripeSessionId   String    @unique
+  listingId         String
+  itemLabel         String
+  amountCents       Int
+  sessionCreatedAt  DateTime
+  recoveryExpiresAt DateTime
+  sendStartedAt     DateTime?
+  sentAt            DateTime?
+  sendAttempts      Int       @default(0)
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([sentAt])
+}
+
 // A Stripe payout from a seller's connected balance to their bank account.
 // Transfers into Stripe and payouts to a bank are separate money movements,
 // so this record lets the dashboard distinguish "sent to Stripe" from

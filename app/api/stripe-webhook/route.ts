@@ -16,6 +16,7 @@ import { fulfillPurchase } from '@/lib/purchaseFulfillment';
 import { releaseSellerEarnings, reverseSellerTransfer } from '@/lib/sellerPayouts';
 import { stripeFeeSnapshotFromCharge, type StripeFeeSnapshot } from '@/lib/stripeFeeCore';
 import { ANALYTICS_EVENTS } from '@/lib/analyticsEventNames';
+import { handleExpiredCheckoutSession } from '@/lib/checkoutRecovery';
 import { track } from '@vercel/analytics/server';
 
 export const runtime = 'nodejs';
@@ -67,6 +68,25 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(raw, sig, STRIPE_WEBHOOK_SECRET);
   } catch {
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 });
+  }
+
+  if (event.type === 'checkout.session.expired') {
+    let recovery;
+    try {
+      recovery = await handleExpiredCheckoutSession(event.data.object as Stripe.Checkout.Session);
+    } catch (error) {
+      console.error('checkout recovery failed:', error instanceof Error ? error.message : error);
+      return NextResponse.json({ error: 'Checkout recovery failed.' }, { status: 500 });
+    }
+    if (!recovery.ok) {
+      console.error('checkout recovery email failed:', recovery.status, recovery.error);
+      return NextResponse.json({ error: 'Checkout recovery email failed.' }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      recovery: recovery.status,
+      ...(recovery.reason ? { reason: recovery.reason } : {}),
+    });
   }
 
   // Separate Connect transfers are not reversed automatically when a platform

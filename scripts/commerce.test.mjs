@@ -203,6 +203,13 @@ try {
       managed_payments: { enabled: false },
       excluded_payment_method_types: ['amazon_pay'],
       customer_email: 'buyer@example.edu',
+      consent_collection: { promotions: 'auto' },
+      after_expiration: {
+        recovery: {
+          enabled: true,
+          allow_promotion_codes: false,
+        },
+      },
       client_reference_id: 'listing_1',
       line_items: [
         {
