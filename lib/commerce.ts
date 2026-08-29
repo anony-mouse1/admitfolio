@@ -200,6 +200,7 @@ export function checkoutSessionParams(
   buyerIp: string | null,
   deliveryEmail: string,
   siteUrl: string,
+  checkoutRecoveryEnabled = false,
 ) {
   const origin = siteUrl.replace(/\/$/, '');
   return {
@@ -214,15 +215,20 @@ export function checkoutSessionParams(
     // Fulfillment uses this buyer-confirmed address even when Link or a saved
     // card supplies a different billing email during payment.
     customer_email: deliveryEmail,
-    // Stripe only returns an abandoned shopper's email to the recovery
-    // webhook when they explicitly opt in to promotional messages.
-    consent_collection: { promotions: 'auto' as const },
-    after_expiration: {
-      recovery: {
-        enabled: true,
-        allow_promotion_codes: false,
-      },
-    },
+    // Stripe rejects promotions consent unless its separate Checkout terms
+    // have been accepted in the Dashboard. Keep recovery off by default so a
+    // missing account setting can never take down the core payment flow.
+    ...(checkoutRecoveryEnabled
+      ? {
+          consent_collection: { promotions: 'auto' as const },
+          after_expiration: {
+            recovery: {
+              enabled: true,
+              allow_promotion_codes: false,
+            },
+          },
+        }
+      : {}),
     client_reference_id: quote.listingId,
     line_items: [
       {

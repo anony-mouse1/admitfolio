@@ -69,7 +69,13 @@ export async function POST(req: Request) {
 
   try {
     const session = await stripe.checkout.sessions.create(
-      checkoutSessionParams(quote, buyerIp, deliveryEmail, SITE_URL),
+      checkoutSessionParams(
+        quote,
+        buyerIp,
+        deliveryEmail,
+        SITE_URL,
+        process.env.STRIPE_CHECKOUT_RECOVERY_ENABLED === '1',
+      ),
     );
     if (!session.client_secret) {
       throw new Error('Stripe did not return an embedded Checkout client secret.');

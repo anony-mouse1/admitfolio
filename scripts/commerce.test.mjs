@@ -203,13 +203,6 @@ try {
       managed_payments: { enabled: false },
       excluded_payment_method_types: ['amazon_pay'],
       customer_email: 'buyer@example.edu',
-      consent_collection: { promotions: 'auto' },
-      after_expiration: {
-        recovery: {
-          enabled: true,
-          allow_promotion_codes: false,
-        },
-      },
       client_reference_id: 'listing_1',
       line_items: [
         {
@@ -239,6 +232,20 @@ try {
       return_url: 'https://admitfolio.com/purchase/success?session_id={CHECKOUT_SESSION_ID}',
     },
   );
+  const recoveryParams = checkoutSessionParams(
+    quotedListing.quote,
+    '203.0.113.8',
+    'buyer@example.edu',
+    'https://admitfolio.com/',
+    true,
+  );
+  assert.deepEqual(recoveryParams.consent_collection, { promotions: 'auto' });
+  assert.deepEqual(recoveryParams.after_expiration, {
+    recovery: {
+      enabled: true,
+      allow_promotion_codes: false,
+    },
+  });
   assert.equal(quoteListing({ ...baseListing, status: 'pending' }, false).ok, false);
   assert.equal(quoteListing({ ...baseListing, pricingMode: 'separate' }, false).ok, false);
   assert.equal(quoteListing({ ...baseListing, essays: [] }, false).ok, false);
