@@ -1298,7 +1298,10 @@ export default function Page() {
     setBuyEmailConfirmed(false);
     setBuyOpen(true);
   }, []);
-  const closeBuy = useCallback(() => setBuyOpen(false), []);
+  const closeBuy = useCallback(() => {
+    setBuyOpen(false);
+    if (curItem.listingId) openDetail(curItem.listingId);
+  }, [curItem.listingId, openDetail]);
 
   function confirmBuyDeliveryEmail() {
     const email = buyDeliveryEmail.trim().toLowerCase();

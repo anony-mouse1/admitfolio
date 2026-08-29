@@ -18,6 +18,7 @@ assert.match(page, /Where should we send your essays\?/);
 assert.match(page, /deliveryEmail=\{buyDeliveryEmail\}/);
 assert.match(page, /buy-stripe-card/);
 assert.match(page, /Link, Apple Pay, or card/);
+assert.match(page, /const closeBuy = useCallback\(\(\) => \{[\s\S]*setBuyOpen\(false\);[\s\S]*if \(curItem\.listingId\) openDetail\(curItem\.listingId\);/);
 assert.doesNotMatch(page, /window\.location\.href\s*=\s*data\.url/);
 assert.match(component, /EmbeddedCheckoutProvider/);
 assert.match(component, /JSON\.stringify\(\{ listingId, deliveryEmail \}\)/);
