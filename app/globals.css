@@ -1203,17 +1203,28 @@ footer { background: #1b1a17; color: #cfccc4; }
 
 /* Checkout keeps its existing content and flow, but uses the full viewport
    instead of a centered modal on every screen size. */
+@keyframes checkoutPageIn {
+  from { opacity: 0; transform: translateX(44px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 .modal-overlay.buy-overlay {
+  z-index: 130;
   align-items: stretch; padding: 0; background: var(--bg);
   backdrop-filter: none; -webkit-backdrop-filter: none;
+  animation: checkoutPageIn .38s cubic-bezier(.22,.8,.22,1) both;
+  will-change: opacity, transform;
 }
 .modal-overlay.buy-overlay .buy-modal {
   width: 100%; max-width: none; height: 100dvh; max-height: none;
   border: 0; border-radius: 0; box-shadow: none;
+  animation: none;
 }
 @media (min-width: 851px) {
   .modal-overlay.buy-overlay .buy-order,
   .modal-overlay.buy-overlay .buy-payment { max-height: 100dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay.buy-overlay { animation: none; }
 }
 
 /* ===== Seller login modal ===== */
@@ -3073,7 +3084,6 @@ body { -webkit-tap-highlight-color: transparent; }
     background: #fff;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    animation: none;
   }
   .buy-overlay .modal.buy-modal {
     width: 100%;

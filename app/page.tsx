@@ -3001,13 +3001,13 @@ export default function Page() {
           key={detailListing.id}
           listing={detailListing}
           allListings={pubListings}
+          obscured={buyOpen}
           onClose={closeDetail}
           onOpenListing={openDetail}
           onUnlock={() => {
-            // Hide the listing without adding a browse-only history entry.
-            // Browser Back from checkout can then restore this exact listing.
+            // Keep the listing under checkout during its page transition so
+            // the catalogue never flashes between the two full-screen views.
             const l = detailListing;
-            setDetailId(null);
             openBuy({
               listingId: l.id,
               school: schoolShortName(headlineSchool(l)),
@@ -3900,12 +3900,14 @@ function anonymityNote(mode: Anonymity | undefined): string {
 function ListingDetail({
   listing,
   allListings,
+  obscured = false,
   onClose,
   onOpenListing,
   onUnlock,
 }: {
   listing: PublicListing;
   allListings: PublicListing[];
+  obscured?: boolean;
   onClose: () => void;
   onOpenListing: (id: string) => void;
   onUnlock: () => void;
@@ -3948,6 +3950,8 @@ function ListingDetail({
       className="ov"
       role="dialog"
       aria-modal="true"
+      aria-hidden={obscured || undefined}
+      inert={obscured || undefined}
       aria-label={`${label} listing`}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
