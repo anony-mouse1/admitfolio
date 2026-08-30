@@ -101,6 +101,14 @@ type PublicListing = {
   otherListingIds?: string[];
 };
 
+type CheckoutItem = {
+  listingId: string;
+  school: string;
+  price: number;
+  summary?: string | null;
+  essayCount?: number;
+};
+
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
 
@@ -1282,16 +1290,23 @@ export default function Page() {
   /* ============================ Buyer checkout ============================ */
   // Stripe securely renders Checkout inside this modal. Card details never
   // enter Admitfolio's React state or touch our servers.
-  const [curItem, setCurItem] = useState<{ listingId?: string; school?: string; price?: number; summary?: string | null; essayCount?: number }>({});
+  const [curItem, setCurItem] = useState<Partial<CheckoutItem>>({});
   const [buyErr, setBuyErr] = useState('');
   const [buyDeliveryEmail, setBuyDeliveryEmail] = useState('');
   const [buyEmailConfirmed, setBuyEmailConfirmed] = useState(false);
 
-  const openBuy = useCallback((item: { listingId: string; school: string; price: number; summary?: string | null; essayCount?: number }) => {
-    trackConversion(ANALYTICS_EVENTS.checkoutStarted, {
-      school: item.school,
-      value: item.price,
-    });
+  const openBuy = useCallback((item: CheckoutItem, syncUrl = true, trackStart = true) => {
+    if (trackStart) {
+      trackConversion(ANALYTICS_EVENTS.checkoutStarted, {
+        school: item.school,
+        value: item.price,
+      });
+    }
+    if (syncUrl) {
+      const url = new URL('/', window.location.origin);
+      url.searchParams.set('checkout', item.listingId);
+      window.history.pushState({ checkout: item.listingId }, '', url);
+    }
     setCurItem(item);
     setBuyErr('');
     setBuyDeliveryEmail('');
@@ -1300,8 +1315,37 @@ export default function Page() {
   }, []);
   const closeBuy = useCallback(() => {
     setBuyOpen(false);
-    if (curItem.listingId) openDetail(curItem.listingId);
-  }, [curItem.listingId, openDetail]);
+    if (!curItem.listingId) return;
+    setPageView('browse');
+    setDetailId(curItem.listingId);
+    const url = new URL('/', window.location.origin);
+    url.searchParams.set('listing', curItem.listingId);
+    url.hash = 'browse';
+    window.history.pushState({ listing: curItem.listingId }, '', url);
+  }, [curItem.listingId]);
+
+  // A full-page checkout gets its own listing-specific URL. This also restores
+  // checkout after a refresh, while browser Back returns to the prior listing
+  // or catalogue state without changing any Stripe session behavior.
+  useEffect(() => {
+    if (!LAUNCHED || !pubListings.length) return;
+    function syncCheckoutFromUrl() {
+      const id = new URLSearchParams(window.location.search).get('checkout');
+      if (!id) {
+        setBuyOpen(false);
+        return;
+      }
+      const listing = pubListings.find((candidate) => candidate.id === id);
+      if (!listing) {
+        setBuyOpen(false);
+        return;
+      }
+      openBuy(checkoutItemForListing(listing), false, false);
+    }
+    syncCheckoutFromUrl();
+    window.addEventListener('popstate', syncCheckoutFromUrl);
+    return () => window.removeEventListener('popstate', syncCheckoutFromUrl);
+  }, [openBuy, pubListings]);
 
   function confirmBuyDeliveryEmail() {
     const email = buyDeliveryEmail.trim().toLowerCase();
@@ -2960,10 +3004,10 @@ export default function Page() {
           onClose={closeDetail}
           onOpenListing={openDetail}
           onUnlock={() => {
-            // Close first so the two overlays never stack: the scroll lock and
-            // the Escape chain both stay trivially correct that way.
+            // Hide the listing without adding a browse-only history entry.
+            // Browser Back from checkout can then restore this exact listing.
             const l = detailListing;
-            closeDetail();
+            setDetailId(null);
             openBuy({
               listingId: l.id,
               school: schoolShortName(headlineSchool(l)),
@@ -3647,6 +3691,16 @@ function publicListingTitle(listing: PublicListing): string {
   if (prompt) return prompt;
   const school = schoolShortName(headlineSchool(listing));
   return `${school} admission essay${listing.essays.length === 1 ? '' : ' collection'}`;
+}
+
+function checkoutItemForListing(listing: PublicListing): CheckoutItem {
+  return {
+    listingId: listing.id,
+    school: schoolShortName(headlineSchool(listing)),
+    price: listing.price || 0,
+    summary: publicListingTitle(listing),
+    essayCount: listing.essays.length,
+  };
 }
 
 function sameTitleText(a: string | null | undefined, b: string | null | undefined): boolean {
