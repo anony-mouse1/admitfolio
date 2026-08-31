@@ -1,5 +1,6 @@
 import 'server-only';
 import { prisma } from '@/lib/prisma';
+import { listingAdmissionClaims } from '@/lib/admitProof';
 import { sendListingDecisionNotification } from '@/lib/email';
 import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
 import { ensureListingOpeningLine } from '@/lib/openingLine';
@@ -22,28 +23,86 @@ export async function applyListingDecision(
   id: string,
   decision: 'approved' | 'rejected',
   note: string | null,
-  opts: { human?: boolean } = {},
+  opts: { human?: boolean; actorId?: string } = {},
 ): Promise<{ ok: true; status: string } | { ok: false; error: 'not_found' }> {
   const existing = await prisma.listing.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, sellerId: true },
   });
   if (!existing) return { ok: false, error: 'not_found' };
 
-  const listing = await prisma.listing.update({
-    where: { id },
-    data: {
-      status: decision,
-      // Only overwrite when a note was actually supplied - re-confirming a
-      // decision with an empty box shouldn't wipe the note you left last time.
-      ...(note ? { adminNote: note } : {}),
-      reviewedAt: new Date(),
-      ...(opts.human ? { humanReviewedAt: new Date() } : {}),
-    },
-    include: {
-      seller: { select: { email: true } },
-      essays: { select: { prompt: true, question: true } },
-    },
+  const reviewedAt = new Date();
+  const listing = await prisma.$transaction(async (tx) => {
+    const updated = await tx.listing.update({
+      where: { id },
+      data: {
+        status: decision,
+        // Only overwrite when a note was actually supplied - re-confirming a
+        // decision with an empty box shouldn't wipe the note you left last time.
+        ...(note ? { adminNote: note } : {}),
+        reviewedAt,
+        ...(opts.human ? { humanReviewedAt: reviewedAt } : {}),
+      },
+      include: {
+        seller: { select: { email: true } },
+        essays: { select: { prompt: true, question: true } },
+      },
+    });
+
+    // An admin approving any of a seller's essay listings approves that
+    // seller's admission claims too. This is seller-wide by design: there is
+    // no second acceptance-letter decision after the admin has signed off.
+    if (decision === 'approved' && opts.human) {
+      const sellerListings = await tx.listing.findMany({
+        where: { sellerId: existing.sellerId },
+        select: { admitTags: true, targetSchool: true },
+      });
+      const claimsByKey = new Map(
+        sellerListings
+          .flatMap((row) => listingAdmissionClaims(row.admitTags, row.targetSchool))
+          .map((claim) => [claim.schoolKey, claim] as const),
+      );
+      if (claimsByKey.size > 0) {
+        await tx.admitProof.createMany({
+          data: [...claimsByKey.values()].map((claim) => ({
+            sellerId: existing.sellerId,
+            schoolKey: claim.schoolKey,
+            schoolLabel: claim.schoolLabel,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      const proofs = await tx.admitProof.findMany({
+        where: { sellerId: existing.sellerId },
+        select: { id: true, version: true, status: true, adminNote: true },
+      });
+      const changingProofs = proofs.filter(
+        (proof) => proof.status !== 'verified' || proof.adminNote !== null,
+      );
+      if (changingProofs.length > 0) {
+        await tx.admitProof.updateMany({
+          where: { sellerId: existing.sellerId },
+          data: {
+            status: 'verified',
+            adminNote: null,
+            reviewedAt,
+          },
+        });
+        await tx.verificationDecision.createMany({
+          data: changingProofs.map((proof) => ({
+            proofId: proof.id,
+            proofVersion: proof.version,
+            actorType: 'admin',
+            actorId: opts.actorId || null,
+            status: 'verified',
+            note: 'Verified automatically with admin listing approval.',
+          })),
+        });
+      }
+    }
+
+    return updated;
   });
 
   // Populate the card hook before approval returns. This is best-effort: a

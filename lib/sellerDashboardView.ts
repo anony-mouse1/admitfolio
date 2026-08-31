@@ -6,7 +6,7 @@ import { sellerPayoutStatus } from './sellerPayoutStatus';
 import { connectedAccountStatus } from './sellerPayoutsCore';
 import { buildAdminPayoutSummary, summarizeSellerAccounting } from './sellerDashboardCore';
 import { summarizeBankPayouts } from './sellerBankPayoutCore';
-import { schoolKey } from './admitProof';
+import { isAdminApprovedListing, schoolKey } from './admitProof';
 import { sellerApplicationSchool } from './sellerApplications';
 import { schoolInfo } from './schools';
 import { schoolLogoSrc } from './schoolLogos';
@@ -150,6 +150,7 @@ export async function getSellerDashboardView(sellerId: string) {
   });
 
   const proofBySchool = new Map(seller.admitProofs.map((proof) => [proof.schoolKey, proof]));
+  const sellerHasApprovedListing = listings.some(isAdminApprovedListing);
   const applicationsByKey = new Map<string, SellerApplicationRecord>();
   for (const listing of listings) {
     const school = sellerApplicationSchool({
@@ -163,7 +164,9 @@ export async function getSellerDashboardView(sellerId: string) {
       : String(new Date(listing.createdAt).getFullYear());
     const key = `${schoolKey(school)}:${cycleLabel}`;
     const proof = proofBySchool.get(schoolKey(school));
-    const verificationStatus: SellerApplicationRecord['verificationStatus'] = proof?.status === 'verified'
+    const verificationStatus: SellerApplicationRecord['verificationStatus'] = sellerHasApprovedListing
+      ? 'verified'
+      : proof?.status === 'verified'
       ? 'verified'
       : proof?.status === 'rejected'
         ? 'needs_proof'

@@ -508,8 +508,8 @@ export default function AdminPage() {
     }
   }
 
-  // Verify or reject one acceptance letter. Separate from decide() below: this
-  // says whether an admit CLAIM is proven, not whether the listing is published.
+  // Optional early proof review. Approving the listing below is enough on its
+  // own and automatically verifies every acceptance letter for the seller.
   async function decideProof(proofId: string, status: 'verified' | 'rejected') {
     let note: string | undefined;
     if (status === 'rejected') {

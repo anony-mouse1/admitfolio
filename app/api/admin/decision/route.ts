@@ -5,7 +5,8 @@ import { applyListingDecision } from '@/lib/listingDecision';
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  if (!await currentAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const admin = await currentAdmin();
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { id?: string; decision?: string; note?: string };
   try {
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
   // humanReviewedAt and clears the listing off the audit queue.
   const result = await applyListingDecision(id, decision as 'approved' | 'rejected', note, {
     human: true,
+    actorId: admin.email,
   });
   if (!result.ok) {
     return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });

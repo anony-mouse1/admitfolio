@@ -6,7 +6,7 @@ const route = fs.readFileSync(new URL('../app/api/seller/proofs/route.ts', impor
 assert.match(route, /await currentSeller\(\)/, 'proof status must require an awaited seller session');
 assert.match(route, /where:\s*\{\s*email:\s*session\.email\s*\}/, 'proofs must be scoped to the signed-in seller');
 assert.doesNotMatch(route, /sellerId:\s*true/, 'the seller proof response must not expose seller IDs');
-assert.match(route, /canReplace:\s*status === 'rejected' \|\| !proof\.pdfPath/, 'rejected or missing proof should be uploadable');
+assert.match(route, /canReplace:\s*status !== 'verified' && \(status === 'rejected' \|\| !proof\.pdfPath\)/, 'only unverified rejected or missing proof should be uploadable');
 assert.match(route, /status === 'rejected' \? proof\.adminNote : null/, 'rejection notes must not leak across states');
 
 const uploadRoute = fs.readFileSync(
@@ -30,5 +30,8 @@ assert.match(reviewRunner, /verificationDecision\.create/, 'AI advice must appen
 const adminDecision = fs.readFileSync(new URL('../app/api/admin/admit-proof/route.ts', import.meta.url), 'utf8');
 assert.match(adminDecision, /actorId:\s*admin\.email/, 'human proof decisions must record the admin identity');
 assert.match(adminDecision, /proofVersion:\s*proof\.version/, 'human decisions must target one proof version');
+
+const listingApproval = fs.readFileSync(new URL('../app/api/admin/decision/route.ts', import.meta.url), 'utf8');
+assert.match(listingApproval, /actorId:\s*admin\.email/, 'automatic proof verification must record the approving admin');
 
 console.log('seller verification tests passed');

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
 import { authenticatedSeller } from '@/lib/authenticatedSeller';
-import { PROOF_LABEL, schoolKey, type ProofStatus } from '@/lib/admitProof';
+import { isAdminApprovedListing, PROOF_LABEL, schoolKey, type ProofStatus } from '@/lib/admitProof';
 import { parseAdmitTags } from '@/lib/listingSchool';
 import { matchesSellerApplication, sellerApplicationSchool } from '@/lib/sellerApplications';
 
@@ -19,8 +19,8 @@ type ProofRow = {
   pdfPath: string | null;
 };
 
-function shapeProof(proof: ProofRow) {
-  const status = proof.status as ProofStatus;
+function shapeProof(proof: ProofRow, sellerHasApprovedListing = false) {
+  const status = sellerHasApprovedListing ? 'verified' : (proof.status as ProofStatus);
   return {
     id: proof.id,
     school: proof.schoolLabel,
@@ -30,7 +30,7 @@ function shapeProof(proof: ProofRow) {
     reviewedAt: proof.reviewedAt,
     submittedAt: proof.createdAt,
     hasFile: Boolean(proof.pdfPath),
-    canReplace: status === 'rejected' || !proof.pdfPath,
+    canReplace: status !== 'verified' && (status === 'rejected' || !proof.pdfPath),
   };
 }
 
@@ -53,13 +53,19 @@ export async function GET() {
           pdfPath: true,
         },
       },
+      listings: {
+        select: { status: true, humanReviewedAt: true, aiDecision: true },
+      },
     },
   });
   if (!seller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   return NextResponse.json({
     ok: true,
-    proofs: seller.admitProofs.map(shapeProof),
+    proofs: seller.admitProofs.map((proof) => shapeProof(
+      proof,
+      seller.listings.some(isAdminApprovedListing),
+    )),
   });
 }
 
@@ -78,8 +84,16 @@ export async function POST(req: Request) {
 
   const listings = await prisma.listing.findMany({
     where: { sellerId: seller.id },
-    select: { school: true, targetSchool: true, admitTags: true },
+    select: {
+      school: true,
+      targetSchool: true,
+      admitTags: true,
+      status: true,
+      humanReviewedAt: true,
+      aiDecision: true,
+    },
   });
+  const sellerHasApprovedListing = listings.some(isAdminApprovedListing);
   const application = listings.find((listing) => matchesSellerApplication({
     school: listing.school,
     targetSchool: listing.targetSchool,
@@ -113,5 +127,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ ok: true, proof: shapeProof(proof) });
+  return NextResponse.json({ ok: true, proof: shapeProof(proof, sellerHasApprovedListing) });
 }

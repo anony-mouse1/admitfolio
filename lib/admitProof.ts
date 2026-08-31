@@ -1,12 +1,10 @@
 // Proof-of-admission: sellers upload an acceptance letter for every school they
 // claim on a listing.
 //
-// Why this exists: `Listing.admitTags` is free text a seller types, and nothing
-// checked it. The site tells buyers "100% verified admits" and "Every listing is
-// from a verified admit", but the only thing actually verified was control of a
-// .edu inbox - which is decent evidence the seller attends that university, and
-// no evidence at all for the other schools they claim. Those claims are the
-// headline a buyer shops by, so they need to be backed by something.
+// A seller can upload a letter for an admission claim while their listing is
+// pending. The final source of truth is admin approval of the seller's essays:
+// once any listing is approved, all of that seller's admission claims are
+// verified without a second acceptance-letter decision.
 
 /** Where a proof sits. `pending` is the only state a seller can create. */
 export type ProofStatus = 'pending' | 'verified' | 'rejected';
@@ -18,6 +16,17 @@ export const PROOF_PREFIX = 'admit-proofs';
 // Filler that carries no distinguishing information, so "Tufts" and "Tufts
 // University" collapse to one proof instead of asking for the same letter twice.
 const FILLER = /\b(the|university|universities|college|school|of|at|in)\b/g;
+
+export type ListingAdmissionClaim = {
+  schoolKey: string;
+  schoolLabel: string;
+};
+
+type ListingApprovalState = {
+  status: string;
+  humanReviewedAt?: Date | string | null;
+  aiDecision?: string | null;
+};
 
 /**
  * Canonical key for an admit claim, so a seller uploads one letter per school
@@ -43,20 +52,74 @@ export function schoolKey(name: string): string {
 }
 
 /**
+ * Return the distinct schools claimed by one listing, keeping a human label for
+ * proof rows and the normalized key used for matching.
+ */
+export function listingAdmissionClaims(
+  admitTags: string,
+  targetSchool?: string | null,
+): ListingAdmissionClaim[] {
+  let labels: string[] = [];
+  try {
+    const parsed: unknown = JSON.parse(admitTags);
+    if (Array.isArray(parsed)) labels = parsed.map(String);
+  } catch {
+    // A malformed legacy value has no trusted proof claims.
+  }
+  if (targetSchool) labels.push(targetSchool);
+
+  const claims = new Map<string, ListingAdmissionClaim>();
+  for (const rawLabel of labels) {
+    const schoolLabel = rawLabel.trim();
+    const key = schoolKey(schoolLabel);
+    if (!key || claims.has(key)) continue;
+    claims.set(key, { schoolKey: key, schoolLabel });
+  }
+  return [...claims.values()];
+}
+
+/**
  * Return only the proof keys claimed by one listing. Review jobs must never
  * load every admission document belonging to the seller because those files
  * can contain unrelated schools and sensitive personal information.
  */
 export function listingProofKeys(admitTags: string, targetSchool?: string | null): string[] {
-  let claims: string[] = [];
-  try {
-    const parsed: unknown = JSON.parse(admitTags);
-    if (Array.isArray(parsed)) claims = parsed.map(String);
-  } catch {
-    // A malformed legacy value has no trusted proof claims.
-  }
-  if (targetSchool) claims.push(targetSchool);
-  return [...new Set(claims.map(schoolKey).filter(Boolean))];
+  return listingAdmissionClaims(admitTags, targetSchool).map((claim) => claim.schoolKey);
+}
+
+/**
+ * New admin decisions stamp humanReviewedAt. Older listings predate that field,
+ * so an approved row without an AI approval marker is treated as legacy admin
+ * approval. A purely automated approval never verifies the whole seller.
+ */
+export function isAdminApprovedListing(listing: ListingApprovalState): boolean {
+  return listing.status === 'approved'
+    && (listing.humanReviewedAt != null || listing.aiDecision !== 'approved');
+}
+
+/** Admin approval of the essays is also approval of their admission claims. */
+export function resolvedProofStatus(
+  sellerHasApprovedListing: boolean,
+  proofStatus?: string | null,
+): ProofStatus | 'missing' {
+  if (sellerHasApprovedListing) return 'verified';
+  return PROOF_STATUSES.includes(proofStatus as ProofStatus)
+    ? proofStatus as ProofStatus
+    : 'missing';
+}
+
+/**
+ * Keep pending listings proof-based. Once the listing is approved, every claim
+ * is verified even when a legacy seller was never asked to upload a letter.
+ */
+export function verifiedAdmissionTags(
+  sellerHasAdminApproval: boolean,
+  admitTags: string[],
+  verifiedProofKeys: Iterable<string>,
+): string[] {
+  if (sellerHasAdminApproval) return [...admitTags];
+  const verified = new Set(verifiedProofKeys);
+  return admitTags.filter((tag) => verified.has(schoolKey(tag)));
 }
 
 /** Human label for a proof's state, used in the seller dashboard and console. */

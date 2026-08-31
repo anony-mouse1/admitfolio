@@ -4,7 +4,7 @@ import { currentAdmin } from '@/lib/adminAuth';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { supabaseAdmin, ESSAYS_BUCKET } from '@/lib/supabase';
 import { schoolTier } from '@/lib/pricing';
-import { schoolKey } from '@/lib/admitProof';
+import { isAdminApprovedListing, resolvedProofStatus, schoolKey } from '@/lib/admitProof';
 import { catalogSchool } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
@@ -66,6 +66,9 @@ export async function GET() {
   }
 
   // Shape a clean payload for the console (parse admitTags JSON, expose seller email).
+  const approvedSellerIds = new Set(
+    rows.filter(isAdminApprovedListing).map((listing) => listing.sellerId),
+  );
   const listings = rows.map((l) => {
     // The proofs relevant to THIS listing: one per distinct school it claims.
     // A claim with no row at all (every listing submitted before this feature
@@ -82,8 +85,8 @@ export async function GET() {
       return [{
         id: p?.id ?? null,
         school: label,
-        status: p ? p.status : 'missing',
-        adminNote: p?.adminNote ?? null,
+        status: resolvedProofStatus(approvedSellerIds.has(l.sellerId), p?.status),
+        adminNote: approvedSellerIds.has(l.sellerId) ? null : (p?.adminNote ?? null),
         pdfUrl: (p?.pdfPath && urlByPath.get(p.pdfPath)) || null,
         // What the review panel made of the letter. Advisory - it never sets
         // `status` - but it is the whole point of having the panel read them,

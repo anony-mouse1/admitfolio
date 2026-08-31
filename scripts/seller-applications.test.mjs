@@ -12,11 +12,13 @@ const view = fs.readFileSync(new URL('../lib/sellerDashboardView.ts', import.met
 assert.match(view, /applicationsByKey/, 'dashboard must group listings beneath shared applications');
 assert.match(view, /proofBySchool/, 'application verification must come from the related school proof');
 assert.match(view, /sellerApplicationSchool/, 'dashboard grouping must share its application-school resolver with mutations');
+assert.match(view, /sellerHasApprovedListing[\s\S]*\? 'verified'/, 'admin-approved sellers must be verified without another proof check');
 
 const proofsRoute = fs.readFileSync(new URL('../app/api/seller/proofs/route.ts', import.meta.url), 'utf8');
 assert.match(proofsRoute, /export async function POST/, 'a seller must be able to start verification for a legacy application');
 assert.match(proofsRoute, /sellerId_schoolKey/, 'starting verification must reuse the seller school proof');
 assert.match(proofsRoute, /matchesSellerApplication/, 'proof creation must be limited to an application owned by the seller');
+assert.match(proofsRoute, /seller\.listings\.some\(isAdminApprovedListing\)/, 'approved legacy sellers must see every proof as verified');
 
 const workspace = fs.readFileSync(new URL('../components/seller/SellerApplicationsWorkspace.tsx', import.meta.url), 'utf8');
 assert.doesNotMatch(workspace, /seller-start-verification/, 'the seller application workspace must not expose a verification action');

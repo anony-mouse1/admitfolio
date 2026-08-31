@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
-import { schoolKey } from '@/lib/admitProof';
+import { isAdminApprovedListing, verifiedAdmissionTags } from '@/lib/admitProof';
 import { publicDisplayName, normalizeAnonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline } from '@/lib/listingSchool';
 import { marketplaceIsLaunched } from '@/lib/launch';
@@ -55,9 +55,6 @@ export async function GET() {
           email: true,
           name: true,
           backgroundTags: true,
-          // Only verified letters leave the server. A pending or rejected proof
-          // is indistinguishable from no proof at all as far as buyers go.
-          admitProofs: { where: { status: 'verified' }, select: { schoolKey: true } },
         },
       },
       essays: { orderBy: { sortOrder: 'asc' }, select: { prompt: true, question: true, wordCount: true } },
@@ -65,10 +62,12 @@ export async function GET() {
   });
 
   const usedHooksBySeller = new Map<string, Set<string>>();
+  const adminApprovedSellerIds = new Set(
+    rows.filter(isAdminApprovedListing).map((listing) => listing.sellerId),
+  );
   const catalogRows = rows
     .filter((l) => !isAdminEmail(l.seller.email) && !TEST_EMAILS.has(l.seller.email.toLowerCase()))
     .flatMap((l) => {
-      const verifiedKeys = new Set(l.seller.admitProofs.map((p) => p.schoolKey));
       const admitTags = parseTags(l.admitTags);
       const targetSchool = catalogSchool({ school: l.school, targetSchool: l.targetSchool, admitTags });
       const headlineSchool = listingHeadline({
@@ -107,12 +106,14 @@ export async function GET() {
         headlineSchool,
         applicationSystem: l.applicationSystem,
         admitTags,
-        // The subset of admitTags backed by an acceptance letter a human checked.
-        // Sent as its own list rather than filtering admitTags, so the UI can show
-        // an unproven claim honestly instead of silently deleting it - every
-        // listing submitted before this feature has zero verified admits, and
-        // dropping their claims outright would gut the catalogue.
-        verifiedAdmitTags: admitTags.filter((t) => verifiedKeys.has(schoolKey(t))),
+        // Admin approval is the admission check. This intentionally covers
+        // legacy sellers who were approved before acceptance-letter uploads
+        // existed and therefore have no AdmitProof row.
+        verifiedAdmitTags: verifiedAdmissionTags(
+          adminApprovedSellerIds.has(l.sellerId),
+          admitTags,
+          [],
+        ),
         price: l.packagePrice,
         teaser,
         // The title excerpt comes from one of this listing's own PDFs. The

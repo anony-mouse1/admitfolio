@@ -50,9 +50,10 @@ model Seller {
 // `schoolKey` is a normalised form (see lib/admitProof.ts) so "Tufts" and
 // "Tufts University" are one proof rather than two.
 //
-// `pending` is the only status a seller can create. Only the admin console
-// moves a proof to `verified` or `rejected`, and only a `verified` proof lets
-// the public catalogue describe that admit as confirmed.
+// `pending` is the only status a seller can create. An admin can decide a proof
+// directly while a listing is pending, but approving any listing verifies all
+// admission claims for that seller. Approved legacy listings are also treated
+// as verified when read even if they predate this table.
 model AdmitProof {
   id                    String                 @id @default(cuid())
   seller                Seller                 @relation(fields: [sellerId], references: [id], onDelete: Cascade)

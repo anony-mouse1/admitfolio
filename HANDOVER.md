@@ -1,48 +1,46 @@
-# Handover: remove seller verification UI
+# Handover: admin approval verifies seller admissions
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/remove-seller-verification`
+Branch: `codex/auto-verify-acceptance`
 
-Base: `origin/main` at `41a39c4`.
-
-Worktree: `/private/tmp/admitfolio-remove-verification`
-
-The main worktree had unrelated uncommitted changes, so this work was isolated
-and did not alter them.
+Base: `origin/main` at `d2b1f14` (`Smooth the checkout page transition`).
 
 ## What changed
 
-- Removed the Admission verification section from the seller dashboard.
-- Removed verification status pills and start or upload verification buttons
-  from the application library.
-- Removed the now-unused seller proof fetch, upload state, and dashboard event
-  handlers.
-- Simplified shared application details to decision, class year, and school.
-- Kept the underlying admission-proof records, APIs, admin review, and proof
-  requirements during listing submission unchanged.
+- Admin approval of any seller listing is now the final admission-verification
+  decision for that seller.
+- The approval transaction creates missing acceptance-proof rows for all schools
+  the seller has claimed, marks every proof row verified, clears obsolete
+  rejection notes, and appends auditable admin decision records.
+- The approving admin email is attached to those automatic decisions.
+- Existing admin-approved sellers are treated as verified immediately on public,
+  seller-profile, seller-proof, and admin-console reads even when they never had
+  an acceptance-letter row. This avoids a production backfill.
+- Seller-wide verification applies to legacy admin approvals and current human
+  approvals. A purely automated essay-review approval does not grant it.
+- No visible UI layout or copy changed. Approved proof rows simply resolve to
+  the existing verified state, so no new mock-up was needed.
 
-## Database and production changes
+## Verification completed
 
-There is no migration, backfill, or production data write. The change is UI and
-client code only. Deploying `main` makes the simplified dashboard live.
-
-## Verification
-
-- `npm run lint`
-- `npm run test:seller-applications`
+- `npm run test:verification-flow`
 - `npm run test:seller-verification`
+- `npm run test:seller-applications`
 - `npm run test:seller-profile`
-- Direct Next.js production build with a build-only session secret and without
-  running `prisma migrate deploy`
-- Visible localhost mock-up showing the profile, performance, and applications
-  flowing together without a verification section
+- `npm run test:launch-hardening`
+- `npm run test:listing-schools`
+- `npm run test:opening-lines`
+- `npx tsc --noEmit`
+- Production-mode `next build --webpack` with build-only placeholder values.
 - `git diff --check`
 
-## What is left
+## Production status
 
-- Verify that the Vercel production deployment is Ready and that
-  `https://admitfolio.com/api/version` returns the final commit.
-- No manual database or backfill step is required.
+The change is implemented and verified only on this branch. It has not been
+pushed, merged, deployed, or run against the production database. No migration
+or hand-run backfill is required. Merge to `main`, wait for Vercel to report
+Ready, then verify `/api/version`, one legacy approved seller with no proof row,
+and one newly approved seller in the admin console.

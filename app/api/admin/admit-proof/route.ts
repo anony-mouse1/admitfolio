@@ -8,11 +8,9 @@ export const dynamic = 'force-dynamic';
 
 // POST { proofId, status: 'verified' | 'rejected', note? }
 //
-// The only path that can mark an acceptance letter verified. Deliberately
-// separate from the listing decision endpoint: a listing can be approved while
-// one of its admit claims is still unproven, and the two decisions carry
-// different weight - approving a listing publishes it, verifying a proof is
-// what lets the catalogue call that admit confirmed.
+// Optional direct proof review while a seller has no approved listing yet.
+// Approving any listing is the final source of truth and automatically verifies
+// every acceptance-letter record for that seller.
 export async function POST(req: Request) {
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
