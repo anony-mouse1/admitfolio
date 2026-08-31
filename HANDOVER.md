@@ -39,8 +39,7 @@ Base: `origin/main` at `d2b1f14` (`Smooth the checkout page transition`).
 
 ## Production status
 
-The change is implemented and verified only on this branch. It has not been
-pushed, merged, deployed, or run against the production database. No migration
-or hand-run backfill is required. Merge to `main`, wait for Vercel to report
-Ready, then verify `/api/version`, one legacy approved seller with no proof row,
-and one newly approved seller in the admin console.
+Implementation commit `67b49f8` was fast-forwarded to `main` and deployed by
+Vercel. The live `/api/version` endpoint returned the full implementation commit,
+and both the homepage and `/api/listings` returned HTTP 200. No migration,
+production database write, or hand-run backfill was required.
