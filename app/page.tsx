@@ -278,6 +278,14 @@ const listingTitle = (l: SellerListing) => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
+// Whole dollars only. Listing.packagePrice and Essay.price are Int columns, so
+// the server rounds anything finer and a seller who typed 29.50 was saved as 30
+// with nothing said. The caps are the wizard's, which the dashboard price
+// editors previously did not apply at all.
+const MAX_PACKAGE_PRICE = 399;
+const MAX_ESSAY_PRICE = 99;
+const wholeDollarHint = 'Whole dollars only, no cents.';
+
 // A listing with no package price is unpriced, not free. /api/listings filters
 // those rows out today, so this is a guard rather than a live case, but the
 // detail sheet said "Free" while the card said nothing, and "Free" is the worst
@@ -1159,6 +1167,10 @@ export default function Page() {
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
     else if (!separate && !packagePrice.trim()) msg = 'Set a package price.';
+    else if (!separate && !Number.isInteger(parseFloat(packagePrice))) msg = `${wholeDollarHint} Round to the nearest dollar.`;
+    else if (separate && rows.some((r) => !Number.isInteger(parseFloat(r.price)))) msg = `${wholeDollarHint} Round to the nearest dollar.`;
+    else if (!separate && parseFloat(packagePrice) > MAX_PACKAGE_PRICE) msg = `The most you can charge for one listing is $${MAX_PACKAGE_PRICE}.`;
+    else if (separate && rows.some((r) => parseFloat(r.price) > MAX_ESSAY_PRICE)) msg = `The most you can charge for one essay is $${MAX_ESSAY_PRICE}.`;
     else if (suggestedTier && !separate && parseFloat(packagePrice) < packageFloor(suggestedTier, rows.length)) msg = `Your ${TIER[suggestedTier].label} floor is $${packageFloor(suggestedTier, rows.length)}. You can charge that or more.`;
     else if (suggestedTier && separate && rows.some((r) => parseFloat(r.price) < perEssayFloor(suggestedTier))) msg = `Each essay's floor at ${TIER[suggestedTier].label} is $${perEssayFloor(suggestedTier)}. You can charge that or more.`;
 
@@ -2938,7 +2950,7 @@ export default function Page() {
                         }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
-                      <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={99} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
+                      <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={MAX_ESSAY_PRICE} step={1} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
                     </div>
                   );
                 })}
@@ -2985,8 +2997,8 @@ export default function Page() {
                 {essayRows.length > 1 ? `Your price (all ${essayRows.length} essays)` : 'Your price'}{' '}
                 <span className="floor-hint">{suggestedTier ? `(min $${packageFloor(suggestedTier, essayRows.length)})` : ''}</span>
               </label>
-              <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={399} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
-              <div className="field-hint">One price covers this whole listing. Buyers get every essay in it.</div>
+              <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={MAX_PACKAGE_PRICE} step={1} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
+              <div className="field-hint">One price covers this whole listing. Buyers get every essay in it. {wholeDollarHint}</div>
             </div>
 
             <div className="field">
@@ -4233,6 +4245,14 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
         setSaveErr(`Minimum for your tier is $${floor}.`);
         return;
       }
+      if (!Number.isInteger(p)) {
+        setSaveErr(`${wholeDollarHint} Round to the nearest dollar.`);
+        return;
+      }
+      if (p > MAX_PACKAGE_PRICE) {
+        setSaveErr(`The most you can charge for one listing is $${MAX_PACKAGE_PRICE}.`);
+        return;
+      }
       payload.packagePrice = p;
     } else {
       const prices: Record<string, number> = {};
@@ -4240,6 +4260,14 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
         const p = parseFloat(essayInputs[e.id]);
         if (isNaN(p) || p < floor) {
           setSaveErr(`Each essay needs a price of at least $${floor}.`);
+          return;
+        }
+        if (!Number.isInteger(p)) {
+          setSaveErr(`${wholeDollarHint} Round to the nearest dollar.`);
+          return;
+        }
+        if (p > MAX_ESSAY_PRICE) {
+          setSaveErr(`The most you can charge for one essay is $${MAX_ESSAY_PRICE}.`);
           return;
         }
         prices[e.id] = p;
@@ -4286,15 +4314,15 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
               {isPackage ? (
                 <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   Package price ($)
-                  <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                  <span>min ${floor}</span>
+                  <input type="number" min={floor} max={MAX_PACKAGE_PRICE} step={1} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                  <span>{`$${floor} to $${MAX_PACKAGE_PRICE}, whole dollars`}</span>
                 </label>
               ) : (
                 l.essays.map((e) => (
                   <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {(e.question || e.prompt).slice(0, 40)} ($)
-                    <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                    <span>min ${floor}</span>
+                    <input type="number" min={floor} max={MAX_ESSAY_PRICE} step={1} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                    <span>{`$${floor} to $${MAX_ESSAY_PRICE}, whole dollars`}</span>
                   </label>
                 ))
               )}
