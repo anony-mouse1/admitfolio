@@ -44,7 +44,7 @@
   .afl-unlock { position: relative; margin-left: auto; }
   .afl-ring { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid #7D1D2D; opacity: 0; }
   .afl-btn { background: #7D1D2D; color: #fff; border-radius: 999px; padding: 16px 34px; font-size: 17px; font-weight: 600; box-shadow: 0 16px 40px rgba(125,29,45,.38); }
-  .afl-badge img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; transform: scale(1.08); background: #fff; }
+  .afl-badge img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: contain; padding: 2px; background: #fff; }
   .afl-blur { filter: blur(5px); user-select: none; pointer-events: none; }
   .afl-scrim { position: absolute; inset: 0; background: rgba(20,18,15,.55); backdrop-filter: blur(4px); opacity: 0; }
   .afl-lockwrap { position: absolute; left: 50%; top: 50%; width: 200px; margin-left: -100px; margin-top: -130px; text-align: center; opacity: 0; }
@@ -76,7 +76,7 @@
     <div class="afl-scene" id="scC" style="opacity:0">
       <div class="afl-big" id="cCard">
         <div style="display:flex;align-items:center;gap:14px">
-          <div class="afl-badge" style="width:52px;height:52px;font-size:24px;color:#8C1515">S<img src="https://www.google.com/s2/favicons?domain=stanford.edu&sz=64" alt="" onerror="this.style.display='none'"></div>
+          <div class="afl-badge" style="width:52px;height:52px;font-size:24px;color:#8C1515">S<img src="/assets/schools/stanford.svg" alt="" onerror="this.style.display='none'"></div>
           <div>
             <div class="afl-serif" style="font-weight:700;font-size:25px;color:#1B1A17">Stanford</div>
             <div style="font-size:14.5px;color:#8A857B;margin-top:2px">Common App &middot; 9-essay package</div>
@@ -167,12 +167,31 @@
     { s: 'Stanford', d: 'stanford.edu', l: 'S', c: '#8C1515', m: 'Symbolic systems', h: 'I watched people through security cameras, studying their behavio\u2026', p: '$184', set: '9-essay set' },
     { s: 'Brown', d: 'brown.edu', l: 'B', c: '#4E3629', m: 'Literary arts', h: 'My grandmother\u2019s recipes were written in the margins.\u2026', p: '$72', set: '2-essay set' }
   ];
+  // Self-hosted marks, mirroring lib/schoolLogos.ts. These used to be fetched
+  // from Google's favicon service, which the site CSP blocks, so every badge
+  // logged an error and rendered bare. A school with no mark here keeps the
+  // monogram, which is the designed fallback.
+  var LOGOS = {
+    'harvard.edu': '/assets/schools/harvard.webp',
+    'yale.edu': '/assets/schools/yale.webp',
+    'mit.edu': '/assets/schools/mit.webp',
+    'upenn.edu': '/assets/schools/upenn.webp',
+    'princeton.edu': '/assets/schools/princeton.webp',
+    'duke.edu': '/assets/schools/duke.webp',
+    'stanford.edu': '/assets/schools/stanford.svg',
+    'brown.edu': '/assets/schools/brown.webp'
+  };
+  function logoImg(domain) {
+    var src = LOGOS[domain];
+    return src ? '<img src="' + src + '" alt="" onerror="this.style.display=\'none\'">' : '';
+  }
+
   var bCards = $('bCards');
   CARDS.forEach(function (c) {
     var d = document.createElement('div');
     d.className = 'afl-mini';
     d.style.left = (50 + (bCards.children.length % 2) * 400) + 'px';
-    d.innerHTML = '<div class="h"><div class="afl-badge" style="color:' + c.c + '">' + c.l + '<img src="https://www.google.com/s2/favicons?domain=' + c.d + '&sz=64" alt="" onerror="this.style.display=\'none\'"></div><span class="s">' + c.s + '</span></div>' +
+    d.innerHTML = '<div class="h"><div class="afl-badge" style="color:' + c.c + '">' + c.l + logoImg(c.d) + '</div><span class="s">' + c.s + '</span></div>' +
       '<div class="afl-major">' + c.m + '</div><div class="afl-hook">' + c.h + '</div>' +
       '<div class="f"><span class="afl-price">' + c.p + '</span><span class="afl-set">' + c.set + '</span><span class="afl-pill">Unlock</span></div>';
     bCards.appendChild(d);
