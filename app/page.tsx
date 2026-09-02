@@ -199,6 +199,14 @@ type SellerPayouts = {
   };
 };
 
+// What the wizard is being opened to do. It used to take a `preferredDraftId`
+// that three of its four callers passed as '', which fell through to "whichever
+// draft was saved most recently" and silently discarded the school that was
+// clicked. Saying which of the two things is wanted removes the guess.
+type SellWizardTarget =
+  | { mode: 'new'; prefillSchool?: string }
+  | { mode: 'resume'; draftId: string };
+
 type SellerDraftSummary = {
   id: string;
   step: number;
@@ -552,6 +560,9 @@ export default function Page() {
   const [wlOpen, setWlOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
+  // True while the sell wizard was launched from the seller dashboard, so
+  // closing it returns there rather than to the public homepage.
+  const [cameFromDashboard, setCameFromDashboard] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
 
@@ -715,6 +726,9 @@ export default function Page() {
   }, []);
 
   const fullResetSell = useCallback(() => {
+    // The step is part of the reset. Leaving it behind meant the next open
+    // flashed whatever pane the previous one ended on.
+    setSellStep(1);
     setEduEmail('');
     setEmailErr('');
     setCode(['', '', '', '', '', '']);
@@ -835,6 +849,7 @@ export default function Page() {
     setLoginOpen(false);
     setDashOpen(false);
     fullResetSell();
+    setCameFromDashboard(false);
     setSellStep(1);
     setSellOpen(true);
     setTimeout(() => eduEmailRef.current?.focus(), 60);
@@ -844,7 +859,15 @@ export default function Page() {
     void flushSellerDraft();
     setSellOpen(false);
     fullResetSell();
-  }, [fullResetSell]);
+    // Put the dashboard back. openSellFromDashboard closes it and nothing used
+    // to restore it, so finishing or cancelling dropped the seller on the
+    // public marketing page with their session cookie still valid, which reads
+    // as having been logged out.
+    if (cameFromDashboard) {
+      setCameFromDashboard(false);
+      setDashOpen(true);
+    }
+  }, [fullResetSell, cameFromDashboard]);
 
   // From the dashboard the seller is already authenticated (session cookie),
   // so skip email/OTP/password and start at the school step. The server
@@ -852,8 +875,7 @@ export default function Page() {
   async function openSellFromDashboard(
     email: string,
     lastSchool: string,
-    prefillSchool = '',
-    preferredDraftId = '',
+    target: SellWizardTarget,
     profileGraduationYear = '',
   ) {
     setResumableDraft(null);
@@ -861,30 +883,40 @@ export default function Page() {
     fullResetSell();
     setVerifiedEmail(email);
     setCurrentUni(lastSchool);
+    setCameFromDashboard(true);
+    // Step 4 before the modal opens, never after. The drafts fetch below picks
+    // between 4 and 5, but it only resolves once the modal is already on
+    // screen, and step 1 is "Verify you're a student", which reads as a forced
+    // logout to a seller who is signed in.
+    setSellStep(4);
     setSellOpen(true);
+
+    if (target.mode === 'new') {
+      const prefillSchool = target.prefillSchool || '';
+      await createSellerDraft({
+        currentUniversity: lastSchool,
+        graduationYear: profileGraduationYear,
+        targetSchool: prefillSchool,
+        admits: prefillSchool ? [prefillSchool] : [],
+      });
+      if (prefillSchool) {
+        setListingSchool(prefillSchool);
+        setAdmits([prefillSchool]);
+      }
+      setGraduationYear(profileGraduationYear);
+      setTimeout(() => uniRef.current?.focus(), 60);
+      return;
+    }
+
     try {
       const resp = await fetch('/api/seller/drafts');
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; drafts?: SellerDraftSummary[] };
-      const draft = resp.ok && data.ok
-        ? data.drafts?.find((item) => item.id === preferredDraftId) || data.drafts?.[0]
-        : undefined;
-      if (!draft) {
-        const initialState = {
-          currentUniversity: lastSchool,
-          graduationYear: profileGraduationYear,
-          targetSchool: prefillSchool,
-          admits: prefillSchool ? [prefillSchool] : [],
-        };
-        await createSellerDraft(initialState);
-        if (prefillSchool) {
-          setListingSchool(prefillSchool);
-          setAdmits([prefillSchool]);
-        }
-        setGraduationYear(profileGraduationYear);
-        setSellStep(4);
-        setTimeout(() => uniRef.current?.focus(), 60);
-        return;
-      }
+      if (!resp.ok || !data.ok) throw new Error('Could not load your saved draft. Check your connection and try again.');
+      // Exactly the draft that was asked for. There is deliberately no fallback
+      // to the most recent one: opening a different listing than the one the
+      // seller clicked is worse than saying it is gone.
+      const draft = data.drafts?.find((item) => item.id === target.draftId);
+      if (!draft) throw new Error('That saved draft is no longer available. It may already have been submitted.');
 
       const state = draft.state || {};
       const stateAdmits = Array.isArray(state.admits) ? state.admits.map(String) : [];
@@ -934,9 +966,15 @@ export default function Page() {
       })));
       setDraftSaveLabel('Draft restored');
       setSellStep(Math.max(4, Math.min(5, draft.step)));
-    } catch {
-      await createSellerDraft({ currentUniversity: lastSchool });
-      setSellStep(4);
+    } catch (error) {
+      // Deliberately no replacement draft. Creating one here meant a network
+      // blip while opening "Resume application" silently started a blank
+      // listing and left the real draft sitting untouched behind it.
+      setSellOpen(false);
+      setCameFromDashboard(false);
+      fullResetSell();
+      setDashOpen(true);
+      setDashErr(error instanceof Error ? error.message : 'Could not load your saved draft.');
     }
   }
 
@@ -1892,8 +1930,7 @@ export default function Page() {
     void openSellFromDashboard(
       sellerEmail,
       profCurrentUniversity || listings[0]?.school || '',
-      application?.school || '',
-      '',
+      { mode: 'new', prefillSchool: application?.school || '' },
       profGraduationYear,
     );
   }
@@ -1940,7 +1977,7 @@ export default function Page() {
       const response = await fetch(`/api/seller/listings/${listingId}/revision`, { method: 'POST' });
       const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; draft?: { id: string } };
       if (!response.ok || !data.ok || !data.draft) throw new Error(data.error || 'Could not open this listing for changes.');
-      await openSellFromDashboard(sellerEmail, listing.school, '', data.draft.id, profGraduationYear);
+      await openSellFromDashboard(sellerEmail, listing.school, { mode: 'resume', draftId: data.draft.id }, profGraduationYear);
     } catch (error) {
       setDashErr(error instanceof Error ? error.message : 'Could not open this listing for changes.');
     }
@@ -3273,6 +3310,8 @@ export default function Page() {
                 onClick={() => openSellFromDashboard(
                   sellerEmail,
                   String(resumableDraft.state.currentUniversity || listings[0]?.school || ''),
+                  { mode: 'resume', draftId: resumableDraft.id },
+                  profGraduationYear,
                 )}
               >
                 Resume application
