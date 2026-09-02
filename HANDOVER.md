@@ -1,132 +1,150 @@
-# Handover: bug-fix programme, batch 2 of 6
+# Handover: bug-fix programme, batch 3 of 6
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `ritvik/fix-wrong-data-shown`
+Branch: `ritvik/fix-listing-wizard`
 
-Base: `ritvik/fix-copy-and-cosmetics` at `0d9818f`, which is open as PR #75 and
-itself sits on `origin/main` at `dd48801`.
-
-Batches are stacked rather than opened independently off `main`, because batches
-1 to 5 all edit `app/page.tsx`.
+Base: `ritvik/fix-wrong-data-shown` at `8eb3bff`, open as PR #76, which sits on
+`ritvik/fix-copy-and-cosmetics` (PR #75), which sits on `origin/main` at
+`dd48801`.
 
 ## What changed
 
-Every item here was a case of the UI stating something untrue.
+Two root causes, fixed as root causes rather than symptom by symptom.
 
-- **Pending and unknown money no longer render as `$0.00`.** A purchase whose
-  Stripe fee has not settled is counted as a sale but excluded from every
-  accounted total, so a seller whose only sale was pending saw "1 sale" beside
-  "$0.00". Those figures now read "Pending". Figures the API never sent read
-  "Not available".
-- **An unknown Stripe fee is null, not zero.** When `/api/seller/listings` omits
-  any of the eight accounting fields the client falls back to derived math.
-  It used to print a literal `$0.00` Stripe fee, so the breakdown reconciled
-  against a number nobody sent. Net earnings had the same defect in reverse: the
-  fallback was 60% of gross, which overstates the payout by the entire Stripe
-  fee on every checkout that passes it to the seller. Both are now null.
-- **Two spellings of one school collapse to one.** `collegeAdmitTags` now
-  de-duplicates with `sameSchool`, the same resolver `addAdmit` uses at entry, so
-  entry and render finally agree. This fixes the card line and the detail-sheet
-  chips at one point. Measured against live data: 5 of 192 listings carry a
-  duplicate spelling, 7 duplicate names in total, across Duke, NYU, Penn State,
-  Rutgers, UNC Chapel Hill and UPenn. "Penn State" correctly stays separate from
-  "University of Pennsylvania".
-- **An unpriced listing is called unpriced, not free.** The detail sheet said
-  "Free", the card said nothing, and the checkout modal said nothing. All five
-  display sites now share one `priceLabel` helper. Unreachable today because
-  `/api/listings` filters `packagePrice: { not: null }`, so this is a guard.
-- **Prices are whole dollars, within one range.** `packagePrice` and
-  `Essay.price` are `Int` columns, so the server rounded 29.50 to 30 silently.
-  All four price inputs now carry `step={1}`, a visible "Whole dollars only, no
-  cents." hint, and a client-side guard. The wizard capped at 99 per essay and
-  399 per package while the dashboard editors had no upper bound at all; both
-  now share the same named constants. Accepting real cents would be a schema
-  change and is Fatimah's call, so it was not done.
-- **`isAdminApprovedListing` is no longer handed a row with its own inputs
-  stripped out.** `lib/sellerDashboardView.ts` dropped `humanReviewedAt` and
-  `aiDecision` when mapping listings for the client, so the predicate collapsed
-  to `status === 'approved'` and every AI-auto-approved listing granted
-  seller-wide verification, contradicting the contract at `lib/admitProof.ts:93`.
-  The predicate now reads the unmapped Prisma rows, which still carry both
-  fields, and the seller-facing payload keeps no review internals.
-  `ListingApprovalState` is exported and both fields are required, so a caller
-  cannot silently drop them again.
-- **The hero embed serves its school marks from our own assets.**
-  `public/hero-loop-embed.html` requested ten marks from Google's favicon
-  service. CSP blocked every one, so the homepage logged 20 console errors per
-  load and the badges rendered bare. Eight of the nine schools have a
-  self-hosted mark; Columbia has none and keeps its monogram, which is the
-  designed fallback. The badge image styling now mirrors `.badge-logo-hires`
-  from `app/globals.css`, which is what `LogoBadge` actually renders.
-- **`scripts/logo-assets.test.mjs` now enforces the no-remote-marks rule across
-  the tree**, not just against `LogoBadge.tsx`. It scans 136 files under `app/`,
-  `components/`, `lib/` and `public/*.html` for favicon and logo services and
-  for remote `<img>` sources. Verified by reintroducing the favicon URL and
-  watching the test fail, then restoring it.
+### The wizard was bound to whichever draft was newest
+
+`openSellFromDashboard` took a `preferredDraftId` that three of its four callers
+passed as `''`, which fell through to `drafts[0]`. With any saved draft present,
+every "add" button reopened it and silently discarded the school that was
+clicked. It also opened the modal before knowing what it was opening.
+
+- The argument is replaced by an explicit `SellWizardTarget`, either
+  `{ mode: 'new', prefillSchool }` or `{ mode: 'resume', draftId }`. There is no
+  fallback: a resume that cannot find its draft says so instead of opening a
+  different listing. The type checker found all three call sites.
+- `sellStep` is set to 4 before the modal is shown. It used to be set only after
+  the drafts fetch resolved, so the wizard opened on step 1, "Verify you're a
+  student", which reads as a forced logout to a signed-in seller.
+  `fullResetSell` now resets the step as well, so a later open cannot flash the
+  pane the previous one ended on.
+- Closing the wizard reopens the dashboard it was launched from. It used to close
+  the dashboard and never restore it, dropping the seller on the public
+  marketing page with their session cookie still valid.
+- A failed drafts fetch now reports the failure and returns to the dashboard. It
+  used to create a replacement draft, so a network blip while opening "Resume
+  application" started a blank listing with no error and left the real draft
+  behind.
+
+### The client validated a browser File, the server validated DraftAsset rows
+
+The draft submit path never sends the file, so any disagreement was
+unrecoverable without re-picking.
+
+- Submit validation is now path-aware. With a draft id the finalize route reads
+  staged `DraftAsset` rows, so that is what is checked; without one the direct
+  route uploads the browser `File`, so that is what is checked. Both essay rows
+  and acceptance-proof rows.
+- A failed staging upload is surfaced at the moment it happens. Both upload
+  handlers set the filename before awaiting `stageDraftAsset`, so a failed upload
+  left the row rendering as attached and passing validation. The row is now
+  cleared and an error is shown.
+- The revision route only claims a source essay when `finalize` can actually
+  accept it, which needs both `pdfPath` and `contentHash`. Legacy rows predate
+  `contentHash`, so claiming them produced a row that looked attached, passed
+  the client, and was rejected on submit.
+- Restored filenames use the generic label. `storedFileName` used to return the
+  last path segment when it ended in `.pdf`, which surfaced `<essayId>.pdf` for
+  legacy rows and a roughly 100 character hash for current uploads. The seller's
+  own filename lives on `DraftAsset.fileName` and has no equivalent on `Essay`.
+
+## The number that matters
+
+A read-only count against production, aggregates only:
+
+| | |
+|---|---|
+| essays total | 687 |
+| essays with no `contentHash` | **590** |
+| essays with no `pdfPath` | 14 |
+| rejected or removed listings | 29 |
+| of those, every essay unusable for reuse | **28** |
+
+So 28 of the 29 revisable listings will now ask the seller to re-upload every
+essay. That is the honest state, and it is strictly better than the old
+behaviour, where those same listings passed client validation and were then
+rejected on submit with "Upload a PDF for every essay before submitting" and no
+way to recover. But it is a visible change for those sellers.
+
+**`scripts/backfill-essay-content-hashes.mjs` would remove the need entirely**
+by hashing the stored PDFs. That is a production write and a hand-run step the
+deploy will not do, so it needs Fatimah's approval. Worth asking before this
+batch merges.
+
+Two other counts taken at the same time, for later batches: 238 of 263 listings
+have a null `gradYear`, and 141 have a null `targetSchool` with more than one
+admit, which is the population getting the "seller attends" headline.
 
 ## Verification completed
 
-- `npx tsc --noEmit`
+- `npx tsc --noEmit`. The type change to `openSellFromDashboard` is what located
+  all three callers.
 - All 24 `test:*` scripts pass.
 - `npx next build` with a build-only placeholder `SESSION_SECRET`.
-- `node scripts/verify-wrong-data-shown.mjs` against local `next dev` and
-  headless Chrome: hero embed renders 9 marks with zero remote sources, zero
-  broken images and zero CSP errors, where the same page previously logged 20;
-  24 catalogue cards with no repeated school on any admit line; the detail sheet
-  showing three distinct admit chips; the word "Free" absent; and zero console
-  errors and zero failed requests of any kind.
-- A read-only scan of the live catalogue to size the duplicate-spelling fix.
-  Counts only, no listing content recorded.
+- `node scripts/verify-listing-wizard.mjs`, 18 assertions over the changed
+  source.
+- `scripts/verify-copy-and-cosmetics.mjs` and `scripts/verify-wrong-data-shown.mjs`
+  both re-run against local `next dev` and headless Chrome as regressions, both
+  passing.
 - `git diff --check`, and zero em dashes added to site copy.
 
-Not verified in a browser: everything behind the seller login, which is the
-money rendering and the price inputs. Those are asserted against the source in
-the same script. A signed-in check needs a seller session against the production
-database and was not attempted.
+**Not verified in a browser, and this is the weak point of the batch.** The whole
+wizard sits behind the seller login. Driving it would mean authenticating against
+the production database, which this work is not allowed to do, so every flow
+change here is asserted against the source instead. The four flows worth a human
+walkthrough before merge are: clicking "+ Add an application" with a saved draft
+present, cancelling out of the wizard and landing back on the dashboard, opening
+"Fix and resubmit" on a rejected listing, and picking an essay file while offline.
+
+## One test assertion was changed, not just added
+
+`scripts/seller-revision.test.mjs` pinned the literal `sourceEssayId: essay.id`,
+which the fix necessarily breaks. It is replaced with two assertions that are
+strictly more specific: that a reusable essay still references its source, and
+that reusability is defined as having both the things `finalize` requires. The
+original intent is preserved.
 
 ## What is left
 
-3. The listing wizard: every "add" entry point reopening the newest draft, the
-   wizard opening on the signed-out pane, the dashboard never being restored,
-   and the client validating a browser `File` while the server validates
-   `DraftAsset` rows.
-4. Controls rendering far from the button that opened them.
+4. Controls rendering far from the button that opened them (items 20, 22, 23).
+   Item 22 is a client-side fix: `updateMany` is required to stay by
+   `scripts/seller-applications.test.mjs`, and the real bug is the client
+   patching state by a group key the save has just invalidated.
 5. Confirmations on the destructive actions, none of which currently ask.
-6. Blocked. See below.
+6. Blocked on a product decision. See below.
 
 ## Blocked, needs a decision
 
-**Batch 6 (the seller verification surfaces) is a product decision, not a bug.**
-The seller verification UI was deliberately removed in `a7f14e6`, and
-`scripts/seller-applications.test.mjs` holds three assertions that fail if it
-returns: no `seller-start-verification` and no `onStartVerification` in the
-workspace, and no `id="seller-verification"` in `app/page.tsx`. The likely reason
-is `67b49f8`, which made admin approval verify every admission a seller claims.
-That reasoning does not cover the case the audit raises: a seller whose
-acceptance letter is rejected still has no surface showing the admin's note and
-no way to replace the file, even though `POST /api/seller/proofs/[id]/upload`
-exists and works.
-
-The prerequisite from batch 2 is now done, so batch 6 is blocked only on that
-decision.
+**Batch 6, the seller verification surfaces, is a product decision.** The UI was
+deliberately removed in `a7f14e6` and `scripts/seller-applications.test.mjs`
+holds three assertions that fail if it returns. The likely reason is `67b49f8`,
+which made admin approval verify every admission a seller claims. That does not
+cover the case the audit raises: a seller whose acceptance letter is rejected has
+no surface showing the admin's note and no way to replace the file, though
+`POST /api/seller/proofs/[id]/upload` exists and works.
 
 ## Found but not fixed
 
-- **`verificationLabel` can contradict `verificationStatus`.**
-  `lib/sellerDashboardView.ts` can set the label to "Proof needs an update" on an
-  application whose status is `verified`, because the two are computed from
-  different sources. Invisible today since nothing renders verification state,
-  and it becomes visible the moment batch 6 lands.
-- **The per-application verification values are computed inside the grouping
-  loop but only kept for the first listing in a group.** Later listings recompute
-  and discard them. Same blast radius as above.
-- **`Number.isInteger` is a client-side guard only.** The server still rounds.
-  `lib/sellerDraft.ts` and `app/api/seller/listing-price/route.ts` were left
-  alone because changing them without changing the `Int` columns would only move
-  where the silent rounding happens.
+- **The essay-price input is vestigial in the wizard.** `app/page.tsx:601` notes
+  that `'separate'` pricing survives only in the API and dashboard, so the
+  per-essay price field inside each wizard row can never be reached.
+- `verificationLabel` can contradict `verificationStatus`, and the per-application
+  verification values are computed inside the grouping loop but kept only for the
+  first listing in each group. Both invisible until batch 6.
+- The whole-dollar guard from batch 2 is client-side only; the server still
+  rounds. Fixing it properly means changing the `Int` columns.
 
 ## Environment
 
@@ -134,6 +152,8 @@ decision.
 for this work; writes are not. `DIRECT_URL` is currently populated, so the
 `prisma migrate` interlock described in the local notes is not in effect. Never
 run `npm run build` (it applies migrations), `npm run db:push`, or
-`npm run db:studio`. No production write, migration, or backfill was made.
-`next dev` re-appends a generated block to `AGENTS.md` on every start; it is
-reverted rather than committed, pending Fatimah's call.
+`npm run db:studio`. A bare node script does not load `.env.local`; the
+read-only counts above were taken with `node --env-file=.env.local`. No
+production write, migration, or backfill was made. `next dev` re-appends a
+generated block to `AGENTS.md` on every start; it is reverted rather than
+committed, pending Fatimah's call.
