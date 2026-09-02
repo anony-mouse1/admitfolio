@@ -1,206 +1,68 @@
-# Handover: bug-fix programme, batch 3 of 6
+# Handover: bug-fix programme, batch 4 of 6
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `ritvik/fix-listing-wizard`
+Branch: `ritvik/fix-misplaced-controls`
 
-Base: `ritvik/fix-wrong-data-shown` at `8eb3bff`, open as PR #76, which sits on
-`ritvik/fix-copy-and-cosmetics` (PR #75), which sits on `origin/main` at
-`dd48801`.
+Base: `ritvik/remove-revise-path` (#78), on `ritvik/fix-listing-wizard` (#77),
+on `ritvik/fix-wrong-data-shown` (#76), on `ritvik/fix-copy-and-cosmetics`
+(#75), on `origin/main` at `dd48801`.
 
 ## What changed
 
-Two root causes, fixed as root causes rather than symptom by symptom.
+Items 20, 22 and 23. Item 21 stays report-only.
 
-### The wizard was bound to whichever draft was newest
+- **The outcome editor renders inside the application card that opened it.** It
+  used to render immediately before `SellerApplicationsWorkspace`, so pressing
+  "Edit outcome" put the form above the hero, the profile card, the section
+  header and every application card, with no scroll into view. It now replaces
+  the read-only facts row in the same "Shared application details" block, and
+  the topline button becomes Cancel while editing.
+- **The listing price panel opens under its own row.** It used to be a
+  `ListingCard` rendered after the entire workspace. It is now
+  `components/seller/ListingPricePanel.tsx`, rendered inside the listing row,
+  and the button that opened it becomes Close. It keeps what the old card
+  showed: the sales count and the added date.
+- **Saving a class year refetches instead of patching by key.** The save writes
+  `gradYear` across every listing for that school, `gradYear` feeds
+  `cycleLabel`, and `cycleLabel` is half the application group key, so the key
+  the client held was invalidated by the request that had just succeeded.
+  Groups merged or split on some later reload rather than on save. The
+  `updateMany` is unchanged and still required by
+  `scripts/seller-applications.test.mjs`; only the client changed.
 
-`openSellFromDashboard` took a `preferredDraftId` that three of its four callers
-passed as `''`, which fell through to `drafts[0]`. With any saved draft present,
-every "add" button reopened it and silently discarded the school that was
-clicked. It also opened the modal before knowing what it was opening.
+Both editors are driven by props rather than slots, which is the convention in
+this codebase. That meant `SellerApplicationListing` gained the fields the price
+panel needs, and `lib/sellerDashboardView.ts` now resolves the tier floor
+server-side rather than shipping the pricing tables to the client.
 
-- The argument is replaced by an explicit `SellWizardTarget`, either
-  `{ mode: 'new', prefillSchool }` or `{ mode: 'resume', draftId }`. There is no
-  fallback: a resume that cannot find its draft says so instead of opening a
-  different listing. The type checker found all three call sites.
-- `sellStep` is set to 4 before the modal is shown. It used to be set only after
-  the drafts fetch resolved, so the wizard opened on step 1, "Verify you're a
-  student", which reads as a forced logout to a signed-in seller.
-  `fullResetSell` now resets the step as well, so a later open cannot flash the
-  pane the previous one ended on.
-- The wizard now layers over the dashboard instead of closing it. The dashboard
-  is a full-page fixed overlay at `z-index: 200` and `.modal-overlay` is 100,
-  which is why the original code closed it: the wizard would otherwise render
-  underneath. A scoped `.modal-overlay.over-dash { z-index: 300 }` lifts only
-  the sell wizard, and only when it was launched from the dashboard, so the
-  other three modals keep their stacking. The page behind the wizard no longer
-  changes at all. Escape now closes the wizard before the dashboard beneath it.
-- Closing the wizard reloads the dashboard in place. An earlier version of this
-  fix reopened the dashboard without refetching, which left `resumableDraft`
-  null and made the "Resume your application" banner disappear after any trip
-  through the wizard. Reloading also picks up a listing that was just submitted.
-- Opening a listing for changes is guarded and shows its progress. It posts a
-  revision and then reads the drafts back, roughly three seconds, and the button
-  stayed enabled throughout, so it could be clicked repeatedly and each click
-  started another revision. The button now reads "Opening…", is disabled while
-  the work is in flight, and a second call returns immediately.
-- A failed drafts fetch now reports the failure and returns to the dashboard. It
-  used to create a replacement draft, so a network blip while opening "Resume
-  application" started a blank listing with no error and left the real draft
-  behind.
-
-### The client validated a browser File, the server validated DraftAsset rows
-
-The draft submit path never sends the file, so any disagreement was
-unrecoverable without re-picking.
-
-- Submit validation is now path-aware. With a draft id the finalize route reads
-  staged `DraftAsset` rows, so that is what is checked; without one the direct
-  route uploads the browser `File`, so that is what is checked. Both essay rows
-  and acceptance-proof rows.
-- A failed staging upload is surfaced at the moment it happens. Both upload
-  handlers set the filename before awaiting `stageDraftAsset`, so a failed upload
-  left the row rendering as attached and passing validation. The row is now
-  cleared and an error is shown.
-- The revision route only claims a source essay when `finalize` can actually
-  accept it, which needs both `pdfPath` and `contentHash`. Legacy rows predate
-  `contentHash`, so claiming them produced a row that looked attached, passed
-  the client, and was rejected on submit.
-- Restored filenames use the generic label. `storedFileName` used to return the
-  last path segment when it ended in `.pdf`, which surfaced `<essayId>.pdf` for
-  legacy rows and a roughly 100 character hash for current uploads. The seller's
-  own filename lives on `DraftAsset.fileName` and has no equivalent on `Essay`.
-
-## The backfill was run
-
-`scripts/backfill-essay-content-hashes.mjs --confirm` was run against production
-on 2026-09-02 with Fatimah's written authorization, relayed by Ritvik. It is the
-only production write of this engagement. It sets `Essay.contentHash` and
-nothing else, on rows where `pdfPath IS NOT NULL AND contentHash IS NULL`, so it
-cannot overwrite an existing hash and is safe to rerun.
-
-Result: **576 files downloaded, 576 hashed, 0 failed, 576 hashes written.**
-
-**This stands on its own, whatever happens to the seller-facing revise path.**
-`Essay.contentHash` is what lets the server tell one uploaded file from another
-at all. It backs the duplicate rule in all three submit routes, the admin
-console's duplicate-file flag, and any future support-side re-listing, none of
-which involve a seller pressing a button. Fatimah's decision to remove the
-seller-facing edit path does not undo or reduce the value of the backfill: it
-fixes the same class of problem server-side, one layer below the UI.
-
-| | before | after |
-|---|---|---|
-| essays with a null `contentHash` | 590 | **14** |
-| revisable listings with no reusable essay | 28 of 29 | **1 of 29** |
-
-The 14 remaining are exactly the rows that have no `pdfPath` at all, so there is
-nothing to hash and no rerun will help them: 10 sit in pending listings and 4 in
-one rejected listing, which is the single remaining unusable one. `SUPABASE_URL`
-had to be corrected from a Proofpoint-wrapped link to the bare project URL first,
-or every download would have failed.
-
-The script reported 11 exact duplicate groups covering 37 essay rows in pending
-or approved listings. Ten of the eleven span two different listings, which
-turned out to be a product defect rather than seller error. See below.
-
-## The duplicate rule blocked the ordinary shape of an application
-
-Investigating those duplicate groups turned up a real defect, raised by Ritvik.
-The seller-side check refused the same PDF in any two of a seller's active
-listings. But one Common App personal statement is genuinely submitted to every
-school on the application, so a seller with a Harvard package and a Yale package
-has to put the same file in both. The rule forbade the thing the product exists
-to sell.
-
-It was not hypothetical: of the 11 duplicate groups already live, **10 span two
-different listings**, which is exactly this pattern. They only got in because
-hashes did not exist yet. Going forward the rule blocked every new one, and any
-of those ten sellers who revised an affected listing would have hit a 409 they
-could not act on.
-
-The rule is now scoped to the college rather than the seller. The same file in
-two packages for different colleges is allowed; twice for the same college is
-still refused, because a buyer comparing those two packages would pay twice for
-one essay. The same-file-twice-within-one-package check is unchanged.
-
-This is a product decision as much as a fix, so it is called out prominently in
-PR #77 for Fatimah rather than buried: it changes what a buyer can be sold.
-The deeper question, what a buyer who owns two overlapping packages should pay,
-is untouched and is the real follow-up.
-
-Implementation notes:
-
-- The rule lives in `lib/essayDuplication.ts` and all three enforcement points
-  call it (`drafts/[id]/finalize`, `submit-listing`, `upload-essay`). They
-  previously carried three separately worded copies of the same logic, which is
-  the same drift that made the client and server disagree about attached files.
-- Both sides resolve through `lib/schools` rather than comparing strings, so
-  "Penn State" stays separate from "University of Pennsylvania" and
-  "Harvard College" still matches "Harvard University".
-- A legacy listing with no explicit `targetSchool` and several admits has no
-  single college, so it conflicts with any school it claims. An unresolvable
-  college on the incoming side keeps the older, stricter answer.
-- `scripts/essay-duplication.test.mjs` (`npm run test:essay-duplication`)
-  executes the module against all of those cases, and also asserts that all
-  three routes go through it and that none keeps the old message.
-
-## The number that mattered before the backfill
-
-A read-only count against production, aggregates only:
-
-| | |
-|---|---|
-| essays total | 687 |
-| essays with no `contentHash` | **590**, now 14 |
-| essays with no `pdfPath` | 14 |
-| rejected or removed listings | 29 |
-| of those, every essay unusable for reuse | **28**, now 1 |
-
-This was the case for running the backfill, and it has now been run. Only one
-listing is still in that state, and its essays have no stored file at all.
-
-Two other counts taken at the same time, for later batches: 238 of 263 listings
-have a null `gradYear`, and 141 have a null `targetSchool` with more than one
-admit, which is the population getting the "seller attends" headline.
+`ListingCard` and its two orphaned CSS blocks are deleted. Nothing rendered them
+once the panel moved inline.
 
 ## Verification completed
 
-- `npx tsc --noEmit`. The type change to `openSellFromDashboard` is what located
-  all three callers.
-- All 24 `test:*` scripts pass.
+- `npx tsc --noEmit`
+- All 25 `test:*` scripts pass.
 - `npx next build` with a build-only placeholder `SESSION_SECRET`.
-- `node scripts/verify-listing-wizard.mjs`, 24 assertions over the changed
-  source.
-- A live stacking check in headless Chrome, mounting both overlays as the app
-  does: dashboard 200, wizard 300, the other modals still 100, and the wizard
-  topmost at the centre of the viewport.
-- `scripts/verify-copy-and-cosmetics.mjs` and `scripts/verify-wrong-data-shown.mjs`
-  both re-run against local `next dev` and headless Chrome as regressions, both
-  passing.
-- `git diff --check`, and zero em dashes added to site copy.
+- `node scripts/verify-inline-controls.mjs`, new, 15 assertions over the moved
+  panels and the refetch.
+- The three earlier DOM scripts re-run against local `next dev` and headless
+  Chrome at 1440px and 390px, all passing.
+- `git diff --check`, zero em dashes added.
 
-**Not verified in a browser, and this is the weak point of the batch.** The whole
-wizard sits behind the seller login. Driving it would mean authenticating against
-the production database, which this work is not allowed to do, so every flow
-change here is asserted against the source instead.
+`scripts/verify-wrong-data-shown.mjs` needed updating, not weakening: it counted
+four whole-dollar price inputs in `app/page.tsx`, and two of them moved into the
+new panel. It now counts across both files and additionally checks the panel
+uses the same caps.
 
-A walkthrough by the signed-in seller found three things the source assertions
-could not: the background still changed when the wizard opened, the resume
-banner vanished after a trip through it, and the Edit button had no busy state.
-All three are fixed above. The remaining flows worth a human check are clicking
-"+ Add an application" with a saved draft present, "Fix and resubmit" on a
-rejected listing, and picking an essay file while offline.
-
-## One test assertion was changed, not just added
-
-`scripts/seller-revision.test.mjs` pinned the literal `sourceEssayId: essay.id`,
-which the fix necessarily breaks. It is replaced with two assertions that are
-strictly more specific: that a reusable essay still references its source, and
-that reusability is defined as having both the things `finalize` requires. The
-original intent is preserved.
+**Not verified in a browser.** The workspace is behind the seller login, so both
+panels are asserted against the source. A signed-in walkthrough is still the
+right check before merge, specifically: pressing "Edit outcome" and seeing the
+form appear in place, pressing Edit on a published listing and seeing the price
+panel open under that row, and saving a class year on a seller with two
+application groups for one school.
 
 ## What is left
 

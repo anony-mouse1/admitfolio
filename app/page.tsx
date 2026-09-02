@@ -10,6 +10,7 @@ import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { CONTACT_EMAIL } from '@/lib/site';
+import type { ListingPriceSave } from '@/components/seller/ListingPricePanel';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
@@ -1965,6 +1966,29 @@ export default function Page() {
     }
   }
 
+  /**
+   * Saves a listing price for the inline panel. Returns null on success, or the
+   * message to show inside the panel, so a failure stays where the seller is
+   * looking instead of appearing at the top of the dashboard.
+   */
+  async function saveListingPrice(payload: ListingPriceSave): Promise<string | null> {
+    try {
+      const resp = await fetch('/api/seller/listing-price', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = (await resp.json().catch(() => ({}))) as {
+        ok?: boolean; error?: string; packagePrice?: number; essayPrices?: Record<string, number>;
+      };
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not save the price.');
+      priceSaved(payload.listingId, { packagePrice: data.packagePrice, essayPrices: data.essayPrices });
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Could not save the price.';
+    }
+  }
+
   function priceSaved(id: string, data: { packagePrice?: number; essayPrices?: Record<string, number> }) {
     setListings((prev) =>
       prev.map((l) => {
@@ -2016,10 +2040,13 @@ export default function Page() {
       });
       const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; classYear?: string | null };
       if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save this application.');
-      setSellerApplications((previous) => previous.map((application) => application.key === editingApplication.key
-        ? { ...application, classYear: data.classYear || null }
-        : application));
+      // Refetch rather than patch by key. The save writes gradYear across every
+      // listing for this school, gradYear feeds cycleLabel, and cycleLabel is
+      // half the application group key, so the key held here was invalidated by
+      // the very request that just succeeded. Patching by it left the groups to
+      // merge or split on some later reload instead of now.
       setEditingApplication(null);
+      reloadDashboardRef.current?.();
     } catch (error) {
       setApplicationEditError(error instanceof Error ? error.message : 'Could not save this application.');
     } finally {
@@ -3695,28 +3722,9 @@ export default function Page() {
 
           {/* One reusable profile with school-level application groups. */}
           <section className="dash-section">
-            {editingApplication && (
-              <div className="dash-application-editor" role="region" aria-label={`Edit ${editingApplication.school} outcome`}>
-                <div>
-                  <div className="dash-resume-kicker">Shared application details</div>
-                  <h3>{editingApplication.school}</h3>
-                  <p>The admission outcome stays factual and is reused across related listings.</p>
-                </div>
-                <label>
-                  Decision
-                  <input value="Admitted" disabled />
-                </label>
-                <label>
-                  College class year
-                  <input value={applicationClassYear} inputMode="numeric" placeholder="2028" onChange={(event) => setApplicationClassYear(event.target.value)} />
-                </label>
-                <div className="dash-application-editor-actions">
-                  <button className="modal-btn" type="button" disabled={applicationEditBusy} onClick={() => void saveApplicationOutcome()}>{applicationEditBusy ? 'Saving…' : 'Save outcome'}</button>
-                  <button className="secondary-btn" type="button" disabled={applicationEditBusy} onClick={() => setEditingApplication(null)}>Cancel</button>
-                  {applicationEditError && <span role="alert">{applicationEditError}</span>}
-                </div>
-              </div>
-            )}
+            {/* Both editors now render inside the application card that opened
+                them. They used to sit here and after the workspace, so the
+                button that opened them appeared to do nothing. */}
             <SellerApplicationsWorkspace
               profile={{ displayName: profName || null, bio: profBio || null, backgroundTags: profTags }}
               applications={sellerApplications}
@@ -3727,17 +3735,17 @@ export default function Page() {
               onEditListing={editWorkspaceListing}
               supportEmail={CONTACT_EMAIL}
               onTakeDownListing={requestTakedown}
+              editingApplicationKey={editingApplication?.key ?? null}
+              applicationClassYear={applicationClassYear}
+              applicationEditBusy={applicationEditBusy}
+              applicationEditError={applicationEditError}
+              onApplicationClassYearChange={setApplicationClassYear}
+              onSaveApplication={() => void saveApplicationOutcome()}
+              onCancelApplicationEdit={() => { setEditingApplication(null); setApplicationEditError(''); }}
+              activeListingId={activeListingControlId}
+              onCloseListingControls={() => setActiveListingControlId(null)}
+              onSaveListingPrice={saveListingPrice}
             />
-            {activeListingControlId && listings.find((listing) => listing.id === activeListingControlId) && (
-              <div className="dash-listing-controls" aria-label="Selected listing controls">
-                <button className="dash-listing-controls-close" type="button" onClick={() => setActiveListingControlId(null)}>Close controls</button>
-                <ListingCard
-                  listing={listings.find((listing) => listing.id === activeListingControlId)!}
-                  onAction={listingAction}
-                  onPriceSaved={priceSaved}
-                />
-              </div>
-            )}
           </section>
 
           <div className="dash-footer">
@@ -4377,147 +4385,6 @@ function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) 
       <div className="ecard-foot">
         <div className="ecard-price"><span className="p">{essay.price}</span><span className="w">{essay.words} words</span></div>
         <div className="ecard-unlock" onClick={onUnlock}>Unlock</div>
-      </div>
-    </div>
-  );
-}
-
-function ListingCard({ listing: l, onAction, onPriceSaved }: {
-  listing: SellerListing;
-  onAction: (id: string, action: 'takedown') => void;
-  onPriceSaved: (id: string, data: { packagePrice?: number; essayPrices?: Record<string, number> }) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [pkgInput, setPkgInput] = useState('');
-  const [essayInputs, setEssayInputs] = useState<Record<string, string>>({});
-  const [saveErr, setSaveErr] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const isPackage = l.pricingMode === 'package';
-  const exactSchool = sellerListingSchool(l);
-  const logoSchool = resolveListingHeadline({ ...l, essays: l.essays });
-  const logoInfo = schoolInfo(logoSchool);
-  const logoLabel = logoInfo?.short || schoolShortName(logoSchool);
-  const tier = exactSchool
-    ? schoolTier(exactSchool)
-    : admitsTier(l.admitTags) ?? 3;
-  const floor = isPackage ? packageFloor(tier, l.essays.length) : perEssayFloor(tier);
-
-  const metaParts = [`${fmt(listingPrice(l))}/sale`];
-  if (l.sales) metaParts.push(`${l.sales} sale${l.sales > 1 ? 's' : ''}`);
-  metaParts.push(`Added ${new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
-  const statusLabel = ({ approved: 'Published', pending: 'Pending review', rejected: 'Rejected', removed: 'Removed' }[l.status] || l.status);
-  const statusClass = ({ approved: 'published', pending: 'pending', rejected: 'draft', removed: 'draft' }[l.status] || 'draft');
-
-  function startEdit() {
-    setPkgInput(l.packagePrice != null ? String(l.packagePrice) : '');
-    setEssayInputs(Object.fromEntries(l.essays.map((e) => [e.id, e.price != null ? String(e.price) : ''])));
-    setSaveErr('');
-    setEditing(true);
-  }
-
-  async function savePrice() {
-    const payload: { listingId: string; packagePrice?: number; essayPrices?: Record<string, number> } = { listingId: l.id };
-    if (isPackage) {
-      const p = parseFloat(pkgInput);
-      if (isNaN(p) || p < floor) {
-        setSaveErr(`Minimum for your tier is $${floor}.`);
-        return;
-      }
-      if (!Number.isInteger(p)) {
-        setSaveErr(`${wholeDollarHint} Round to the nearest dollar.`);
-        return;
-      }
-      if (p > MAX_PACKAGE_PRICE) {
-        setSaveErr(`The most you can charge for one listing is $${MAX_PACKAGE_PRICE}.`);
-        return;
-      }
-      payload.packagePrice = p;
-    } else {
-      const prices: Record<string, number> = {};
-      for (const e of l.essays) {
-        const p = parseFloat(essayInputs[e.id]);
-        if (isNaN(p) || p < floor) {
-          setSaveErr(`Each essay needs a price of at least $${floor}.`);
-          return;
-        }
-        if (!Number.isInteger(p)) {
-          setSaveErr(`${wholeDollarHint} Round to the nearest dollar.`);
-          return;
-        }
-        if (p > MAX_ESSAY_PRICE) {
-          setSaveErr(`The most you can charge for one essay is $${MAX_ESSAY_PRICE}.`);
-          return;
-        }
-        prices[e.id] = p;
-      }
-      payload.essayPrices = prices;
-    }
-    setSaveErr('');
-    setSaving(true);
-    try {
-      const resp = await fetch('/api/seller/listing-price', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; error?: string; packagePrice?: number; essayPrices?: Record<string, number> };
-      if (!resp.ok || !data.ok) throw new Error(data.error || 'Could not save the price.');
-      onPriceSaved(l.id, { packagePrice: data.packagePrice, essayPrices: data.essayPrices });
-      setEditing(false);
-    } catch (err) {
-      setSaveErr(err instanceof Error ? err.message : 'Could not save the price.');
-    }
-    setSaving(false);
-  }
-
-  return (
-    <div className="dash-listing-card">
-      <div className="dash-listing-summary">
-        <div className="dash-listing-logo">
-          <LogoBadge
-            domain={logoInfo?.domain}
-            letter={(logoLabel[0] || '?').toUpperCase()}
-            color={schoolColor(logoSchool)}
-            school={logoSchool}
-            size={44}
-            fontSize={16}
-          />
-        </div>
-        <div className="dash-listing-info">
-          <div className="dash-listing-title">{listingTitle(l)}</div>
-          <div className="dash-listing-meta">{metaParts.join(' · ')}</div>
-          {l.status === 'rejected' && l.adminNote && <div className="dash-listing-meta">Reviewer note: {l.adminNote}</div>}
-          {editing && (
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {isPackage ? (
-                <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  Package price ($)
-                  <input type="number" min={floor} max={MAX_PACKAGE_PRICE} step={1} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                  <span>{`$${floor} to $${MAX_PACKAGE_PRICE}, whole dollars`}</span>
-                </label>
-              ) : (
-                l.essays.map((e) => (
-                  <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {(e.question || e.prompt).slice(0, 40)} ($)
-                    <input type="number" min={floor} max={MAX_ESSAY_PRICE} step={1} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                    <span>{`$${floor} to $${MAX_ESSAY_PRICE}, whole dollars`}</span>
-                  </label>
-                ))
-              )}
-              {saveErr && <div className="dash-listing-meta" style={{ color: '#b3261e' }}>{saveErr}</div>}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="dash-action-btn" onClick={savePrice} disabled={saving}>{saving ? 'Saving…' : 'Save price'}</button>
-                <button className="dash-action-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="dash-listing-actions">
-        <span className={`dash-listing-status ${statusClass}`}>{statusLabel}</span>
-        {!editing && <button className="dash-action-btn" onClick={startEdit}>Edit price</button>}
-        {l.status === 'approved' && <button className="dash-action-btn danger" onClick={() => onAction(l.id, 'takedown')}>Take down</button>}
       </div>
     </div>
   );

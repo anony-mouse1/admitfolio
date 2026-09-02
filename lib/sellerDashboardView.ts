@@ -9,8 +9,25 @@ import { summarizeBankPayouts } from './sellerBankPayoutCore';
 import { isAdminApprovedListing, schoolKey } from './admitProof';
 import { sellerApplicationSchool } from './sellerApplications';
 import { schoolInfo } from './schools';
+import { admitsTier, packageFloor, perEssayFloor, schoolTier } from './pricing';
 import { schoolLogoSrc } from './schoolLogos';
 import type { SellerApplicationRecord } from '@/components/seller';
+
+// Mirrors the floor ListingCard used to compute client-side. An exact target
+// school sets the tier; a legacy listing falls back to its admits, then to the
+// lowest tier, exactly as before.
+function listingPriceFloor(listing: {
+  targetSchool: string | null;
+  admitTags: string[];
+  pricingMode: string;
+  essays: unknown[];
+}): number {
+  const exact = listing.targetSchool?.trim();
+  const tier = exact ? schoolTier(exact) : admitsTier(listing.admitTags) ?? 3;
+  return listing.pricingMode === 'separate'
+    ? perEssayFloor(tier)
+    : packageFloor(tier, listing.essays.length);
+}
 
 function safeParse(s: string): string[] {
   try {
@@ -204,6 +221,18 @@ export async function getSellerDashboardView(sellerId: string) {
       status: listing.status,
       anonymity: listing.anonymity as SellerApplicationRecord['listings'][number]['anonymity'],
       reviewerNote: listing.adminNote,
+      // The price panel opens inline in this row, so it needs the tier floor
+      // resolved here rather than shipping the pricing tables to the client.
+      pricingMode: listing.pricingMode === 'separate' ? 'separate' : 'package',
+      packagePrice: listing.packagePrice,
+      priceFloor: listingPriceFloor(listing),
+      sales: listing.sales,
+      createdAt: listing.createdAt.toISOString(),
+      essays: listing.essays.map((essay) => ({
+        id: essay.id,
+        label: essay.question || essay.prompt,
+        price: essay.price,
+      })),
     });
     applicationsByKey.set(key, existing);
   }

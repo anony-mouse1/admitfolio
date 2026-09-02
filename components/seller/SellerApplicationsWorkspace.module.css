@@ -12,3 +12,20 @@
 .supportLine{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:6px;font-size:12px}
 .supportLine a{color:var(--seller-wine);font-weight:700}
 .supportLine span{color:var(--seller-faint);font-size:11.5px}
+
+.inlineEditor{grid-column:1/-1;margin-top:12px;padding:16px;border:1px solid var(--seller-card-line);border-radius:14px;background:#fbf9f5}
+.inlineEditor .editorRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.inlineEditor label{display:grid;gap:6px;color:var(--seller-muted);font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.inlineEditor input{border:1px solid var(--seller-card-line);border-radius:10px;padding:9px 11px;background:#fff;color:var(--seller-ink);font:inherit;font-size:14px}
+.inlineEditor input:disabled{background:#f4f2ee;color:var(--seller-faint)}
+.inlineHint{color:var(--seller-faint);font-size:11.5px;margin:9px 0 0}
+.inlineActions,.panelActions{display:flex;align-items:center;gap:9px;margin-top:14px;flex-wrap:wrap}
+.inlineError,.panelError{color:#b3261e;font-size:12px;margin-top:10px}
+.listingPanel{grid-column:1/-1;margin-top:12px;padding:16px;border:1px solid var(--seller-card-line);border-radius:14px;background:#fbf9f5}
+.panelHead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.panelHead strong{font-size:12.5px}
+.panelHead span{color:var(--seller-faint);font-size:11.5px}
+.priceRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.priceRow input{width:110px;border:1px solid var(--seller-card-line);border-radius:10px;padding:9px 11px;background:#fff;font:inherit;font-size:14px}
+.priceRow span{color:var(--seller-faint);font-size:11.5px}
+@media(max-width:600px){.inlineEditor .editorRow{grid-template-columns:1fr}}
