@@ -22,10 +22,16 @@ export type ListingAdmissionClaim = {
   schoolLabel: string;
 };
 
-type ListingApprovalState = {
+/**
+ * Both review markers are required, not optional. A caller that maps rows by
+ * hand and drops them would otherwise still type-check while
+ * `isAdminApprovedListing` silently collapsed to `status === 'approved'`, which
+ * hands seller-wide verification to AI-auto-approved listings.
+ */
+export type ListingApprovalState = {
   status: string;
-  humanReviewedAt?: Date | string | null;
-  aiDecision?: string | null;
+  humanReviewedAt: Date | string | null;
+  aiDecision: string | null;
 };
 
 /**

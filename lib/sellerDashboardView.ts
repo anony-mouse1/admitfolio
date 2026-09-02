@@ -150,7 +150,11 @@ export async function getSellerDashboardView(sellerId: string) {
   });
 
   const proofBySchool = new Map(seller.admitProofs.map((proof) => [proof.schoolKey, proof]));
-  const sellerHasApprovedListing = listings.some(isAdminApprovedListing);
+  // Read off the raw rows, not the mapped `listings`. The mapped objects are
+  // the seller-facing payload and deliberately carry no review internals, so
+  // asking them would leave both markers undefined and treat every
+  // AI-auto-approved listing as an admin approval.
+  const sellerHasApprovedListing = rows.some(isAdminApprovedListing);
   const applicationsByKey = new Map<string, SellerApplicationRecord>();
   for (const listing of listings) {
     const school = sellerApplicationSchool({
