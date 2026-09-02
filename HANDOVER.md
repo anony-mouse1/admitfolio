@@ -1,68 +1,70 @@
-# Handover: bug-fix programme, batch 4 of 6
+# Handover: remove the Drafts chip
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `ritvik/fix-misplaced-controls`
+Branch: `ritvik/remove-drafts-chip`
 
-Base: `ritvik/remove-revise-path` (#78), on `ritvik/fix-listing-wizard` (#77),
-on `ritvik/fix-wrong-data-shown` (#76), on `ritvik/fix-copy-and-cosmetics`
-(#75), on `origin/main` at `dd48801`.
+Base: `ritvik/fix-misplaced-controls` (#79), on `ritvik/remove-revise-path`
+(#78), on `ritvik/fix-listing-wizard` (#77), on `ritvik/fix-wrong-data-shown`
+(#76), on `ritvik/fix-copy-and-cosmetics` (#75), on `origin/main` at `dd48801`.
 
 ## What changed
 
-Items 20, 22 and 23. Item 21 stays report-only.
+The "Drafts" chip contained no drafts. `listingFilterForStatus` mapped
+`approved` to Published, `pending` to In review and **everything else** to
+`draft`, so the chip was a catch-all for rejected and taken down listings.
+Clicking "Drafts 1" showed a listing labelled "Taken down".
 
-- **The outcome editor renders inside the application card that opened it.** It
-  used to render immediately before `SellerApplicationsWorkspace`, so pressing
-  "Edit outcome" put the form above the hero, the profile card, the section
-  header and every application card, with no scroll into view. It now replaces
-  the read-only facts row in the same "Shared application details" block, and
-  the topline button becomes Cancel while editing.
-- **The listing price panel opens under its own row.** It used to be a
-  `ListingCard` rendered after the entire workspace. It is now
-  `components/seller/ListingPricePanel.tsx`, rendered inside the listing row,
-  and the button that opened it becomes Close. It keeps what the old card
-  showed: the sales count and the added date.
-- **Saving a class year refetches instead of patching by key.** The save writes
-  `gradYear` across every listing for that school, `gradYear` feeds
-  `cycleLabel`, and `cycleLabel` is half the application group key, so the key
-  the client held was invalidated by the request that had just succeeded.
-  Groups merged or split on some later reload rather than on save. The
-  `updateMany` is unchanged and still required by
-  `scripts/seller-applications.test.mjs`; only the client changed.
+- The chip is gone. The filter is now All, Published, In review.
+- `listingFilterForStatus` returns `null` for a terminal listing, meaning it
+  belongs to no chip. **Rejected and taken down listings appear under All only**,
+  which is Fatimah's decision and is already the default filter, so the 12
+  sellers in production whose only listings are terminal still see them on load.
+- A new `listingStatusTone` drives the pill colour, because the pill class used
+  to be derived from the filter and a terminal listing no longer has one. The
+  `.draft` pill class is renamed `.closed`.
+- The empty state said "No all listings yet" when All was selected and empty.
+  It now says "No listings yet".
 
-Both editors are driven by props rather than slots, which is the convention in
-this codebase. That meant `SellerApplicationListing` gained the fields the price
-panel needs, and `lib/sellerDashboardView.ts` now resolves the tier floor
-server-side rather than shipping the pricing tables to the client.
+## The dead labels
 
-`ListingCard` and its two orphaned CSS blocks are deleted. Nothing rendered them
-once the panel moved inline.
+Kept, narrowed, documented, per Fatimah's instruction rather than removed.
+`listingStatusLabel('draft')` and `listingActionLabel('draft')` are unreachable:
+nothing writes `Listing.status = 'draft'` (both submit routes create `pending`)
+and the only source of the value is the defensive fallback in
+`lib/sellerDashboardView.ts` for a status it does not recognise. Removing
+`'draft'` from `SellerListingStatus` would leave that fallback with nothing to
+map to, so the value stays with a comment saying why. `listingActionLabel`'s
+`'rejected'` arm is also unreachable now, since #78 renders no action button on
+a terminal listing; that is noted in the same place.
 
 ## Verification completed
 
 - `npx tsc --noEmit`
-- All 25 `test:*` scripts pass.
-- `npx next build` with a build-only placeholder `SESSION_SECRET`.
-- `node scripts/verify-inline-controls.mjs`, new, 15 assertions over the moved
-  panels and the refetch.
-- The three earlier DOM scripts re-run against local `next dev` and headless
-  Chrome at 1440px and 390px, all passing.
+- All 26 `test:*` scripts pass, including a new
+  `npm run test:seller-listing-filters` which **executes** the module rather
+  than grepping it: every status maps to the right chip or to none, the counts
+  are right, All shows all four statuses, Published and In review show only
+  their own, and a seller whose listings are all terminal still sees them under
+  All while Published shows nothing.
+- `npx next build`.
+- The four DOM scripts re-run against local `next dev` and headless Chrome at
+  1440px and 390px, all passing.
 - `git diff --check`, zero em dashes added.
 
-`scripts/verify-wrong-data-shown.mjs` needed updating, not weakening: it counted
-four whole-dollar price inputs in `app/page.tsx`, and two of them moved into the
-new panel. It now counts across both files and additionally checks the panel
-uses the same caps.
+## The gap this does not close
 
-**Not verified in a browser.** The workspace is behind the seller login, so both
-panels are asserted against the source. A signed-in walkthrough is still the
-right check before merge, specifically: pressing "Edit outcome" and seeing the
-form appear in place, pressing Edit on a published listing and seeing the price
-panel open under that row, and saving a class year on a seller with two
-application groups for one school.
+**Real drafts are still unreachable beyond the newest one.** `SellerApplicationDraft`
+rows never reach the workspace at all: `getSellerDashboardView` queries `seller`,
+`listing` and `purchase` and no draft table. The only draft surface is the resume
+banner, which shows `drafts[0]` while `/api/seller/drafts` returns all of them.
+
+Removing the chip does not fix that. It removes the thing that made it look
+addressed. A seller with two open drafts can still only reach the most recently
+updated one, and the other is invisible until the first is submitted or
+abandoned. Making drafts reachable is a feature and needs a product decision.
 
 ## What is left
 

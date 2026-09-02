@@ -10,8 +10,8 @@ import {
   isSafeLocalLogoPath,
   listingActionLabel,
   listingFilterCounts,
-  listingFilterForStatus,
   listingStatusLabel,
+  listingStatusTone,
   type SellerApplicationListing,
   type SellerApplicationRecord,
   type SellerListingFilter,
@@ -50,7 +50,6 @@ const FILTER_LABELS: Record<SellerListingFilter, string> = {
   all: 'All',
   published: 'Published',
   review: 'In review',
-  draft: 'Drafts',
 };
 
 function initials(value: string | null): string {
@@ -169,7 +168,7 @@ export default function SellerApplicationsWorkspace({
 
       {visibleApplications.length === 0 ? (
         <div className={styles.emptyState}>
-          <h3>No {FILTER_LABELS[filter].toLowerCase()} listings yet</h3>
+          <h3>{filter === 'all' ? 'No listings yet' : `No ${FILTER_LABELS[filter].toLowerCase()} listings yet`}</h3>
           <p>Your applications stay saved when a filter has no matching listings.</p>
         </div>
       ) : visibleApplications.map((application) => {
@@ -254,7 +253,7 @@ export default function SellerApplicationsWorkspace({
 
                 <div className={styles.listings}>
                   {application.listings.map((listing) => {
-                    const statusFilter = listingFilterForStatus(listing.status);
+                    const tone = listingStatusTone(listing.status);
                     return (
                       <div className={styles.listingRow} key={listing.id} data-testid="seller-listing-row">
                         <div className={styles.documentIcon} aria-hidden="true">▤</div>
@@ -283,7 +282,7 @@ export default function SellerApplicationsWorkspace({
                         </div>
                         <div className={styles.listingActions}>
                           <strong className={styles.price}>{formatPrice(listing.priceCents)}</strong>
-                          <span className={`${styles.statusPill} ${styles[statusFilter]}`}>{listingStatusLabel(listing.status)}</span>
+                          <span className={`${styles.statusPill} ${styles[tone]}`}>{listingStatusLabel(listing.status)}</span>
                           {!isFinal(listing.status) && (
                             <button
                               className={styles.secondaryButton}
