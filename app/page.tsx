@@ -3662,8 +3662,20 @@ function isQuestBridgeTag(value: string): boolean {
   return schoolInfo(value)?.domain === 'questbridge.org';
 }
 
+// De-duplicated with the same rule addAdmit applies at entry, so entry and
+// render agree. Two spellings of one school ("University of Pennsylvania" and
+// "UPenn") both shorten to "UPenn" and used to print twice, on the card line
+// and again as two identical chips on the detail sheet. Only rows saved before
+// that entry check need this. The first spelling wins, so the hover title still
+// shows what the seller actually typed.
 function collegeAdmitTags(listing: PublicListing): string[] {
-  return listing.admitTags.filter((tag) => !isQuestBridgeTag(tag));
+  const kept: string[] = [];
+  for (const tag of listing.admitTags) {
+    if (isQuestBridgeTag(tag)) continue;
+    if (kept.some((existing) => sameSchool(existing, tag))) continue;
+    kept.push(tag);
+  }
+  return kept;
 }
 
 function questBridgeLabel(listing: PublicListing): string | null {
