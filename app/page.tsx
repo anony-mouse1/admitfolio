@@ -1187,11 +1187,22 @@ export default function Page() {
   async function handleSubmitListing() {
     const rows = essayRows;
     const separate = pricingMode === 'separate';
+    // Which submit path this listing will take. With a draft id the finalize
+    // route reads staged DraftAsset rows; without one the direct route uploads
+    // the browser Files.
+    const usesStagedAssets = Boolean(activeDraftId);
     let msg = '';
     if (!applicationType) msg = 'Pick the application type for these essays.';
     else if (admits.length === 0) msg = 'Add at least one school you got into.';
     else if (!listingSchool || !admits.some((school) => sameSchool(school, listingSchool))) msg = 'Choose which college this listing is for.';
-    else if (admitProofRows.some((a) => !admitFiles[a.key] && !admitAssetIds[a.key])) msg = 'Upload proof for every school you got into.';
+    // The two submit paths accept different evidence, and treating them as one
+    // is what made a failed upload unrecoverable. With a saved draft the server
+    // only ever reads staged DraftAsset rows and never receives the browser
+    // File, so a row holding just a File passed here and was then rejected on
+    // submit with no way back except re-picking the file.
+    else if (usesStagedAssets
+      ? admitProofRows.some((a) => !admitAssetIds[a.key])
+      : admitProofRows.some((a) => !admitFiles[a.key])) msg = 'Upload proof for every school you got into.';
     else if (admitProofRows.some((a) => admitFiles[a.key] && (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each proof file must be 4MB or smaller.';
     else if (admitProofRows.some((a) => {
       const file = admitFiles[a.key];
@@ -1200,7 +1211,9 @@ export default function Page() {
     })) msg = 'Proof must be a PDF, PNG, or JPG.';
     else if (rows.some((r) => !r.prompt)) msg = 'Choose a prompt type for every essay.';
     else if (rows.some((r) => /^other/i.test(r.prompt) && !r.question.trim())) msg = 'Type the essay question for every "Other" essay.';
-    else if (rows.some((r) => !r.file && !r.assetId && !r.sourceEssayId)) msg = 'Upload a PDF for every essay.';
+    else if (usesStagedAssets
+      ? rows.some((r) => !r.assetId && !r.sourceEssayId)
+      : rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
     else if (rows.some((r) => r.file && r.file.size > 4 * 1024 * 1024)) msg = 'Each PDF must be 4MB or smaller.';
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
@@ -2927,11 +2940,26 @@ export default function Page() {
                             const file = e.target.files?.[0] ?? null;
                             setAdmitFiles((prev) => ({ ...prev, [a.key]: file }));
                             setAdmitFileNames((prev) => ({ ...prev, [a.key]: file?.name || '' }));
-                            if (file) {
-                              const assetId = await stageDraftAsset('admitProof', a.key.replace(/\s+/g, '-'), file);
-                              if (assetId) setAdmitAssetIds((prev) => ({ ...prev, [a.key]: assetId }));
-                            }
                             setDetailsErr('');
+                            if (!file) return;
+                            const assetId = await stageDraftAsset('admitProof', a.key.replace(/\s+/g, '-'), file);
+                            if (assetId) {
+                              setAdmitAssetIds((prev) => ({ ...prev, [a.key]: assetId }));
+                              return;
+                            }
+                            // Nothing was stored, so stop showing the row as
+                            // attached. Leaving the name on it made a failed
+                            // upload look like a successful one right up until
+                            // submit refused, and re-clicking Submit could never
+                            // fix it because the draft path never sends the file.
+                            setAdmitFiles((prev) => ({ ...prev, [a.key]: null }));
+                            setAdmitFileNames((prev) => ({ ...prev, [a.key]: '' }));
+                            setAdmitAssetIds((prev) => {
+                              const next = { ...prev };
+                              delete next[a.key];
+                              return next;
+                            });
+                            setDetailsErr(`${a.label} proof did not upload. Please choose the file again.`);
                           }}
                         />
                         <span className="proof-file">{f?.name || savedFileName || 'Letter, portal, or email proof'}</span>
@@ -2980,10 +3008,16 @@ export default function Page() {
                         <input type="file" accept="application/pdf,.pdf" className="essay-file" hidden onChange={async (e) => {
                           const file = e.target.files?.[0] ?? null;
                           updateEssayRow(i, { fileName: file?.name ?? '', file, assetId: null, sourceEssayId: null });
-                          if (file) {
-                            const assetId = await stageDraftAsset('essay', row.clientKey, file);
-                            if (assetId) updateEssayRow(i, { assetId });
+                          if (!file) return;
+                          const assetId = await stageDraftAsset('essay', row.clientKey, file);
+                          if (assetId) {
+                            updateEssayRow(i, { assetId });
+                            return;
                           }
+                          // Same as the proof rows above: with nothing stored,
+                          // the row must stop claiming to hold a file.
+                          updateEssayRow(i, { fileName: '', file: null, assetId: null });
+                          setDetailsErr(`Essay ${i + 1} did not upload. Please choose the file again.`);
                         }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
