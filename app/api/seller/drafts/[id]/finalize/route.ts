@@ -50,6 +50,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Add the prompt for every essay.' }, { status: 400 });
   }
 
+  // sourceListing handling survives the removal of the seller-facing revise
+  // path on purpose. That route is gone, so no new revision drafts can be
+  // created, but drafts made before it went still carry a sourceListingId and
+  // must still be able to finish through the ordinary submit path. Do not
+  // delete this until none are left.
   const assetFor = (kind: string, clientKey: string) =>
     draft.assets.find((asset) => asset.kind === kind && asset.clientKey === clientKey);
   const essayFiles = state.essays.map((essay) => {

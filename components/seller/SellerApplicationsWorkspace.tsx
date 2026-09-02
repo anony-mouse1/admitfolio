@@ -11,6 +11,7 @@ import {
   listingFilterCounts,
   listingFilterForStatus,
   listingStatusLabel,
+  type SellerApplicationListing,
   type SellerApplicationRecord,
   type SellerListingFilter,
   type SellerProfileSummary,
@@ -25,8 +26,8 @@ export type SellerApplicationsWorkspaceProps = {
   onAddListing: (applicationKey: string) => void;
   onEditListing: (listingId: string) => void;
   onTakeDownListing?: (listingId: string) => void;
-  /** Listing currently being opened. Opening one waits on two round trips. */
-  busyListingId?: string | null;
+  /** Where a seller writes in when a finished listing needs changing. */
+  supportEmail: string;
 };
 
 const FILTER_LABELS: Record<SellerListingFilter, string> = {
@@ -53,6 +54,17 @@ function schoolInitials(school: string): string {
   return words.slice(0, 2).map((word) => word[0]).join('').toUpperCase();
 }
 
+// Rejected and taken down are terminal. Nothing a seller presses moves them.
+function isFinal(status: SellerApplicationListing['status']): boolean {
+  return status === 'rejected' || status === 'removed';
+}
+
+function supportMailto(email: string, school: string, title: string): string {
+  const subject = `Listing change request: ${school}`;
+  const body = `I need a change to my listing.\n\nSchool: ${school}\nListing: ${title}\n\nWhat I need changed:\n`;
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 function formatPrice(cents: number | null): string {
   if (cents == null) return 'Price not set';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
@@ -67,7 +79,7 @@ export default function SellerApplicationsWorkspace({
   onAddListing,
   onEditListing,
   onTakeDownListing,
-  busyListingId = null,
+  supportEmail,
 }: SellerApplicationsWorkspaceProps) {
   const [filter, setFilter] = useState<SellerListingFilter>('all');
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -190,30 +202,31 @@ export default function SellerApplicationsWorkspace({
                             <span className={styles.anonymity}>{anonymitySummary(listing.anonymity)}</span>
                           </div>
                           {listing.reviewerNote && <p>Reviewer note: {listing.reviewerNote}</p>}
+                          {/* A rejected or taken down listing is final. There is
+                              no seller-side way to change it, so the row offers
+                              the way that does work instead of a control that
+                              does not. The address is spelled out beside the
+                              link because a mailto goes nowhere when no mail
+                              client is configured. */}
+                          {isFinal(listing.status) && (
+                            <div className={styles.supportLine}>
+                              <a href={supportMailto(supportEmail, application.school, listing.title)}>
+                                Email us about this listing
+                              </a>
+                              <span>{supportEmail}</span>
+                            </div>
+                          )}
                         </div>
                         <div className={styles.listingActions}>
                           <strong className={styles.price}>{formatPrice(listing.priceCents)}</strong>
                           <span className={`${styles.statusPill} ${styles[statusFilter]}`}>{listingStatusLabel(listing.status)}</span>
-                          {/* Opening a listing posts a revision and then reads
-                              the drafts back, which takes a couple of seconds.
-                              Left enabled, the button could be clicked over and
-                              over and each click started another revision. */}
-                          <button
-                            className={styles.secondaryButton}
-                            type="button"
-                            disabled={busyListingId != null}
-                            aria-busy={busyListingId === listing.id}
-                            onClick={() => onEditListing(listing.id)}
-                          >
-                            {busyListingId === listing.id ? 'Opening…' : listingActionLabel(listing.status)}
-                          </button>
+                          {!isFinal(listing.status) && (
+                            <button className={styles.secondaryButton} type="button" onClick={() => onEditListing(listing.id)}>
+                              {listingActionLabel(listing.status)}
+                            </button>
+                          )}
                           {listing.status === 'approved' && onTakeDownListing && (
-                            <button
-                              className={styles.dangerButton}
-                              type="button"
-                              disabled={busyListingId != null}
-                              onClick={() => onTakeDownListing(listing.id)}
-                            >
+                            <button className={styles.dangerButton} type="button" onClick={() => onTakeDownListing(listing.id)}>
                               Take down
                             </button>
                           )}

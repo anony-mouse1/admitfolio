@@ -15,7 +15,6 @@ function assert(condition, message) {
 }
 
 const page = fs.readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
-const revision = fs.readFileSync(new URL('../app/api/seller/listings/[id]/revision/route.ts', import.meta.url), 'utf8');
 
 // The wizard opens on a stated target, never on "whichever draft is newest".
 assert(/type SellWizardTarget =/.test(page), 'the wizard must take an explicit target');
@@ -23,7 +22,6 @@ assert(/type SellWizardTarget =/.test(page), 'the wizard must take an explicit t
 assert(!/preferredDraftId\s*[=),]/.test(page), 'the guessy preferredDraftId argument must be gone');
 assert(!/data\.drafts\?\.\[0\]/.test(page.slice(page.indexOf('openSellFromDashboard'))), 'the wizard must not fall back to the most recent draft');
 assert(/\{ mode: 'new', prefillSchool:/.test(page), 'the add buttons must ask for a new listing');
-assert(/\{ mode: 'resume', draftId: data\.draft\.id \}/.test(page), 'fix and resubmit must resume the revision draft it just created');
 assert(/\{ mode: 'resume', draftId: resumableDraft\.id \}/.test(page), 'the resume banner must resume the draft it is describing');
 
 // The step is chosen before the modal is shown, so step 1 never flashes.
@@ -57,9 +55,12 @@ const stepFourBack = page.slice(page.indexOf('onClick={handleUniNext}'), page.in
 assert(/setSellStep\(3\)/.test(stepFourBack), 'the signup entry path must keep its Back to the password step');
 assert(stepFourBack.indexOf('cameFromDashboard') < stepFourBack.indexOf('setSellStep(3)'), 'the dashboard case must be handled before the signup fallback');
 
-// Opening a listing is guarded, because it costs two round trips.
-assert(/if \(openingListingId\) return;/.test(page), 'a second click must not start a second revision');
-assert(/busyListingId=\{openingListingId\}/.test(page), 'the workspace must know which listing is opening');
+// Take down is one way, so it asks first and the question sits above everything.
+assert(/const \[confirmTakedown, setConfirmTakedown\]/.test(page), 'take down must be confirmed before it runs');
+assert(/onTakeDownListing=\{requestTakedown\}/.test(page), 'the workspace take down must go through the confirmation');
+const escBody2 = page.slice(page.indexOf('Escape closes the top-most overlay'), page.indexOf('Scroll-reveal animations'));
+assert(escBody2.indexOf('if (confirmTakedown)') < escBody2.indexOf('else if (matcherOpen)'), 'Escape must answer the confirmation before closing anything under it');
+assert(/confirmTakedown !== null;/.test(page), 'the confirmation must join the body scroll lock');
 
 // A failed drafts fetch reports, it does not invent a replacement draft.
 assert(!/catch \{\n      await createSellerDraft/.test(page), 'a failed drafts fetch must not silently create a new draft');
@@ -71,10 +72,5 @@ assert(!/rows\.some\(\(r\) => !r\.file && !r\.assetId && !r\.sourceEssayId\)/.te
 assert(/did not upload\. Please choose the file again\./.test(page), 'a failed staging upload must be surfaced');
 assert((page.match(/did not upload\. Please choose the file again\./g) || []).length === 2, 'both essay and proof uploads must surface a staging failure');
 
-// The revision path only claims essays finalize can actually accept.
-assert(/const reusable = Boolean\(essay\.pdfPath && essay\.contentHash\)/.test(revision), 'a source essay must only be reused when finalize can accept it');
-assert(/sourceEssayId: reusable \? essay\.id : null/.test(revision), 'a non-reusable essay must ask for a fresh upload');
-assert(!/path\.split\('\/'\)\.pop\(\)/.test(revision), 'restored filenames must not be sniffed out of a storage path');
-assert(/function storedFileName\(index: number\)/.test(revision), 'restored filenames must use the generic label');
 
 console.log('listing wizard checks passed');

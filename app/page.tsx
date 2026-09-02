@@ -9,6 +9,7 @@ import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/com
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
+import { CONTACT_EMAIL } from '@/lib/site';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
@@ -1781,9 +1782,12 @@ export default function Page() {
   const [resumableDraft, setResumableDraft] = useState<SellerDraftSummary | null>(null);
   const [sellerApplications, setSellerApplications] = useState<SellerApplicationRecord[]>([]);
   const [activeListingControlId, setActiveListingControlId] = useState<string | null>(null);
-  // Which listing is mid-open. Guards the button and stops a second revision
-  // being created by an impatient second click.
-  const [openingListingId, setOpeningListingId] = useState<string | null>(null);
+  // Take down is one way: listing-status accepts only 'takedown' and there is no
+  // republish action, so this asks first. The listing being confirmed doubles as
+  // the open flag, matching the dialog in app/admin/SellerSupport.tsx.
+  const [confirmTakedown, setConfirmTakedown] = useState<SellerListing | null>(null);
+  const [takedownBusy, setTakedownBusy] = useState(false);
+  const [takedownErr, setTakedownErr] = useState('');
   const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
   const [applicationClassYear, setApplicationClassYear] = useState('');
   const [applicationEditBusy, setApplicationEditBusy] = useState(false);
@@ -1918,7 +1922,28 @@ export default function Page() {
             ? { label: 'Bank payout', cents: latestBankPayout.amountCents, detail: 'Deposit failed. Review your payout account in Stripe.' }
             : { label: 'Pending payout', cents: 0, detail: 'No unpaid earnings' };
 
-  async function listingAction(id: string, action: 'takedown') {
+  function requestTakedown(id: string) {
+    const listing = listings.find((item) => item.id === id);
+    if (!listing) return;
+    setTakedownErr('');
+    setConfirmTakedown(listing);
+  }
+
+  async function confirmTakedownNow() {
+    const listing = confirmTakedown;
+    if (!listing || takedownBusy) return;
+    setTakedownErr('');
+    setTakedownBusy(true);
+    const error = await listingAction(listing.id, 'takedown');
+    setTakedownBusy(false);
+    // Stay open on failure. Closing would drop the message behind the dashboard
+    // and leave the seller unsure whether the listing came down or not.
+    if (error) setTakedownErr(error);
+    else setConfirmTakedown(null);
+  }
+
+  /** Returns null on success, or the message to show the seller. */
+  async function listingAction(id: string, action: 'takedown'): Promise<string | null> {
     try {
       const resp = await fetch('/api/seller/listing-status', {
         method: 'POST',
@@ -1934,8 +1959,9 @@ export default function Page() {
           ? { ...listing, status: data.status as SellerApplicationRecord['listings'][number]['status'] }
           : listing),
       })));
+      return null;
     } catch (err) {
-      setDashErr(err instanceof Error ? err.message : 'Could not update the listing.');
+      return err instanceof Error ? err.message : 'Could not update the listing.';
     }
   }
 
@@ -2001,25 +2027,12 @@ export default function Page() {
     }
   }
 
-  async function editWorkspaceListing(listingId: string) {
-    if (openingListingId) return;
-    const listing = listings.find((item) => item.id === listingId);
-    if (!listing || !['rejected', 'removed'].includes(listing.status)) {
-      setActiveListingControlId(listingId);
-      return;
-    }
-    setDashErr('');
-    setOpeningListingId(listingId);
-    try {
-      const response = await fetch(`/api/seller/listings/${listingId}/revision`, { method: 'POST' });
-      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; draft?: { id: string } };
-      if (!response.ok || !data.ok || !data.draft) throw new Error(data.error || 'Could not open this listing for changes.');
-      await openSellFromDashboard(sellerEmail, listing.school, { mode: 'resume', draftId: data.draft.id }, profGraduationYear);
-    } catch (error) {
-      setDashErr(error instanceof Error ? error.message : 'Could not open this listing for changes.');
-    } finally {
-      setOpeningListingId(null);
-    }
+  // A rejected or taken down listing is final: there is no seller-side revise
+  // path, and the workspace offers those rows a support link instead of a
+  // control. This only ever opens the price and status card for a listing that
+  // is still live or still in review.
+  function editWorkspaceListing(listingId: string) {
+    setActiveListingControlId(listingId);
   }
 
   const closeDashboard = useCallback(() => {
@@ -2052,13 +2065,13 @@ export default function Page() {
   // waitlist auto-popup timer can check it (the hamburger menu counts as a
   // popup for that purpose, but shouldn't lock scroll).
   useEffect(() => {
-    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null;
+    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null || confirmTakedown !== null;
     overlayOpenRef.current = anyOpen || menuOpen;
     document.body.style.overflow = anyOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId]);
+  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId, confirmTakedown]);
 
   // Layout variant body classes + ?login deep-link (mirrors the original IIFEs).
   useEffect(() => {
@@ -2093,7 +2106,10 @@ export default function Page() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (matcherOpen) setMatcherOpen(false);
+      // The take-down confirmation is the topmost layer. Anything checked ahead
+      // of it would close the page underneath while the question is still up.
+      if (confirmTakedown) { if (!takedownBusy) setConfirmTakedown(null); }
+      else if (matcherOpen) setMatcherOpen(false);
       else if (menuOpen) setMenuOpen(false);
       // The sell wizard layers above the dashboard, so it has to be closed
       // first. Checking dashOpen ahead of it shut the page underneath instead.
@@ -2108,7 +2124,7 @@ export default function Page() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
+  }, [confirmTakedown, takedownBusy, matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -3146,6 +3162,46 @@ export default function Page() {
         </div>
       </div>
 
+      {/* ===== Take down confirmation =====
+           listing-status accepts only 'takedown' and there is no republish
+           action, so this is the last point at which the seller can stop. The
+           copy states what happens rather than asking "are you sure". */}
+      {confirmTakedown && (
+        <div
+          className="modal-overlay open confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="takedownTitle"
+          onClick={(e) => { if (e.target === e.currentTarget && !takedownBusy) setConfirmTakedown(null); }}
+        >
+          <div className="modal confirm-modal">
+            <button className="modal-close" aria-label="Close" disabled={takedownBusy} onClick={() => setConfirmTakedown(null)}>&times;</button>
+            <div className="confirm-eyebrow">This cannot be undone</div>
+            <h3 id="takedownTitle">Take this listing offline?</h3>
+            <p className="sub">
+              Your <strong>{resolveListingHeadline(confirmTakedown)}</strong> package,{' '}
+              {confirmTakedown.essays.length} {confirmTakedown.essays.length === 1 ? 'essay' : 'essays'}
+              {confirmTakedown.packagePrice != null ? ` at $${confirmTakedown.packagePrice}` : ''}, is removed
+              from the catalogue straight away. Buyers can no longer find or purchase it.
+            </p>
+            <ul className="confirm-list">
+              <li>There is no way to put it back yourself</li>
+              <li>Anyone who already bought it keeps their access</li>
+              <li>To relist, you would build a new package from scratch</li>
+            </ul>
+            {takedownErr && <div className="confirm-error" role="alert">{takedownErr}</div>}
+            <div className="confirm-actions">
+              <button className="confirm-ghost" type="button" disabled={takedownBusy} onClick={() => setConfirmTakedown(null)}>
+                Keep it listed
+              </button>
+              <button className="confirm-danger" type="button" disabled={takedownBusy} onClick={() => void confirmTakedownNow()}>
+                {takedownBusy ? 'Taking offline…' : 'Take it offline'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== Listing detail sheet ===== */}
       {detailListing && (
         <ListingDetail
@@ -3668,9 +3724,9 @@ export default function Page() {
               onAddApplication={() => openApplicationListing()}
               onEditApplication={editApplicationOutcome}
               onAddListing={openApplicationListing}
-              onEditListing={(id) => void editWorkspaceListing(id)}
-              busyListingId={openingListingId}
-              onTakeDownListing={(id) => void listingAction(id, 'takedown')}
+              onEditListing={editWorkspaceListing}
+              supportEmail={CONTACT_EMAIL}
+              onTakeDownListing={requestTakedown}
             />
             {activeListingControlId && listings.find((listing) => listing.id === activeListingControlId) && (
               <div className="dash-listing-controls" aria-label="Selected listing controls">
@@ -3688,6 +3744,17 @@ export default function Page() {
             <button className="dash-logout" onClick={handleSellerLogout}>Log out</button>
           </div>
         </div>
+        {/* A finished listing cannot be changed from here, so the way to get a
+            change made is always in reach. The address is written out as well
+            as linked, because a mailto goes nowhere without a mail client. */}
+        <a
+          className="dash-help-dock"
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Seller support')}`}
+        >
+          <span aria-hidden="true">?</span>
+          Need help with a listing
+          <small>{CONTACT_EMAIL}</small>
+        </a>
       </div>
     </>
   );
