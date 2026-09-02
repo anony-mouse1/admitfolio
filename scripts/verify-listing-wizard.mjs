@@ -60,7 +60,10 @@ assert(/const \[confirmTakedown, setConfirmTakedown\]/.test(page), 'take down mu
 assert(/onTakeDownListing=\{requestTakedown\}/.test(page), 'the workspace take down must go through the confirmation');
 const escBody2 = page.slice(page.indexOf('Escape closes the top-most overlay'), page.indexOf('Scroll-reveal animations'));
 assert(escBody2.indexOf('if (confirmTakedown)') < escBody2.indexOf('else if (matcherOpen)'), 'Escape must answer the confirmation before closing anything under it');
-assert(/confirmTakedown !== null;/.test(page), 'the confirmation must join the body scroll lock');
+// Anchored on the scroll-lock line rather than its ending, so adding another
+// confirmation to it does not read as take down having left it.
+const lockLine = page.split('\n').find((line) => line.includes('const anyOpen ='));
+assert(lockLine && lockLine.includes('confirmTakedown !== null'), 'the confirmation must join the body scroll lock');
 
 // A failed drafts fetch reports, it does not invent a replacement draft.
 assert(!/catch \{\n      await createSellerDraft/.test(page), 'a failed drafts fetch must not silently create a new draft');

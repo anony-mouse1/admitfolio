@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import styles from './admin.module.css';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
 import SellerSupport from './SellerSupport';
+import ConfirmDialog from './ConfirmDialog';
 
 type Essay = {
   id: string;
@@ -463,6 +464,14 @@ export default function AdminPage() {
   const [openReview, setOpenReview] = useState<Record<string, boolean>>({});
   // Listing id currently being decided, so we can disable its buttons.
   const [deciding, setDeciding] = useState<string | null>(null);
+  // Approving, rejecting and verifying all email a real seller and cannot be
+  // taken back, so each one asks first. The pending action doubles as the open
+  // flag, matching the support-view dialog in SellerSupport.
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'decision'; listingId: string; decision: 'approved' | 'rejected'; school: string; sellerEmail: string; essayCount: number; note: string }
+    | { kind: 'verifyProof'; proofId: string; school: string; sellerEmail: string }
+    | null
+  >(null);
   const [schoolDrafts, setSchoolDrafts] = useState<Record<string, string>>({});
   const [confirmingSchool, setConfirmingSchool] = useState<string | null>(null);
   const [consoleView, setConsoleView] = useState<'review' | 'sellers'>('review');
@@ -564,6 +573,14 @@ export default function AdminPage() {
     // Put it back where it was rather than leaving the screen disagreeing with
     // the database.
     if (!resp.ok) await loadListings();
+  }
+
+  async function runPendingAction() {
+    const action = pendingAction;
+    if (!action) return;
+    setPendingAction(null);
+    if (action.kind === 'decision') await decide(action.listingId, action.decision);
+    else await decideProof(action.proofId, 'verified');
   }
 
   async function decide(id: string, decision: 'approved' | 'rejected') {
@@ -963,7 +980,12 @@ export default function AdminPage() {
                             <button
                               type="button"
                               className={styles.proofOk}
-                              onClick={() => decideProof(p.id as string, 'verified')}
+                              onClick={() => setPendingAction({
+                                kind: 'verifyProof',
+                                proofId: p.id as string,
+                                school: p.school,
+                                sellerEmail: l.sellerEmail,
+                              })}
                             >
                               Verify
                             </button>
@@ -1073,14 +1095,22 @@ export default function AdminPage() {
                         <button
                           className={`${styles.btn} ${l.aiSuggestion === 'approve' && l.status === 'pending' ? styles.suggested : ''}`}
                           disabled={deciding === l.id}
-                          onClick={() => decide(l.id, 'approved')}
+                          onClick={() => setPendingAction({
+                            kind: 'decision', listingId: l.id, decision: 'approved',
+                            school: l.school, sellerEmail: l.sellerEmail,
+                            essayCount: l.essays.length, note: (notes[l.id] || '').trim(),
+                          })}
                         >
                           Approve &amp; notify
                         </button>
                         <button
                           className={`${styles.btn} ${styles.btnReject} ${l.aiSuggestion === 'reject' && l.status === 'pending' ? styles.suggested : ''}`}
                           disabled={deciding === l.id}
-                          onClick={() => decide(l.id, 'rejected')}
+                          onClick={() => setPendingAction({
+                            kind: 'decision', listingId: l.id, decision: 'rejected',
+                            school: l.school, sellerEmail: l.sellerEmail,
+                            essayCount: l.essays.length, note: (notes[l.id] || '').trim(),
+                          })}
                         >
                           Reject &amp; notify
                         </button>
@@ -1152,6 +1182,65 @@ export default function AdminPage() {
             </>
           )}
         </div>
+      )}
+
+      {pendingAction && (
+        pendingAction.kind === 'decision' && pendingAction.decision === 'approved' ? (
+          <ConfirmDialog
+            eyebrow="This publishes and emails the seller"
+            title={`Approve ${pendingAction.school}?`}
+            body={`${pendingAction.essayCount} ${pendingAction.essayCount === 1 ? 'essay' : 'essays'} go live in the catalogue and ${pendingAction.sellerEmail} is emailed straight away.`}
+            points={[
+              'Buyers can find and purchase it immediately',
+              // Documented in HANDOVER.md and implemented in
+              // app/api/admin/decision: approving any listing is the final
+              // admission decision for that seller.
+              'Every admission this seller claims is marked verified, on this listing and every other',
+              pendingAction.note
+                ? 'Your note is included in the email'
+                : 'No note is attached, so the email carries the standard wording',
+            ]}
+            confirmLabel="Approve and notify"
+            cancelLabel="Not yet"
+            busy={deciding === pendingAction.listingId}
+            onConfirm={() => void runPendingAction()}
+            onCancel={() => setPendingAction(null)}
+          />
+        ) : pendingAction.kind === 'decision' ? (
+          <ConfirmDialog
+            eyebrow="This emails the seller"
+            title={`Reject ${pendingAction.school}?`}
+            body={`${pendingAction.sellerEmail} is emailed straight away. Listings cannot be edited once reviewed, so this is the end of the road for this submission.`}
+            points={[
+              'The listing stays private and is never published',
+              pendingAction.note
+                ? 'Your note is included in the email, as the reason'
+                : 'You have written no note, so the seller is told only that it was not approved',
+              'To list again they would build a new package from scratch',
+            ]}
+            confirmLabel="Reject and notify"
+            cancelLabel="Not yet"
+            danger
+            busy={deciding === pendingAction.listingId}
+            onConfirm={() => void runPendingAction()}
+            onCancel={() => setPendingAction(null)}
+          />
+        ) : (
+          <ConfirmDialog
+            eyebrow="This cannot be undone"
+            title={`Mark the ${pendingAction.school} letter verified?`}
+            body={`This records that you have read the acceptance letter for ${pendingAction.school} and accept it as genuine.`}
+            points={[
+              'The decision is recorded against your admin email',
+              'The seller can no longer replace this letter',
+              'Rejecting instead asks you for a reason, which the seller is shown',
+            ]}
+            confirmLabel="Verify letter"
+            cancelLabel="Not yet"
+            onConfirm={() => void runPendingAction()}
+            onCancel={() => setPendingAction(null)}
+          />
+        )
       )}
     </div>
   );
