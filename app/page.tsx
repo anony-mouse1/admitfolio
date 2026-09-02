@@ -863,9 +863,10 @@ export default function Page() {
     void flushSellerDraft();
     setSellOpen(false);
     fullResetSell();
-    // The dashboard was never closed, so there is nothing to reopen. Reload it
-    // instead: a listing may have just been submitted, and the resume banner is
-    // built from the drafts fetch, so leaving it untouched showed stale state.
+    // The dashboard was never closed, so there is nothing to reopen. Refresh it
+    // in place: a listing may have just been submitted and the resume banner is
+    // built from the drafts fetch, but the seller keeps looking at the numbers
+    // they already had while the new ones arrive.
     if (cameFromDashboard) {
       setCameFromDashboard(false);
       reloadDashboardRef.current?.();
@@ -1585,24 +1586,14 @@ export default function Page() {
   }, []);
   const closeLogin = useCallback(() => setLoginOpen(false), []);
 
-  const openDashboard = useCallback((email: string) => {
-    try { sessionStorage.setItem('admitfolio:seller-active', '1'); } catch {}
-    setSellerEmail(email || '');
-    setListings([]);
-    setMonthGross(0);
-    setSellerAccounting(null);
-    setSellerPayouts(null);
-    setSellerApplications([]);
-    setPayoutSetupError('');
-    setDashErr('');
-    setDashLoading(true);
-    setDashOpen(true);
-    setProfMsg({ text: '', kind: '' });
-    setResumableDraft(null);
+  // The three dashboard fetches, on their own. They run in parallel, and none of
+  // them clears anything first, so calling this again refreshes the page in
+  // place rather than emptying it and filling it back in.
+  const loadDashboardData = useCallback(() => {
     fetch('/api/seller/drafts')
       .then(async (r) => {
         const d = (await r.json().catch(() => ({}))) as { ok?: boolean; drafts?: SellerDraftSummary[] };
-        if (r.ok && d.ok && d.drafts?.[0]) setResumableDraft(d.drafts[0]);
+        if (r.ok && d.ok) setResumableDraft(d.drafts?.[0] ?? null);
       })
       .catch(() => {});
     fetch('/api/seller/profile')
@@ -1671,6 +1662,25 @@ export default function Page() {
       .catch((err) => setDashErr(err instanceof Error ? err.message : 'Could not load your listings.'))
       .finally(() => setDashLoading(false));
   }, []);
+
+  const openDashboard = useCallback((email: string) => {
+    try { sessionStorage.setItem('admitfolio:seller-active', '1'); } catch {}
+    setSellerEmail(email || '');
+    // Opening from cold blanks first, because the previous seller's numbers
+    // must never be on screen while the new ones are in flight.
+    setListings([]);
+    setMonthGross(0);
+    setSellerAccounting(null);
+    setSellerPayouts(null);
+    setSellerApplications([]);
+    setResumableDraft(null);
+    setPayoutSetupError('');
+    setDashErr('');
+    setDashLoading(true);
+    setDashOpen(true);
+    setProfMsg({ text: '', kind: '' });
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   async function handleLogin() {
     const email = slEmail.trim();
@@ -1755,11 +1765,11 @@ export default function Page() {
 
   /* ============================ Seller dashboard ============================ */
   const [sellerEmail, setSellerEmail] = useState('');
-  // Points closeSell at the current reloader. Declared here because both
-  // openDashboard and sellerEmail have to exist first.
+  // Points closeSell at the in-place refresh. Declared here because
+  // loadDashboardData has to exist first.
   useEffect(() => {
-    reloadDashboardRef.current = () => openDashboard(sellerEmail);
-  }, [openDashboard, sellerEmail]);
+    reloadDashboardRef.current = loadDashboardData;
+  }, [loadDashboardData]);
   const [listings, setListings] = useState<SellerListing[]>([]);
   const [monthGross, setMonthGross] = useState(0);
   const [sellerAccounting, setSellerAccounting] = useState<SellerAccounting | null>(null);

@@ -37,6 +37,13 @@ assert(!/setDashOpen\(false\)/.test(openBodyFull), 'opening the wizard must leav
 assert(/over-dash/.test(page), 'the wizard must be lifted above the dashboard when launched from it');
 assert(/if \(cameFromDashboard\) \{/.test(page), 'closing the wizard must reload the dashboard behind it');
 assert(/reloadDashboardRef\.current\?\.\(\)/.test(page), 'closing must refetch, or the resume banner and listings stay stale');
+// The refresh must not blank the dashboard first. Clearing state belongs to
+// opening from cold, not to coming back from the wizard.
+const loadBody = page.slice(page.indexOf('const loadDashboardData = useCallback'), page.indexOf('const openDashboard = useCallback'));
+for (const clear of ['setListings([])', 'setSellerApplications([])', 'setDashLoading(true)', 'setResumableDraft(null)']) {
+  assert(!loadBody.includes(clear), `the in-place refresh must not ${clear}, or the dashboard empties on every exit`);
+}
+assert(/setResumableDraft\(d\.drafts\?\.\[0\] \?\? null\)/.test(page), 'a refresh must clear the resume banner when the draft is gone, not only set it');
 assert(/setCameFromDashboard\(true\)/.test(page) && /setCameFromDashboard\(false\)/.test(page), 'the dashboard-origin flag must be both set and cleared');
 
 // Escape closes the wizard before the dashboard underneath it.
