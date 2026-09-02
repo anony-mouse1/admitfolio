@@ -2890,8 +2890,12 @@ export default function Page() {
               <div>
                 {essayRows.map((row, i) => {
                   const isOther = /^other/i.test(row.prompt);
+                  // Keyed on clientKey, not the index. The file input is
+                  // uncontrolled, so an index key lets React reuse the DOM node
+                  // by position, and removing a row leaves its picked file
+                  // attached to whichever row slides up into its place.
                   return (
-                    <div className="essay-row" key={i}>
+                    <div className="essay-row" key={row.clientKey}>
                       <div className="essay-row-head">
                         <span className="essay-row-title">Essay {i + 1}</span>
                         <button type="button" className="essay-remove" style={{ visibility: essayRows.length > 1 ? 'visible' : 'hidden' }} onClick={() => removeEssayRow(i)}>Remove</button>
