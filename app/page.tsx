@@ -1747,23 +1747,37 @@ export default function Page() {
       totalGross,
       totalNet: sellerAccounting
         ? sellerAccounting.allTimeSellerEarningsCents / 100
-        : round2(totalGross * SELLER_SHARE),
+        : null,
       totalFee: sellerAccounting
         ? sellerAccounting.allTimePlatformFeeCents / 100
         : round2(totalGross * (1 - SELLER_SHARE)),
+      // Null, not zero. The fallback runs when the API did not send the eight
+      // accounting fields, and we have no way to derive the Stripe fee from
+      // gross. Printing 0 made the breakdown reconcile against a number nobody
+      // sent.
       totalStripeFee: sellerAccounting
         ? sellerAccounting.allTimeStripeProcessingFeeCents / 100
-        : 0,
+        : null,
       monthGross: sellerAccounting ? sellerAccounting.monthGrossCents / 100 : monthGross,
-      monthNet: sellerAccounting
-        ? sellerAccounting.monthSellerEarningsCents / 100
-        : round2(monthGross * SELLER_SHARE),
+      // Also null. Real earnings are gross minus the platform fee minus the
+      // Stripe fee, so the old 60% of gross overstated the payout by the whole
+      // Stripe fee on every checkout that passes it to the seller.
+      monthNet: sellerAccounting ? sellerAccounting.monthSellerEarningsCents / 100 : null,
       totalSales,
-      pendingPayout: sellerAccounting
-        ? (sellerPayouts?.pendingCents ?? sellerAccounting.allTimeSellerEarningsCents) / 100
-        : round2(totalGross * SELLER_SHARE),
     };
-  }, [listings, monthGross, sellerAccounting, sellerPayouts]);
+  }, [listings, monthGross, sellerAccounting]);
+
+  // A purchase whose Stripe fee has not settled is still counted as a sale but
+  // is excluded from every accounted total, so a seller whose only sale is
+  // pending saw "1 sale" beside "$0.00". Zero is not the truth there, and
+  // neither is a figure the API never sent.
+  const accountingPending = (sellerPayouts?.accountingPendingCount ?? 0) > 0;
+  const fmtSettled = (n: number | null) =>
+    n == null ? 'Not available' : accountingPending && n === 0 ? 'Pending' : fmt(n);
+  const fmtDeduction = (n: number | null) => {
+    const text = fmtSettled(n);
+    return text.startsWith('$') ? `− ${text}` : text;
+  };
 
   async function handlePayoutSetup() {
     setPayoutSetupBusy(true);
@@ -3255,13 +3269,13 @@ export default function Page() {
             <div className="dash-stats-row">
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total net earnings</div>
-                <div className="dash-stat-value">{fmt(earnings.totalNet)}</div>
+                <div className="dash-stat-value">{fmtSettled(earnings.totalNet)}</div>
                 <div className="dash-stat-sub">After platform and transaction fees · all time</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">This month (net)</div>
-                <div className="dash-stat-value">{fmt(earnings.monthNet)}</div>
-                <div className="dash-stat-sub">Gross {fmt(earnings.monthGross)} · {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
+                <div className="dash-stat-value">{fmtSettled(earnings.monthNet)}</div>
+                <div className="dash-stat-sub">Gross {fmtSettled(earnings.monthGross)} · {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">{payoutCard.label}</div>
@@ -3359,19 +3373,19 @@ export default function Page() {
               <div className="dash-revenue-title">All-time revenue breakdown</div>
               <div className="dash-rev-row">
                 <span className="dash-rev-label">Gross sales</span>
-                <span className="dash-rev-value">{fmt(earnings.totalGross)}</span>
+                <span className="dash-rev-value">{fmtSettled(earnings.totalGross)}</span>
               </div>
               <div className="dash-rev-row fee">
                 <span className="dash-rev-label">Admitfolio fee (40%)</span>
-                <span className="dash-rev-value">− {fmt(earnings.totalFee)}</span>
+                <span className="dash-rev-value">{fmtDeduction(earnings.totalFee)}</span>
               </div>
               <div className="dash-rev-row fee">
                 <span className="dash-rev-label">Stripe transaction fee</span>
-                <span className="dash-rev-value">− {fmt(earnings.totalStripeFee)}</span>
+                <span className="dash-rev-value">{fmtDeduction(earnings.totalStripeFee)}</span>
               </div>
               <div className="dash-rev-row net">
                 <span className="dash-rev-label">Your payout</span>
-                <span className="dash-rev-value">{fmt(earnings.totalNet)}</span>
+                <span className="dash-rev-value">{fmtSettled(earnings.totalNet)}</span>
               </div>
             </div>
           </section>
