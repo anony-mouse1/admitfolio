@@ -2844,6 +2844,12 @@ export default function Page() {
                     return (
                       <label key={a.key} className={`proof-row${f || savedFileName ? ' has-file' : ''}`}>
                         <span className="proof-school">{a.label}</span>
+                        {/* The two spans sit at opposite ends of the row, so the
+                            gap between them is the only thing separating them.
+                            Without real text here the accessible name and any
+                            copied text run the school straight into the
+                            filename. Absolutely positioned, so it adds no gap. */}
+                        <span className="sr-only">: </span>
                         <input
                           type="file"
                           accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
