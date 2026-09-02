@@ -41,6 +41,58 @@ const assetFiles = (await readdir(path.join(root, 'public/assets/schools'))).fil
 assert.equal(assetFiles.length, entries.length, 'the production asset directory must contain exactly the manifested files');
 assert.deepEqual(assetFiles.sort(), entries.map(({ source }) => path.basename(source)).sort(), 'every asset must be manifested');
 
+// The no-remote-marks rule is a whole-tree rule, not a LogoBadge rule. It was
+// only ever enforced against LogoBadge.tsx, which is how
+// public/hero-loop-embed.html came to request ten school marks from Google's
+// favicon service, blocked by CSP on every homepage load.
+const FAVICON_SERVICES = [
+  /google\.com\/s2\/favicons/i,
+  /icons\.duckduckgo\.com/i,
+  /logo\.clearbit\.com/i,
+  /besticon/i,
+  /favicongrabber/i,
+  /upload\.wikimedia\.org/i,
+];
+const REMOTE_IMAGE = /<img[^>]*\ssrc\s*=\s*["']https?:\/\//i;
+
+async function sourceFiles(dir, extensions) {
+  const out = [];
+  let listing;
+  try {
+    listing = await readdir(path.join(root, dir), { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of listing) {
+    const rel = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (['node_modules', '.next', 'legacy'].includes(entry.name)) continue;
+      out.push(...(await sourceFiles(rel, extensions)));
+    } else if (extensions.some((ext) => entry.name.endsWith(ext))) {
+      // browse-mockup.html is gitignored, holds real seller data, and never
+      // deploys, so it is deliberately out of scope here.
+      if (entry.name === 'browse-mockup.html') continue;
+      out.push(rel);
+    }
+  }
+  return out;
+}
+
+const scanned = [
+  ...(await sourceFiles('app', ['.ts', '.tsx'])),
+  ...(await sourceFiles('components', ['.ts', '.tsx'])),
+  ...(await sourceFiles('lib', ['.ts'])),
+  ...(await sourceFiles('public', ['.html'])),
+];
+assert.ok(scanned.length > 20, 'the remote-mark scan must actually be reading the tree');
+for (const file of scanned) {
+  const text = await readFile(path.join(root, file), 'utf8');
+  for (const service of FAVICON_SERVICES) {
+    assert.doesNotMatch(text, service, `${file} must not fetch marks from a favicon or logo service`);
+  }
+  assert.doesNotMatch(text, REMOTE_IMAGE, `${file} must not load a remote image`);
+}
+
 assert.match(component, /schoolLogoSrc\(domain\)/, 'LogoBadge must use the shared helper');
 assert.match(component, /logoSrc && !errored/, 'failed local assets must stop rendering the image');
 assert.match(component, /\{letter\}/, 'unsupported schools must keep the deterministic monogram fallback');
@@ -50,4 +102,4 @@ assert.doesNotMatch(manifest, /https?:\/\//i, 'runtime manifest must contain sam
 assert.doesNotMatch(manifest, /mockup-assets/i, 'runtime manifest must not use prototype asset paths');
 assert.match(sourceNotes, /Retrieved 2026-08-24/, 'downloaded asset provenance must record its retrieval date');
 
-console.log(`logo asset tests passed (${entries.length} self-hosted marks, no runtime remote dependencies)`);
+console.log(`logo asset tests passed (${entries.length} self-hosted marks, ${scanned.length} files scanned, no runtime remote dependencies)`);

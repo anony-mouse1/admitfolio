@@ -278,6 +278,20 @@ const listingTitle = (l: SellerListing) => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
+// Whole dollars only. Listing.packagePrice and Essay.price are Int columns, so
+// the server rounds anything finer and a seller who typed 29.50 was saved as 30
+// with nothing said. The caps are the wizard's, which the dashboard price
+// editors previously did not apply at all.
+const MAX_PACKAGE_PRICE = 399;
+const MAX_ESSAY_PRICE = 99;
+const wholeDollarHint = 'Whole dollars only, no cents.';
+
+// A listing with no package price is unpriced, not free. /api/listings filters
+// those rows out today, so this is a guard rather than a live case, but the
+// detail sheet said "Free" while the card said nothing, and "Free" is the worst
+// available reading of "we do not know what this costs".
+const priceLabel = (price: number | null | undefined) =>
+  price != null ? `$${price}` : 'Price unavailable';
 const payoutDate = (value: string | null | undefined) => value
   ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   : null;
@@ -1153,6 +1167,10 @@ export default function Page() {
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
     else if (!separate && !packagePrice.trim()) msg = 'Set a package price.';
+    else if (!separate && !Number.isInteger(parseFloat(packagePrice))) msg = `${wholeDollarHint} Round to the nearest dollar.`;
+    else if (separate && rows.some((r) => !Number.isInteger(parseFloat(r.price)))) msg = `${wholeDollarHint} Round to the nearest dollar.`;
+    else if (!separate && parseFloat(packagePrice) > MAX_PACKAGE_PRICE) msg = `The most you can charge for one listing is $${MAX_PACKAGE_PRICE}.`;
+    else if (separate && rows.some((r) => parseFloat(r.price) > MAX_ESSAY_PRICE)) msg = `The most you can charge for one essay is $${MAX_ESSAY_PRICE}.`;
     else if (suggestedTier && !separate && parseFloat(packagePrice) < packageFloor(suggestedTier, rows.length)) msg = `Your ${TIER[suggestedTier].label} floor is $${packageFloor(suggestedTier, rows.length)}. You can charge that or more.`;
     else if (suggestedTier && separate && rows.some((r) => parseFloat(r.price) < perEssayFloor(suggestedTier))) msg = `Each essay's floor at ${TIER[suggestedTier].label} is $${perEssayFloor(suggestedTier)}. You can charge that or more.`;
 
@@ -1747,23 +1765,37 @@ export default function Page() {
       totalGross,
       totalNet: sellerAccounting
         ? sellerAccounting.allTimeSellerEarningsCents / 100
-        : round2(totalGross * SELLER_SHARE),
+        : null,
       totalFee: sellerAccounting
         ? sellerAccounting.allTimePlatformFeeCents / 100
         : round2(totalGross * (1 - SELLER_SHARE)),
+      // Null, not zero. The fallback runs when the API did not send the eight
+      // accounting fields, and we have no way to derive the Stripe fee from
+      // gross. Printing 0 made the breakdown reconcile against a number nobody
+      // sent.
       totalStripeFee: sellerAccounting
         ? sellerAccounting.allTimeStripeProcessingFeeCents / 100
-        : 0,
+        : null,
       monthGross: sellerAccounting ? sellerAccounting.monthGrossCents / 100 : monthGross,
-      monthNet: sellerAccounting
-        ? sellerAccounting.monthSellerEarningsCents / 100
-        : round2(monthGross * SELLER_SHARE),
+      // Also null. Real earnings are gross minus the platform fee minus the
+      // Stripe fee, so the old 60% of gross overstated the payout by the whole
+      // Stripe fee on every checkout that passes it to the seller.
+      monthNet: sellerAccounting ? sellerAccounting.monthSellerEarningsCents / 100 : null,
       totalSales,
-      pendingPayout: sellerAccounting
-        ? (sellerPayouts?.pendingCents ?? sellerAccounting.allTimeSellerEarningsCents) / 100
-        : round2(totalGross * SELLER_SHARE),
     };
-  }, [listings, monthGross, sellerAccounting, sellerPayouts]);
+  }, [listings, monthGross, sellerAccounting]);
+
+  // A purchase whose Stripe fee has not settled is still counted as a sale but
+  // is excluded from every accounted total, so a seller whose only sale is
+  // pending saw "1 sale" beside "$0.00". Zero is not the truth there, and
+  // neither is a figure the API never sent.
+  const accountingPending = (sellerPayouts?.accountingPendingCount ?? 0) > 0;
+  const fmtSettled = (n: number | null) =>
+    n == null ? 'Not available' : accountingPending && n === 0 ? 'Pending' : fmt(n);
+  const fmtDeduction = (n: number | null) => {
+    const text = fmtSettled(n);
+    return text.startsWith('$') ? `− ${text}` : text;
+  };
 
   async function handlePayoutSetup() {
     setPayoutSetupBusy(true);
@@ -2918,7 +2950,7 @@ export default function Page() {
                         }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
-                      <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={99} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
+                      <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={MAX_ESSAY_PRICE} step={1} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
                     </div>
                   );
                 })}
@@ -2965,8 +2997,8 @@ export default function Page() {
                 {essayRows.length > 1 ? `Your price (all ${essayRows.length} essays)` : 'Your price'}{' '}
                 <span className="floor-hint">{suggestedTier ? `(min $${packageFloor(suggestedTier, essayRows.length)})` : ''}</span>
               </label>
-              <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={399} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
-              <div className="field-hint">One price covers this whole listing. Buyers get every essay in it.</div>
+              <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={MAX_PACKAGE_PRICE} step={1} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
+              <div className="field-hint">One price covers this whole listing. Buyers get every essay in it. {wholeDollarHint}</div>
             </div>
 
             <div className="field">
@@ -3049,9 +3081,9 @@ export default function Page() {
                   {curItem.summary || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
                 </div>
               </div>
-              <div className="buy-summary-price">{curItem.price != null ? `$${curItem.price}` : ''}</div>
+              <div className="buy-summary-price">{priceLabel(curItem.price)}</div>
             </div>
-            <div className="buy-total"><span>Total</span><i /><strong>{curItem.price != null ? `$${curItem.price}` : ''}</strong></div>
+            <div className="buy-total"><span>Total</span><i /><strong>{priceLabel(curItem.price)}</strong></div>
             <div className="buy-delivery">
               <div><b>✓</b><span>Instant private access after payment</span></div>
               <div><b>✓</b><span>Secure reading link sent to your email</span></div>
@@ -3255,13 +3287,13 @@ export default function Page() {
             <div className="dash-stats-row">
               <div className="dash-stat-card">
                 <div className="dash-stat-label">Total net earnings</div>
-                <div className="dash-stat-value">{fmt(earnings.totalNet)}</div>
+                <div className="dash-stat-value">{fmtSettled(earnings.totalNet)}</div>
                 <div className="dash-stat-sub">After platform and transaction fees · all time</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">This month (net)</div>
-                <div className="dash-stat-value">{fmt(earnings.monthNet)}</div>
-                <div className="dash-stat-sub">Gross {fmt(earnings.monthGross)} · {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
+                <div className="dash-stat-value">{fmtSettled(earnings.monthNet)}</div>
+                <div className="dash-stat-sub">Gross {fmtSettled(earnings.monthGross)} · {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
               </div>
               <div className="dash-stat-card">
                 <div className="dash-stat-label">{payoutCard.label}</div>
@@ -3359,19 +3391,19 @@ export default function Page() {
               <div className="dash-revenue-title">All-time revenue breakdown</div>
               <div className="dash-rev-row">
                 <span className="dash-rev-label">Gross sales</span>
-                <span className="dash-rev-value">{fmt(earnings.totalGross)}</span>
+                <span className="dash-rev-value">{fmtSettled(earnings.totalGross)}</span>
               </div>
               <div className="dash-rev-row fee">
                 <span className="dash-rev-label">Admitfolio fee (40%)</span>
-                <span className="dash-rev-value">− {fmt(earnings.totalFee)}</span>
+                <span className="dash-rev-value">{fmtDeduction(earnings.totalFee)}</span>
               </div>
               <div className="dash-rev-row fee">
                 <span className="dash-rev-label">Stripe transaction fee</span>
-                <span className="dash-rev-value">− {fmt(earnings.totalStripeFee)}</span>
+                <span className="dash-rev-value">{fmtDeduction(earnings.totalStripeFee)}</span>
               </div>
               <div className="dash-rev-row net">
                 <span className="dash-rev-label">Your payout</span>
-                <span className="dash-rev-value">{fmt(earnings.totalNet)}</span>
+                <span className="dash-rev-value">{fmtSettled(earnings.totalNet)}</span>
               </div>
             </div>
           </section>
@@ -3648,8 +3680,20 @@ function isQuestBridgeTag(value: string): boolean {
   return schoolInfo(value)?.domain === 'questbridge.org';
 }
 
+// De-duplicated with the same rule addAdmit applies at entry, so entry and
+// render agree. Two spellings of one school ("University of Pennsylvania" and
+// "UPenn") both shorten to "UPenn" and used to print twice, on the card line
+// and again as two identical chips on the detail sheet. Only rows saved before
+// that entry check need this. The first spelling wins, so the hover title still
+// shows what the seller actually typed.
 function collegeAdmitTags(listing: PublicListing): string[] {
-  return listing.admitTags.filter((tag) => !isQuestBridgeTag(tag));
+  const kept: string[] = [];
+  for (const tag of listing.admitTags) {
+    if (isQuestBridgeTag(tag)) continue;
+    if (kept.some((existing) => sameSchool(existing, tag))) continue;
+    kept.push(tag);
+  }
+  return kept;
 }
 
 function questBridgeLabel(listing: PublicListing): string | null {
@@ -3847,7 +3891,7 @@ function PublicListingCard({
       </div>
       <div className="ecard-foot">
         <div className="ecard-price">
-          <span className="p">{listing.price != null ? `$${listing.price}` : ''}</span>
+          <span className="p">{priceLabel(listing.price)}</span>
           <span className="w">{count > 1 ? `${count}-essay set` : 'full essay'}</span>
         </div>
         {/* Decided buyers keep the one-click path; stopPropagation so it does
@@ -3997,7 +4041,7 @@ function ListingDetail({
 
         <div className="d-foot d-foot-top">
           <div className="d-price">
-            {listing.price != null ? `$${listing.price}` : 'Free'}
+            {priceLabel(listing.price)}
             <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
           </div>
           <button className="d-unlock-btn" type="button" onClick={onUnlock}>
@@ -4113,7 +4157,7 @@ function ListingDetail({
                     </span>
                     <span className="d-related-meta">
                       {other.essays.length} {other.essays.length === 1 ? 'essay' : 'essays'}
-                      {other.price != null ? ` · $${other.price}` : ''}
+                      {` · ${priceLabel(other.price)}`}
                     </span>
                     <span className="d-related-arrow" aria-hidden="true">→</span>
                   </button>
@@ -4201,6 +4245,14 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
         setSaveErr(`Minimum for your tier is $${floor}.`);
         return;
       }
+      if (!Number.isInteger(p)) {
+        setSaveErr(`${wholeDollarHint} Round to the nearest dollar.`);
+        return;
+      }
+      if (p > MAX_PACKAGE_PRICE) {
+        setSaveErr(`The most you can charge for one listing is $${MAX_PACKAGE_PRICE}.`);
+        return;
+      }
       payload.packagePrice = p;
     } else {
       const prices: Record<string, number> = {};
@@ -4208,6 +4260,14 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
         const p = parseFloat(essayInputs[e.id]);
         if (isNaN(p) || p < floor) {
           setSaveErr(`Each essay needs a price of at least $${floor}.`);
+          return;
+        }
+        if (!Number.isInteger(p)) {
+          setSaveErr(`${wholeDollarHint} Round to the nearest dollar.`);
+          return;
+        }
+        if (p > MAX_ESSAY_PRICE) {
+          setSaveErr(`The most you can charge for one essay is $${MAX_ESSAY_PRICE}.`);
           return;
         }
         prices[e.id] = p;
@@ -4254,15 +4314,15 @@ function ListingCard({ listing: l, onAction, onPriceSaved }: {
               {isPackage ? (
                 <label className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   Package price ($)
-                  <input type="number" min={floor} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                  <span>min ${floor}</span>
+                  <input type="number" min={floor} max={MAX_PACKAGE_PRICE} step={1} value={pkgInput} onChange={(e) => { setPkgInput(e.target.value); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                  <span>{`$${floor} to $${MAX_PACKAGE_PRICE}, whole dollars`}</span>
                 </label>
               ) : (
                 l.essays.map((e) => (
                   <label key={e.id} className="dash-listing-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {(e.question || e.prompt).slice(0, 40)} ($)
-                    <input type="number" min={floor} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
-                    <span>min ${floor}</span>
+                    <input type="number" min={floor} max={MAX_ESSAY_PRICE} step={1} value={essayInputs[e.id] || ''} onChange={(ev) => { setEssayInputs((prev) => ({ ...prev, [e.id]: ev.target.value })); setSaveErr(''); }} style={{ width: 90, padding: '4px 8px' }} />
+                    <span>{`$${floor} to $${MAX_ESSAY_PRICE}, whole dollars`}</span>
                   </label>
                 ))
               )}

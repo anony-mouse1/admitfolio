@@ -13,6 +13,8 @@ assert.match(view, /applicationsByKey/, 'dashboard must group listings beneath s
 assert.match(view, /proofBySchool/, 'application verification must come from the related school proof');
 assert.match(view, /sellerApplicationSchool/, 'dashboard grouping must share its application-school resolver with mutations');
 assert.match(view, /sellerHasApprovedListing[\s\S]*\? 'verified'/, 'admin-approved sellers must be verified without another proof check');
+assert.match(view, /rows\.some\(isAdminApprovedListing\)/, 'seller-wide verification must read the raw rows, which still carry humanReviewedAt and aiDecision');
+assert.doesNotMatch(view, /listings\.some\(isAdminApprovedListing\)/, 'the mapped seller payload drops both review markers, so the predicate must not run on it');
 
 const proofsRoute = fs.readFileSync(new URL('../app/api/seller/proofs/route.ts', import.meta.url), 'utf8');
 assert.match(proofsRoute, /export async function POST/, 'a seller must be able to start verification for a legacy application');
