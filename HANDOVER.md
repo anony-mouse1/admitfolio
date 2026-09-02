@@ -67,7 +67,8 @@ source instead, in the same script.
   on each load and those badges render without marks. This contradicts the
   invariant that no browser request is ever made to a favicon service.
   `scripts/logo-assets.test.mjs` enforces that rule against `LogoBadge.tsx` only,
-  which is how this file slipped past it. Not on the bug list, so not touched.
+  which is how this file slipped past it. Now scheduled into batch 2, together
+  with widening that test so no other file can reintroduce it.
 - **Next's dev server refuses `/_next/static` chunks to a `127.0.0.1` page
   origin**, returning 403 and leaving the catalogue stuck on "Loading essays".
   `scripts/verify-browse-ui.mjs` defaulted to `127.0.0.1`, so it could not have
@@ -84,7 +85,17 @@ Batches 2 to 6 of the audit, in order, each gated on review of the one before:
 2. Wrong data shown: pending money rendering as `$0.00`, a hard-coded zero
    Stripe fee, duplicate schools in "Accepted at", a null price rendering as
    "Free", silent cent rounding, and `isAdminApprovedListing` being handed a row
-   with `humanReviewedAt` and `aiDecision` stripped out.
+   with `humanReviewedAt` and `aiDecision` stripped out. Plus two items added
+   after the batch 1 review: the hero-embed favicon requests above, and widening
+   `scripts/logo-assets.test.mjs` so the no-favicon-service rule is enforced
+   across the whole tree rather than only `LogoBadge.tsx`.
+
+   Decided for batch 2: prices stay whole dollars. `packagePrice` is an `Int`
+   and accepting cents would be a schema change, which is not ours to make. The
+   fix is `step="1"`, a visible hint, and a client-side guard. The price inputs
+   also disagree on bounds, so the dashboard editors (`app/page.tsx:4247` and
+   `:4254`), which currently have no `max` at all, get one to match the wizard's
+   99 per essay and 399 per package.
 3. The listing wizard: every "add" entry point reopening the newest draft, the
    wizard opening on the signed-out pane, the dashboard never being restored,
    and the client validating a browser `File` while the server validates
