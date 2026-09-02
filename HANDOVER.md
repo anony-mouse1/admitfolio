@@ -94,15 +94,50 @@ one rejected listing, which is the single remaining unusable one. `SUPABASE_URL`
 had to be corrected from a Proofpoint-wrapped link to the bare project URL first,
 or every download would have failed.
 
-**One thing to watch.** The script reported 11 exact duplicate groups covering 37
-essay rows in pending or approved listings: the same seller holding a
-byte-identical PDF in more than one active listing. Those hashes did not exist
-before, so nothing was enforcing it. Nothing already published breaks, but
-`finalize` rejects with "One of these essay files is already in another active
-listing", so those sellers will hit it if they later revise and resubmit an
-affected listing. Pre-existing duplicate data becoming visible to a check that
-was always meant to catch it, not something the backfill created. Worth telling
-support about before it arrives as a ticket.
+The script reported 11 exact duplicate groups covering 37 essay rows in pending
+or approved listings. Ten of the eleven span two different listings, which
+turned out to be a product defect rather than seller error. See below.
+
+## The duplicate rule blocked the ordinary shape of an application
+
+Investigating those duplicate groups turned up a real defect, raised by Ritvik.
+The seller-side check refused the same PDF in any two of a seller's active
+listings. But one Common App personal statement is genuinely submitted to every
+school on the application, so a seller with a Harvard package and a Yale package
+has to put the same file in both. The rule forbade the thing the product exists
+to sell.
+
+It was not hypothetical: of the 11 duplicate groups already live, **10 span two
+different listings**, which is exactly this pattern. They only got in because
+hashes did not exist yet. Going forward the rule blocked every new one, and any
+of those ten sellers who revised an affected listing would have hit a 409 they
+could not act on.
+
+The rule is now scoped to the college rather than the seller. The same file in
+two packages for different colleges is allowed; twice for the same college is
+still refused, because a buyer comparing those two packages would pay twice for
+one essay. The same-file-twice-within-one-package check is unchanged.
+
+This is a product decision as much as a fix, so it is called out prominently in
+PR #77 for Fatimah rather than buried: it changes what a buyer can be sold.
+The deeper question, what a buyer who owns two overlapping packages should pay,
+is untouched and is the real follow-up.
+
+Implementation notes:
+
+- The rule lives in `lib/essayDuplication.ts` and all three enforcement points
+  call it (`drafts/[id]/finalize`, `submit-listing`, `upload-essay`). They
+  previously carried three separately worded copies of the same logic, which is
+  the same drift that made the client and server disagree about attached files.
+- Both sides resolve through `lib/schools` rather than comparing strings, so
+  "Penn State" stays separate from "University of Pennsylvania" and
+  "Harvard College" still matches "Harvard University".
+- A legacy listing with no explicit `targetSchool` and several admits has no
+  single college, so it conflicts with any school it claims. An unresolvable
+  college on the incoming side keeps the older, stricter answer.
+- `scripts/essay-duplication.test.mjs` (`npm run test:essay-duplication`)
+  executes the module against all of those cases, and also asserts that all
+  three routes go through it and that none keeps the old message.
 
 ## The number that mattered before the backfill
 
