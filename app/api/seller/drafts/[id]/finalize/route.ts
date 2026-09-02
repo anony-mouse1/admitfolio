@@ -6,6 +6,7 @@ import { sanitizeSellerDraftState } from '@/lib/sellerDraft';
 import { normalizeAnonymity } from '@/lib/anonymity';
 import { schoolKey } from '@/lib/admitProof';
 import { sameSchool } from '@/lib/schools';
+import { findSameSchoolConflict } from '@/lib/essayDuplication';
 import { packageFloor, schoolTier, TIER } from '@/lib/pricing';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
@@ -73,7 +74,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
-  const reusedEssay = await prisma.essay.findFirst({
+  // Reusing a file across packages for DIFFERENT colleges is allowed: one
+  // Common App essay really does go to every school on the application. Only a
+  // repeat within the same college is refused. See lib/essayDuplication.
+  const reusedEssays = await prisma.essay.findMany({
     where: {
       contentHash: { in: essayHashes },
       listing: {
@@ -83,11 +87,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         essays: { every: { pdfPath: { not: null } }, some: {} },
       },
     },
-    select: { id: true },
+    select: { listing: { select: { targetSchool: true, admitTags: true } } },
   });
-  if (reusedEssay) {
+  if (findSameSchoolConflict(reusedEssays, state.targetSchool)) {
     return NextResponse.json(
-      { error: 'One of these essay files is already in another active listing.' },
+      {
+        error: `One of these essay files is already in another of your ${state.targetSchool} listings. Keep one package per college so a buyer is never charged twice for the same file.`,
+      },
       { status: 409 },
     );
   }
