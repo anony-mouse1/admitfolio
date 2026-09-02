@@ -211,7 +211,11 @@ original intent is preserved.
    Item 22 is a client-side fix: `updateMany` is required to stay by
    `scripts/seller-applications.test.mjs`, and the real bug is the client
    patching state by a group key the save has just invalidated.
-5. Confirmations on the destructive actions, none of which currently ask.
+5. Confirmations on the destructive actions. **Take down has moved out of this
+   batch into the revise-path removal (#78)**, because the guard should ship
+   with the change that makes take down one way. Batch 5 keeps the other four:
+   submit for review, approve and notify, reject and notify, and verify a proof.
+   Do not build a take-down confirmation here, it will already exist.
 6. Blocked on a product decision. See below.
 
 ## Blocked, needs a decision
