@@ -50,6 +50,13 @@ assert(/setCameFromDashboard\(true\)/.test(page) && /setCameFromDashboard\(false
 const escBody = page.slice(page.indexOf('Escape closes the top-most overlay'), page.indexOf('Scroll-reveal animations'));
 assert(escBody.indexOf('else if (sellOpen)') < escBody.indexOf('else if (dashOpen)'), 'Escape must close the wizard before the dashboard it sits on');
 
+// Step 4 is the first pane for a dashboard seller, so Back must not walk into
+// the signup steps behind it.
+assert(/cameFromDashboard \? \(\s*<button className="modal-back" onClick=\{closeSell\}/.test(page), 'from the dashboard, Back on step 4 must leave the wizard, not step into signup');
+const stepFourBack = page.slice(page.indexOf('onClick={handleUniNext}'), page.indexOf('Step 5: listing builder'));
+assert(/setSellStep\(3\)/.test(stepFourBack), 'the signup entry path must keep its Back to the password step');
+assert(stepFourBack.indexOf('cameFromDashboard') < stepFourBack.indexOf('setSellStep(3)'), 'the dashboard case must be handled before the signup fallback');
+
 // Opening a listing is guarded, because it costs two round trips.
 assert(/if \(openingListingId\) return;/.test(page), 'a second click must not start a second revision');
 assert(/busyListingId=\{openingListingId\}/.test(page), 'the workspace must know which listing is opening');

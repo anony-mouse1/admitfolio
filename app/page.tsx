@@ -2885,7 +2885,17 @@ export default function Page() {
             </div>
 
             <button className="modal-btn" onClick={handleUniNext} disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Continue'}</button>
-            <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
+            {/* Steps 1 to 3 are signup: verify the email, enter the code, set a
+                password. A seller who opened this from their dashboard is
+                already authenticated and starts here, so stepping back into
+                them lands on "Set a password" and, if they fill it in, posts a
+                signup with no email token. For them this pane is the first one,
+                and the only way back is out. */}
+            {cameFromDashboard ? (
+              <button className="modal-back" onClick={closeSell}>← Back to dashboard</button>
+            ) : (
+              <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
+            )}
           </div>
 
           {/* Step 5: listing builder */}
