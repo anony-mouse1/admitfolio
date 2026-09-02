@@ -83,6 +83,14 @@ cannot overwrite an existing hash and is safe to rerun.
 
 Result: **576 files downloaded, 576 hashed, 0 failed, 576 hashes written.**
 
+**This stands on its own, whatever happens to the seller-facing revise path.**
+`Essay.contentHash` is what lets the server tell one uploaded file from another
+at all. It backs the duplicate rule in all three submit routes, the admin
+console's duplicate-file flag, and any future support-side re-listing, none of
+which involve a seller pressing a button. Fatimah's decision to remove the
+seller-facing edit path does not undo or reduce the value of the backfill: it
+fixes the same class of problem server-side, one layer below the UI.
+
 | | before | after |
 |---|---|---|
 | essays with a null `contentHash` | 590 | **14** |
