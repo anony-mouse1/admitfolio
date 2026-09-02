@@ -278,6 +278,12 @@ const listingTitle = (l: SellerListing) => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
+// A listing with no package price is unpriced, not free. /api/listings filters
+// those rows out today, so this is a guard rather than a live case, but the
+// detail sheet said "Free" while the card said nothing, and "Free" is the worst
+// available reading of "we do not know what this costs".
+const priceLabel = (price: number | null | undefined) =>
+  price != null ? `$${price}` : 'Price unavailable';
 const payoutDate = (value: string | null | undefined) => value
   ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   : null;
@@ -3063,9 +3069,9 @@ export default function Page() {
                   {curItem.summary || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
                 </div>
               </div>
-              <div className="buy-summary-price">{curItem.price != null ? `$${curItem.price}` : ''}</div>
+              <div className="buy-summary-price">{priceLabel(curItem.price)}</div>
             </div>
-            <div className="buy-total"><span>Total</span><i /><strong>{curItem.price != null ? `$${curItem.price}` : ''}</strong></div>
+            <div className="buy-total"><span>Total</span><i /><strong>{priceLabel(curItem.price)}</strong></div>
             <div className="buy-delivery">
               <div><b>✓</b><span>Instant private access after payment</span></div>
               <div><b>✓</b><span>Secure reading link sent to your email</span></div>
@@ -3873,7 +3879,7 @@ function PublicListingCard({
       </div>
       <div className="ecard-foot">
         <div className="ecard-price">
-          <span className="p">{listing.price != null ? `$${listing.price}` : ''}</span>
+          <span className="p">{priceLabel(listing.price)}</span>
           <span className="w">{count > 1 ? `${count}-essay set` : 'full essay'}</span>
         </div>
         {/* Decided buyers keep the one-click path; stopPropagation so it does
@@ -4023,7 +4029,7 @@ function ListingDetail({
 
         <div className="d-foot d-foot-top">
           <div className="d-price">
-            {listing.price != null ? `$${listing.price}` : 'Free'}
+            {priceLabel(listing.price)}
             <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
           </div>
           <button className="d-unlock-btn" type="button" onClick={onUnlock}>
@@ -4139,7 +4145,7 @@ function ListingDetail({
                     </span>
                     <span className="d-related-meta">
                       {other.essays.length} {other.essays.length === 1 ? 'essay' : 'essays'}
-                      {other.price != null ? ` · $${other.price}` : ''}
+                      {` · ${priceLabel(other.price)}`}
                     </span>
                     <span className="d-related-arrow" aria-hidden="true">→</span>
                   </button>
