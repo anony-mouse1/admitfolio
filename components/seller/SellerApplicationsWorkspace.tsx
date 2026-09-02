@@ -25,6 +25,8 @@ export type SellerApplicationsWorkspaceProps = {
   onAddListing: (applicationKey: string) => void;
   onEditListing: (listingId: string) => void;
   onTakeDownListing?: (listingId: string) => void;
+  /** Listing currently being opened. Opening one waits on two round trips. */
+  busyListingId?: string | null;
 };
 
 const FILTER_LABELS: Record<SellerListingFilter, string> = {
@@ -65,6 +67,7 @@ export default function SellerApplicationsWorkspace({
   onAddListing,
   onEditListing,
   onTakeDownListing,
+  busyListingId = null,
 }: SellerApplicationsWorkspaceProps) {
   const [filter, setFilter] = useState<SellerListingFilter>('all');
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -191,9 +194,28 @@ export default function SellerApplicationsWorkspace({
                         <div className={styles.listingActions}>
                           <strong className={styles.price}>{formatPrice(listing.priceCents)}</strong>
                           <span className={`${styles.statusPill} ${styles[statusFilter]}`}>{listingStatusLabel(listing.status)}</span>
-                          <button className={styles.secondaryButton} type="button" onClick={() => onEditListing(listing.id)}>{listingActionLabel(listing.status)}</button>
+                          {/* Opening a listing posts a revision and then reads
+                              the drafts back, which takes a couple of seconds.
+                              Left enabled, the button could be clicked over and
+                              over and each click started another revision. */}
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            disabled={busyListingId != null}
+                            aria-busy={busyListingId === listing.id}
+                            onClick={() => onEditListing(listing.id)}
+                          >
+                            {busyListingId === listing.id ? 'Opening…' : listingActionLabel(listing.status)}
+                          </button>
                           {listing.status === 'approved' && onTakeDownListing && (
-                            <button className={styles.dangerButton} type="button" onClick={() => onTakeDownListing(listing.id)}>Take down</button>
+                            <button
+                              className={styles.dangerButton}
+                              type="button"
+                              disabled={busyListingId != null}
+                              onClick={() => onTakeDownListing(listing.id)}
+                            >
+                              Take down
+                            </button>
                           )}
                         </div>
                       </div>

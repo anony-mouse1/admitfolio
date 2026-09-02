@@ -31,9 +31,21 @@ const openBody = page.slice(page.indexOf('async function openSellFromDashboard')
 assert(openBody.indexOf('setSellStep(4)') < openBody.indexOf('setSellOpen(true)'), 'the step must be set before the wizard is shown, or it opens on the signed-out pane');
 assert(/setSellStep\(1\);\n    setEduEmail/.test(page), 'fullResetSell must reset the step too');
 
-// Closing the wizard restores the dashboard it closed.
-assert(/if \(cameFromDashboard\) \{/.test(page), 'closing the wizard must reopen the dashboard it was launched from');
+// The wizard layers over the dashboard rather than tearing it down.
+const openBodyFull = page.slice(page.indexOf('async function openSellFromDashboard'), page.indexOf('const emailAllowed'));
+assert(!/setDashOpen\(false\)/.test(openBodyFull), 'opening the wizard must leave the dashboard exactly as it was');
+assert(/over-dash/.test(page), 'the wizard must be lifted above the dashboard when launched from it');
+assert(/if \(cameFromDashboard\) \{/.test(page), 'closing the wizard must reload the dashboard behind it');
+assert(/reloadDashboardRef\.current\?\.\(\)/.test(page), 'closing must refetch, or the resume banner and listings stay stale');
 assert(/setCameFromDashboard\(true\)/.test(page) && /setCameFromDashboard\(false\)/.test(page), 'the dashboard-origin flag must be both set and cleared');
+
+// Escape closes the wizard before the dashboard underneath it.
+const escBody = page.slice(page.indexOf('Escape closes the top-most overlay'), page.indexOf('Scroll-reveal animations'));
+assert(escBody.indexOf('else if (sellOpen)') < escBody.indexOf('else if (dashOpen)'), 'Escape must close the wizard before the dashboard it sits on');
+
+// Opening a listing is guarded, because it costs two round trips.
+assert(/if \(openingListingId\) return;/.test(page), 'a second click must not start a second revision');
+assert(/busyListingId=\{openingListingId\}/.test(page), 'the workspace must know which listing is opening');
 
 // A failed drafts fetch reports, it does not invent a replacement draft.
 assert(!/catch \{\n      await createSellerDraft/.test(page), 'a failed drafts fetch must not silently create a new draft');

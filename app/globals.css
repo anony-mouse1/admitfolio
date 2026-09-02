@@ -809,6 +809,11 @@ footer { background: #1b1a17; color: #cfccc4; }
   animation: overlayIn .25s ease both;
 }
 .modal-overlay.open { display: flex; }
+/* The seller dashboard is a full-page fixed overlay at z-index 200, so a modal
+   opened from it would render underneath. Only the sell wizard needs to sit on
+   top, and only when it was launched from the dashboard, so this is scoped
+   rather than raising every modal. */
+.modal-overlay.over-dash { z-index: 300; }
 .modal {
   position: relative; width: 100%; max-width: 460px; background: #fff;
   border: 1px solid var(--card-line); border-radius: 22px; padding: 32px;

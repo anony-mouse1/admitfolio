@@ -560,9 +560,13 @@ export default function Page() {
   const [wlOpen, setWlOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
-  // True while the sell wizard was launched from the seller dashboard, so
-  // closing it returns there rather than to the public homepage.
+  // True while the sell wizard was launched from the seller dashboard, so it
+  // layers over the dashboard and reloads it on the way out.
   const [cameFromDashboard, setCameFromDashboard] = useState(false);
+  // closeSell is declared above openDashboard, and a dependency array is read at
+  // declaration scope, so the reloader is held here rather than reordering the
+  // file around it.
+  const reloadDashboardRef = useRef<(() => void) | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
 
@@ -859,13 +863,12 @@ export default function Page() {
     void flushSellerDraft();
     setSellOpen(false);
     fullResetSell();
-    // Put the dashboard back. openSellFromDashboard closes it and nothing used
-    // to restore it, so finishing or cancelling dropped the seller on the
-    // public marketing page with their session cookie still valid, which reads
-    // as having been logged out.
+    // The dashboard was never closed, so there is nothing to reopen. Reload it
+    // instead: a listing may have just been submitted, and the resume banner is
+    // built from the drafts fetch, so leaving it untouched showed stale state.
     if (cameFromDashboard) {
       setCameFromDashboard(false);
-      setDashOpen(true);
+      reloadDashboardRef.current?.();
     }
   }, [fullResetSell, cameFromDashboard]);
 
@@ -878,8 +881,9 @@ export default function Page() {
     target: SellWizardTarget,
     profileGraduationYear = '',
   ) {
-    setResumableDraft(null);
-    setDashOpen(false);
+    // The dashboard stays exactly as it is. It used to be closed here and
+    // reopened on exit, so the page behind the wizard changed for no reason and
+    // came back with stale data. The wizard layers over it instead.
     fullResetSell();
     setVerifiedEmail(email);
     setCurrentUni(lastSchool);
@@ -1751,6 +1755,11 @@ export default function Page() {
 
   /* ============================ Seller dashboard ============================ */
   const [sellerEmail, setSellerEmail] = useState('');
+  // Points closeSell at the current reloader. Declared here because both
+  // openDashboard and sellerEmail have to exist first.
+  useEffect(() => {
+    reloadDashboardRef.current = () => openDashboard(sellerEmail);
+  }, [openDashboard, sellerEmail]);
   const [listings, setListings] = useState<SellerListing[]>([]);
   const [monthGross, setMonthGross] = useState(0);
   const [sellerAccounting, setSellerAccounting] = useState<SellerAccounting | null>(null);
@@ -1762,6 +1771,9 @@ export default function Page() {
   const [resumableDraft, setResumableDraft] = useState<SellerDraftSummary | null>(null);
   const [sellerApplications, setSellerApplications] = useState<SellerApplicationRecord[]>([]);
   const [activeListingControlId, setActiveListingControlId] = useState<string | null>(null);
+  // Which listing is mid-open. Guards the button and stops a second revision
+  // being created by an impatient second click.
+  const [openingListingId, setOpeningListingId] = useState<string | null>(null);
   const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
   const [applicationClassYear, setApplicationClassYear] = useState('');
   const [applicationEditBusy, setApplicationEditBusy] = useState(false);
@@ -1980,12 +1992,14 @@ export default function Page() {
   }
 
   async function editWorkspaceListing(listingId: string) {
+    if (openingListingId) return;
     const listing = listings.find((item) => item.id === listingId);
     if (!listing || !['rejected', 'removed'].includes(listing.status)) {
       setActiveListingControlId(listingId);
       return;
     }
     setDashErr('');
+    setOpeningListingId(listingId);
     try {
       const response = await fetch(`/api/seller/listings/${listingId}/revision`, { method: 'POST' });
       const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; draft?: { id: string } };
@@ -1993,6 +2007,8 @@ export default function Page() {
       await openSellFromDashboard(sellerEmail, listing.school, { mode: 'resume', draftId: data.draft.id }, profGraduationYear);
     } catch (error) {
       setDashErr(error instanceof Error ? error.message : 'Could not open this listing for changes.');
+    } finally {
+      setOpeningListingId(null);
     }
   }
 
@@ -2069,12 +2085,14 @@ export default function Page() {
       if (e.key !== 'Escape') return;
       if (matcherOpen) setMatcherOpen(false);
       else if (menuOpen) setMenuOpen(false);
+      // The sell wizard layers above the dashboard, so it has to be closed
+      // first. Checking dashOpen ahead of it shut the page underneath instead.
+      else if (sellOpen) closeSell();
       else if (dashOpen) closeDashboard();
       // Buy sits above detail: opening it closes the sheet first, so the two
       // are never stacked, but check it first anyway in case that ever changes.
       else if (buyOpen) closeBuy();
       else if (detailId) closeDetail();
-      else if (sellOpen) closeSell();
       else if (loginOpen) closeLogin();
       else if (wlOpen) setWlOpen(false);
     }
@@ -2747,7 +2765,7 @@ export default function Page() {
       </footer>
 
       {/* ===== Sell-your-essay onboarding modal ===== */}
-      <div className={`modal-overlay${sellOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="sellTitle" onClick={(e) => { if (e.target === e.currentTarget) closeSell(); }}>
+      <div className={`modal-overlay${sellOpen ? ' open' : ''}${cameFromDashboard ? ' over-dash' : ''}`} role="dialog" aria-modal="true" aria-labelledby="sellTitle" onClick={(e) => { if (e.target === e.currentTarget) closeSell(); }}>
         <div className="modal">
           <button className="modal-close" aria-label="Close" onClick={closeSell}>&times;</button>
           <div className="modal-logo"><span className="w">admitfolio</span><span className="d"></span></div>
@@ -3631,6 +3649,7 @@ export default function Page() {
               onEditApplication={editApplicationOutcome}
               onAddListing={openApplicationListing}
               onEditListing={(id) => void editWorkspaceListing(id)}
+              busyListingId={openingListingId}
               onTakeDownListing={(id) => void listingAction(id, 'takedown')}
             />
             {activeListingControlId && listings.find((listing) => listing.id === activeListingControlId) && (
