@@ -2650,11 +2650,11 @@ export default function Page() {
             </div>
             <div>
               <div className="foot-col-title">Product</div>
-              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a></div>
+              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/guides">Blog</a></div>
             </div>
             <div>
               <div className="foot-col-title">Legal</div>
-              <div className="foot-links"><a href="/guides">Blog</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+              <div className="foot-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
             </div>
           </div>
           <div className="foot-bottom">
@@ -2694,7 +2694,7 @@ export default function Page() {
             <div className="modal-eyebrow">Step 2 of 5 · Confirm your email</div>
             <h3>Enter your code</h3>
             <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>.</p>
-            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder — school inboxes often filter new senders.</p>
+            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder. School inboxes often filter new senders.</p>
             <div className="code-inputs">
               {code.map((c, i) => (
                 <input
@@ -2824,7 +2824,7 @@ export default function Page() {
                 <option value="">{admits.length ? 'Choose the main college…' : 'Add a school above first'}</option>
                 {admits.map((school) => <option key={school} value={school}>{school}</option>)}
               </select>
-              <div className="field-hint">We use this as the card title. Your full list still appears under “Accepted in.”</div>
+              <div className="field-hint">We use this as the card title. Your full list still appears under “Accepted at.”</div>
             </div>
 
             {/* Always rendered, even with no schools added yet. This is a required
@@ -2844,6 +2844,12 @@ export default function Page() {
                     return (
                       <label key={a.key} className={`proof-row${f || savedFileName ? ' has-file' : ''}`}>
                         <span className="proof-school">{a.label}</span>
+                        {/* The two spans sit at opposite ends of the row, so the
+                            gap between them is the only thing separating them.
+                            Without real text here the accessible name and any
+                            copied text run the school straight into the
+                            filename. Absolutely positioned, so it adds no gap. */}
+                        <span className="sr-only">: </span>
                         <input
                           type="file"
                           accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
@@ -2884,8 +2890,12 @@ export default function Page() {
               <div>
                 {essayRows.map((row, i) => {
                   const isOther = /^other/i.test(row.prompt);
+                  // Keyed on clientKey, not the index. The file input is
+                  // uncontrolled, so an index key lets React reuse the DOM node
+                  // by position, and removing a row leaves its picked file
+                  // attached to whichever row slides up into its place.
                   return (
-                    <div className="essay-row" key={i}>
+                    <div className="essay-row" key={row.clientKey}>
                       <div className="essay-row-head">
                         <span className="essay-row-title">Essay {i + 1}</span>
                         <button type="button" className="essay-remove" style={{ visibility: essayRows.length > 1 ? 'visible' : 'hidden' }} onClick={() => removeEssayRow(i)}>Remove</button>
@@ -3829,7 +3839,7 @@ function PublicListingCard({
           <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
         </div>
         <div className="ecard-admits">
-          <span className="ecard-admits-label">Accepted in:</span>
+          <span className="ecard-admits-label">Accepted at:</span>
           <span className="admit-names multi" title={admittedColleges.join(', ')}>
             {admittedColleges.length ? admitNameLine(admittedColleges) : 'Not listed'}
           </span>

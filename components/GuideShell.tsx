@@ -81,12 +81,12 @@ export function GuideFooter() {
             <div className="foot-links">
               <Link href="/#browse">Browse essays</Link>
               <Link href="/#sell">Sell your essay</Link>
+              <Link href="/guides">Blog</Link>
             </div>
           </div>
           <div>
             <div className="foot-col-title">Legal</div>
             <div className="foot-links">
-              <Link href="/guides">Blog</Link>
               <Link href="/privacy">Privacy</Link>
               <Link href="/terms">Terms</Link>
             </div>

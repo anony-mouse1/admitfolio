@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { schoolLogoSrc } from '@/lib/schoolLogos';
+import { schoolShortName } from '@/lib/schools';
 
 // Existing callers import this name from LogoBadge. Keep that API while the
 // source of truth lives in the shared server-safe helper.
@@ -38,7 +39,7 @@ export default function LogoBadge({ domain, letter, color, school, size, fontSiz
         <img
           className={`badge-logo badge-logo-hires${domain === 'binghamton.edu' ? ' badge-logo-binghamton' : ''}`}
           src={logoSrc}
-          alt={`${school} logo`}
+          alt={`${schoolShortName(school)} logo`}
           loading="lazy"
           onLoad={() => setLoadedSrc(logoSrc)}
           onError={() => setErroredSrc(logoSrc)}

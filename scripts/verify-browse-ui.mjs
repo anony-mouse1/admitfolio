@@ -2,9 +2,13 @@
 
 // DOM-level regression check for the launched catalogue. Start Next locally
 // and Chrome with --remote-debugging-port=9223 before running this script.
+//
+// The app URL must be localhost, not 127.0.0.1. Next's dev server serves
+// /_next/static chunks only to the origin it was started on, so a 127.0.0.1
+// page gets 403 on its own JavaScript and the catalogue never hydrates.
 
 const chromePort = process.env.CHROME_DEBUG_PORT || '9223';
-const appUrl = process.env.APP_URL || 'http://127.0.0.1:3000/';
+const appUrl = process.env.APP_URL || 'http://localhost:3000/';
 const target = await fetch(`http://127.0.0.1:${chromePort}/json/new?${encodeURIComponent(appUrl)}`, { method: 'PUT' }).then((response) => response.json());
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 let nextId = 0;

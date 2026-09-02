@@ -435,7 +435,7 @@ a { color: inherit; }
   font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg);
   border: 1px solid #e8e4dc; padding: 5px 13px; border-radius: 999px; white-space: nowrap;
 }
-/* "Attends" and "Accepted in:", each a fixed height so every card has the same
+/* "Attends" and "Accepted at:", each a fixed height so every card has the same
    shape regardless of how many schools a seller lists. */
 .ecard-lines { margin-top: 18px; }
 .ecard-admits { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; flex-wrap: nowrap; }

@@ -933,7 +933,7 @@ export default function AdminPage() {
                         // so, whether it approved or flagged it, so this line is
                         // the same for both.
                         <div className={styles.unaudited}>
-                          Not published — approve to put it live
+                          Not published. Approve to put it live.
                         </div>
                       ) : null}
                     </div>
@@ -1058,7 +1058,7 @@ export default function AdminPage() {
                         rows={2}
                         placeholder={
                           l.aiSuggestion === 'reject'
-                            ? 'e.g. The uploaded PDF is missing the second essay — please re-upload and resubmit.'
+                            ? 'e.g. The uploaded PDF is missing the second essay. Please re-upload and resubmit.'
                             : 'Anything you want included in their email…'
                         }
                         value={notes[l.id] ?? ''}
