@@ -2694,7 +2694,7 @@ export default function Page() {
             <div className="modal-eyebrow">Step 2 of 5 · Confirm your email</div>
             <h3>Enter your code</h3>
             <p className="sub">We sent a 6-digit code to <strong>{verifiedEmail || 'your email'}</strong>.</p>
-            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder — school inboxes often filter new senders.</p>
+            <p className="sub" style={{ fontSize: 13 }}>Don&apos;t see it? Check your spam or junk folder. School inboxes often filter new senders.</p>
             <div className="code-inputs">
               {code.map((c, i) => (
                 <input
