@@ -2650,11 +2650,11 @@ export default function Page() {
             </div>
             <div>
               <div className="foot-col-title">Product</div>
-              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a></div>
+              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/guides">Blog</a></div>
             </div>
             <div>
               <div className="foot-col-title">Legal</div>
-              <div className="foot-links"><a href="/guides">Blog</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+              <div className="foot-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
             </div>
           </div>
           <div className="foot-bottom">
