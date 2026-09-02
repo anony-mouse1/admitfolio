@@ -2824,7 +2824,7 @@ export default function Page() {
                 <option value="">{admits.length ? 'Choose the main college…' : 'Add a school above first'}</option>
                 {admits.map((school) => <option key={school} value={school}>{school}</option>)}
               </select>
-              <div className="field-hint">We use this as the card title. Your full list still appears under “Accepted in.”</div>
+              <div className="field-hint">We use this as the card title. Your full list still appears under “Accepted at.”</div>
             </div>
 
             {/* Always rendered, even with no schools added yet. This is a required
@@ -3829,7 +3829,7 @@ function PublicListingCard({
           <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
         </div>
         <div className="ecard-admits">
-          <span className="ecard-admits-label">Accepted in:</span>
+          <span className="ecard-admits-label">Accepted at:</span>
           <span className="admit-names multi" title={admittedColleges.join(', ')}>
             {admittedColleges.length ? admitNameLine(admittedColleges) : 'Not listed'}
           </span>
