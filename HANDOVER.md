@@ -73,28 +73,51 @@ unrecoverable without re-picking.
   legacy rows and a roughly 100 character hash for current uploads. The seller's
   own filename lives on `DraftAsset.fileName` and has no equivalent on `Essay`.
 
-## The number that matters
+## The backfill was run
+
+`scripts/backfill-essay-content-hashes.mjs --confirm` was run against production
+on 2026-09-02 with Fatimah's written authorization, relayed by Ritvik. It is the
+only production write of this engagement. It sets `Essay.contentHash` and
+nothing else, on rows where `pdfPath IS NOT NULL AND contentHash IS NULL`, so it
+cannot overwrite an existing hash and is safe to rerun.
+
+Result: **576 files downloaded, 576 hashed, 0 failed, 576 hashes written.**
+
+| | before | after |
+|---|---|---|
+| essays with a null `contentHash` | 590 | **14** |
+| revisable listings with no reusable essay | 28 of 29 | **1 of 29** |
+
+The 14 remaining are exactly the rows that have no `pdfPath` at all, so there is
+nothing to hash and no rerun will help them: 10 sit in pending listings and 4 in
+one rejected listing, which is the single remaining unusable one. `SUPABASE_URL`
+had to be corrected from a Proofpoint-wrapped link to the bare project URL first,
+or every download would have failed.
+
+**One thing to watch.** The script reported 11 exact duplicate groups covering 37
+essay rows in pending or approved listings: the same seller holding a
+byte-identical PDF in more than one active listing. Those hashes did not exist
+before, so nothing was enforcing it. Nothing already published breaks, but
+`finalize` rejects with "One of these essay files is already in another active
+listing", so those sellers will hit it if they later revise and resubmit an
+affected listing. Pre-existing duplicate data becoming visible to a check that
+was always meant to catch it, not something the backfill created. Worth telling
+support about before it arrives as a ticket.
+
+## The number that mattered before the backfill
 
 A read-only count against production, aggregates only:
 
 | | |
 |---|---|
 | essays total | 687 |
-| essays with no `contentHash` | **590** |
+| essays with no `contentHash` | **590**, now 14 |
 | essays with no `pdfPath` | 14 |
 | rejected or removed listings | 29 |
-| of those, every essay unusable for reuse | **28** |
+| of those, every essay unusable for reuse | **28**, now 1 |
 
-So 28 of the 29 revisable listings will now ask the seller to re-upload every
-essay. That is the honest state, and it is strictly better than the old
-behaviour, where those same listings passed client validation and were then
-rejected on submit with "Upload a PDF for every essay before submitting" and no
-way to recover. But it is a visible change for those sellers.
-
-**`scripts/backfill-essay-content-hashes.mjs` would remove the need entirely**
-by hashing the stored PDFs. That is a production write and a hand-run step the
-deploy will not do, so it needs Fatimah's approval. Worth asking before this
-batch merges.
+This was the case for running the backfill, and it has now been run. Only one
+listing is still in that state, and its essays have no stored file at all.
 
 Two other counts taken at the same time, for later batches: 238 of 263 listings
 have a null `gradYear`, and 141 have a null `targetSchool` with more than one
