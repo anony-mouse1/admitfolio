@@ -30,9 +30,22 @@ clicked. It also opened the modal before knowing what it was opening.
   student", which reads as a forced logout to a signed-in seller.
   `fullResetSell` now resets the step as well, so a later open cannot flash the
   pane the previous one ended on.
-- Closing the wizard reopens the dashboard it was launched from. It used to close
-  the dashboard and never restore it, dropping the seller on the public
-  marketing page with their session cookie still valid.
+- The wizard now layers over the dashboard instead of closing it. The dashboard
+  is a full-page fixed overlay at `z-index: 200` and `.modal-overlay` is 100,
+  which is why the original code closed it: the wizard would otherwise render
+  underneath. A scoped `.modal-overlay.over-dash { z-index: 300 }` lifts only
+  the sell wizard, and only when it was launched from the dashboard, so the
+  other three modals keep their stacking. The page behind the wizard no longer
+  changes at all. Escape now closes the wizard before the dashboard beneath it.
+- Closing the wizard reloads the dashboard in place. An earlier version of this
+  fix reopened the dashboard without refetching, which left `resumableDraft`
+  null and made the "Resume your application" banner disappear after any trip
+  through the wizard. Reloading also picks up a listing that was just submitted.
+- Opening a listing for changes is guarded and shows its progress. It posts a
+  revision and then reads the drafts back, roughly three seconds, and the button
+  stayed enabled throughout, so it could be clicked repeatedly and each click
+  started another revision. The button now reads "Opening…", is disabled while
+  the work is in flight, and a second call returns immediately.
 - A failed drafts fetch now reports the failure and returns to the dashboard. It
   used to create a replacement draft, so a network blip while opening "Resume
   application" started a blank listing with no error and left the real draft
@@ -93,8 +106,11 @@ admit, which is the population getting the "seller attends" headline.
   all three callers.
 - All 24 `test:*` scripts pass.
 - `npx next build` with a build-only placeholder `SESSION_SECRET`.
-- `node scripts/verify-listing-wizard.mjs`, 18 assertions over the changed
+- `node scripts/verify-listing-wizard.mjs`, 24 assertions over the changed
   source.
+- A live stacking check in headless Chrome, mounting both overlays as the app
+  does: dashboard 200, wizard 300, the other modals still 100, and the wizard
+  topmost at the centre of the viewport.
 - `scripts/verify-copy-and-cosmetics.mjs` and `scripts/verify-wrong-data-shown.mjs`
   both re-run against local `next dev` and headless Chrome as regressions, both
   passing.
@@ -103,10 +119,14 @@ admit, which is the population getting the "seller attends" headline.
 **Not verified in a browser, and this is the weak point of the batch.** The whole
 wizard sits behind the seller login. Driving it would mean authenticating against
 the production database, which this work is not allowed to do, so every flow
-change here is asserted against the source instead. The four flows worth a human
-walkthrough before merge are: clicking "+ Add an application" with a saved draft
-present, cancelling out of the wizard and landing back on the dashboard, opening
-"Fix and resubmit" on a rejected listing, and picking an essay file while offline.
+change here is asserted against the source instead.
+
+A walkthrough by the signed-in seller found three things the source assertions
+could not: the background still changed when the wizard opened, the resume
+banner vanished after a trip through it, and the Edit button had no busy state.
+All three are fixed above. The remaining flows worth a human check are clicking
+"+ Add an application" with a saved draft present, "Fix and resubmit" on a
+rejected listing, and picking an essay file while offline.
 
 ## One test assertion was changed, not just added
 
@@ -119,6 +139,9 @@ original intent is preserved.
 ## What is left
 
 4. Controls rendering far from the button that opened them (items 20, 22, 23).
+   Item 23 is why Edit does nothing on an approved or pending listing: it sets
+   `activeListingControlId`, and that card renders after the entire workspace,
+   far below the button. Confirmed pre-existing, untouched by batches 1 to 3.
    Item 22 is a client-side fix: `updateMany` is required to stay by
    `scripts/seller-applications.test.mjs`, and the real bug is the client
    patching state by a group key the save has just invalidated.
