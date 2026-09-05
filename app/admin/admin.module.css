@@ -1141,3 +1141,12 @@
 .proofAi b { font-weight: 700; margin-right: 5px; }
 .proofAiOk { background: #f1f7f2; color: #2c5c3a; }
 .proofAiWarn { background: #fdf3e0; color: #7a4f0d; }
+
+/* Kicker on a confirmation, naming the consequence before the question. */
+.confirmEyebrow {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #a5281f;
+}

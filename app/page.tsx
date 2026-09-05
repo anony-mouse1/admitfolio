@@ -1789,6 +1789,9 @@ export default function Page() {
   const [confirmTakedown, setConfirmTakedown] = useState<SellerListing | null>(null);
   const [takedownBusy, setTakedownBusy] = useState(false);
   const [takedownErr, setTakedownErr] = useState('');
+  // Submitting starts the AI review and emails both the admin and the seller,
+  // and a listing cannot be edited once reviewed, so it asks first.
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
   const [applicationClassYear, setApplicationClassYear] = useState('');
   const [applicationEditBusy, setApplicationEditBusy] = useState(false);
@@ -2092,13 +2095,13 @@ export default function Page() {
   // waitlist auto-popup timer can check it (the hamburger menu counts as a
   // popup for that purpose, but shouldn't lock scroll).
   useEffect(() => {
-    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null || confirmTakedown !== null;
+    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null || confirmTakedown !== null || confirmSubmit;
     overlayOpenRef.current = anyOpen || menuOpen;
     document.body.style.overflow = anyOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId, confirmTakedown]);
+  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId, confirmTakedown, confirmSubmit]);
 
   // Layout variant body classes + ?login deep-link (mirrors the original IIFEs).
   useEffect(() => {
@@ -2135,7 +2138,8 @@ export default function Page() {
       if (e.key !== 'Escape') return;
       // The take-down confirmation is the topmost layer. Anything checked ahead
       // of it would close the page underneath while the question is still up.
-      if (confirmTakedown) { if (!takedownBusy) setConfirmTakedown(null); }
+      if (confirmSubmit) { if (!submitting) setConfirmSubmit(false); }
+      else if (confirmTakedown) { if (!takedownBusy) setConfirmTakedown(null); }
       else if (matcherOpen) setMatcherOpen(false);
       else if (menuOpen) setMenuOpen(false);
       // The sell wizard layers above the dashboard, so it has to be closed
@@ -2151,7 +2155,7 @@ export default function Page() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [confirmTakedown, takedownBusy, matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
+  }, [confirmSubmit, submitting, confirmTakedown, takedownBusy, matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -3170,7 +3174,7 @@ export default function Page() {
             <div className="submit-note">
               <b>One listing = one application.</b> This submission covers just the application above (for example, your UC app or one school&apos;s essays). Have essays from other applications? You can submit another listing right after this one.
             </div>
-            <button className="modal-btn" onClick={handleSubmitListing} disabled={submitting}>{submitting ? submitLabel || 'Submitting…' : 'Submit for review'}</button>
+            <button className="modal-btn" onClick={() => setConfirmSubmit(true)} disabled={submitting}>{submitting ? submitLabel || 'Submitting…' : 'Submit for review'}</button>
             <button className="modal-back" onClick={() => setSellStep(4)}>← Back</button>
           </div>
 
@@ -3188,6 +3192,49 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* ===== Submit for review confirmation =====
+           Submitting creates the listing, starts the automated review and emails
+           the admin and the seller. Since #78 a reviewed listing cannot be
+           edited, so this is the last point at which anything can change. */}
+      {confirmSubmit && (
+        <div
+          className="modal-overlay open confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="submitTitle"
+          onClick={(e) => { if (e.target === e.currentTarget && !submitting) setConfirmSubmit(false); }}
+        >
+          <div className="modal confirm-modal">
+            <button className="modal-close" aria-label="Close" disabled={submitting} onClick={() => setConfirmSubmit(false)}>&times;</button>
+            <div className="confirm-eyebrow">Check it over first</div>
+            <h3 id="submitTitle">Send this listing for review?</h3>
+            <p className="sub">
+              {essayRows.length} {essayRows.length === 1 ? 'essay' : 'essays'} for{' '}
+              <strong>{listingSchool || 'this college'}</strong>
+              {packagePrice.trim() ? ` at $${packagePrice.trim()}` : ''} goes to our review team.
+            </p>
+            <ul className="confirm-list">
+              <li>You cannot edit it once it has been reviewed</li>
+              <li>If something needs changing after that, you would build a new listing</li>
+              <li>We email you the decision, usually within 2 business days</li>
+            </ul>
+            <div className="confirm-actions">
+              <button className="confirm-ghost" type="button" disabled={submitting} onClick={() => setConfirmSubmit(false)}>
+                Keep editing
+              </button>
+              <button
+                className="confirm-danger"
+                type="button"
+                disabled={submitting}
+                onClick={() => { setConfirmSubmit(false); void handleSubmitListing(); }}
+              >
+                Send for review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Take down confirmation =====
            listing-status accepts only 'takedown' and there is no republish

@@ -1,70 +1,69 @@
-# Handover: remove the Drafts chip
+# Handover: batch 5, confirmations on outward-facing actions
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `ritvik/remove-drafts-chip`
+Branch: `ritvik/confirm-destructive-actions`
 
-Base: `ritvik/fix-misplaced-controls` (#79), on `ritvik/remove-revise-path`
-(#78), on `ritvik/fix-listing-wizard` (#77), on `ritvik/fix-wrong-data-shown`
-(#76), on `ritvik/fix-copy-and-cosmetics` (#75), on `origin/main` at `dd48801`.
+Base: `ritvik/remove-drafts-chip` (#80), on `ritvik/fix-misplaced-controls`
+(#79), on `ritvik/remove-revise-path` (#78), on `ritvik/fix-listing-wizard`
+(#77), on `ritvik/fix-wrong-data-shown` (#76), on
+`ritvik/fix-copy-and-cosmetics` (#75), on `origin/main` at `dd48801`.
 
 ## What changed
 
-The "Drafts" chip contained no drafts. `listingFilterForStatus` mapped
-`approved` to Published, `pending` to In review and **everything else** to
-`draft`, so the chip was a catch-all for rejected and taken down listings.
-Clicking "Drafts 1" showed a listing labelled "Taken down".
+The four remaining actions that reach a real seller now ask first. Take down
+already shipped in #78 and is untouched here.
 
-- The chip is gone. The filter is now All, Published, In review.
-- `listingFilterForStatus` returns `null` for a terminal listing, meaning it
-  belongs to no chip. **Rejected and taken down listings appear under All only**,
-  which is Fatimah's decision and is already the default filter, so the 12
-  sellers in production whose only listings are terminal still see them on load.
-- A new `listingStatusTone` drives the pill colour, because the pill class used
-  to be derived from the filter and a terminal listing no longer has one. The
-  `.draft` pill class is renamed `.closed`.
-- The empty state said "No all listings yet" when All was selected and empty.
-  It now says "No listings yet".
+- **Submit for review.** Creates the listing, starts the automated review and
+  emails both the admin and the seller. Since #78 a reviewed listing cannot be
+  edited, so this is the last point at which anything can change, and the
+  confirmation says exactly that.
+- **Approve and notify.** Publishes and emails the seller. The copy names the
+  consequence that is easiest to miss: per `HANDOVER.md` and
+  `app/api/admin/decision`, approving any listing marks **every** admission that
+  seller claims as verified, on this listing and every other.
+- **Reject and notify.** Emails the seller, and under the new policy is the end
+  of the road for that submission. The copy says whether a note is attached,
+  because with no note the seller is told only that it was not approved.
+- **Verify a proof.** Records the decision against the admin's email and stops
+  the seller replacing the letter. Rejecting a proof already asked, through a
+  `window.prompt` that requires a reason, and is left alone.
 
-## The dead labels
+Each states what it is about to do rather than asking whether you are sure, and
+each names the specific listing, school or seller so the wrong row cannot be
+actioned by accident.
 
-Kept, narrowed, documented, per Fatimah's instruction rather than removed.
-`listingStatusLabel('draft')` and `listingActionLabel('draft')` are unreachable:
-nothing writes `Listing.status = 'draft'` (both submit routes create `pending`)
-and the only source of the value is the defensive fallback in
-`lib/sellerDashboardView.ts` for a status it does not recognise. Removing
-`'draft'` from `SellerListingStatus` would leave that fallback with nothing to
-map to, so the value stays with a comment saying why. `listingActionLabel`'s
-`'rejected'` arm is also unreachable now, since #78 renders no action button on
-a terminal listing; that is noted in the same place.
+`app/admin/ConfirmDialog.tsx` is one component for the three console actions,
+shaped like the existing support-view dialog. The public page reuses the
+`.modal-overlay` / `.modal` convention and the `.confirm-*` styles added in #78.
+Both public confirmations join `anyOpen` for the body scroll lock and sit at the
+top of the Escape chain, above the wizard's `over-dash` layer.
 
 ## Verification completed
 
 - `npx tsc --noEmit`
-- All 26 `test:*` scripts pass, including a new
-  `npm run test:seller-listing-filters` which **executes** the module rather
-  than grepping it: every status maps to the right chip or to none, the counts
-  are right, All shows all four statuses, Published and In review show only
-  their own, and a seller whose listings are all terminal still sees them under
-  All while Published shows nothing.
-- `npx next build`.
-- The four DOM scripts re-run against local `next dev` and headless Chrome at
-  1440px and 390px, all passing.
+- All 26 `test:*` scripts pass.
+- `npx next build`
+- **The three console confirmations are verified live**, through
+  `/admin?preview=1`, which renders against inline mock data with no session and
+  no database and where every decision is a no-op. For each: the button opens a
+  dialog, the dialog has a title and both a way forward and a way out, its copy
+  does not fall back on "are you sure", and cancelling closes it and changes
+  nothing. No real listing was touched and no email was sent.
+- `node scripts/verify-destructive-confirmations.mjs` also covers submit for
+  review against the source, since that sits inside the authenticated wizard.
+- The four earlier DOM scripts re-run at 1440px and 390px, all passing.
 - `git diff --check`, zero em dashes added.
 
-## The gap this does not close
+One assertion from #78 needed re-anchoring rather than weakening:
+`verify-listing-wizard.mjs` pinned the scroll-lock line by its ending, and
+adding the second confirmation to that line made a still-true check read as
+false. It now looks for take down within the line rather than at the end of it.
 
-**Real drafts are still unreachable beyond the newest one.** `SellerApplicationDraft`
-rows never reach the workspace at all: `getSellerDashboardView` queries `seller`,
-`listing` and `purchase` and no draft table. The only draft surface is the resume
-banner, which shows `drafts[0]` while `/api/seller/drafts` returns all of them.
-
-Removing the chip does not fix that. It removes the thing that made it look
-addressed. A seller with two open drafts can still only reach the most recently
-updated one, and the other is invisible until the first is submitted or
-abandoned. Making drafts reachable is a feature and needs a product decision.
+**Not verified in a browser:** submit for review, which is inside the
+authenticated wizard. Asserted against the source.
 
 ## What is left
 
