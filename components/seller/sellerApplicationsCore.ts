@@ -1,7 +1,15 @@
 import { normalizeAnonymity, type Anonymity } from '../../lib/anonymity';
 
+// 'draft' is defensive only. No route writes it: both submit paths create
+// 'pending', and lib/sellerDashboardView maps any status it does not recognise
+// onto it rather than crashing. Nothing in production carries it.
 export type SellerListingStatus = 'approved' | 'pending' | 'draft' | 'rejected' | 'removed';
-export type SellerListingFilter = 'all' | 'published' | 'review' | 'draft';
+
+// There is no Drafts chip. It used to be a catch-all holding rejected and taken
+// down listings, so clicking "Drafts" showed a listing labelled "Taken down"
+// and no actual draft, which live only in SellerApplicationDraft and never
+// reach this component.
+export type SellerListingFilter = 'all' | 'published' | 'review';
 export type ApplicationDecision = 'admitted' | 'waitlisted' | 'denied' | 'withdrawn';
 export type ApplicationVerificationStatus = 'verified' | 'reviewing' | 'needs_proof' | 'not_started';
 
@@ -48,12 +56,29 @@ export type SellerProfileSummary = {
   backgroundTags: string[];
 };
 
-export function listingFilterForStatus(status: SellerListingStatus): Exclude<SellerListingFilter, 'all'> {
+/**
+ * Which chip a listing belongs under, or null when it belongs under All only.
+ *
+ * Rejected and taken down listings are terminal: nothing a seller presses moves
+ * them, so they are not "in review" and they are not "published". They appear
+ * under All, which is the default, rather than being filed under a heading that
+ * misdescribes them.
+ */
+export function listingFilterForStatus(
+  status: SellerListingStatus,
+): Exclude<SellerListingFilter, 'all'> | null {
   if (status === 'approved') return 'published';
   if (status === 'pending') return 'review';
-  return 'draft';
+  return null;
 }
 
+/** Pill colour. Terminal listings read as closed rather than in progress. */
+export function listingStatusTone(status: SellerListingStatus): 'published' | 'review' | 'closed' {
+  return listingFilterForStatus(status) ?? 'closed';
+}
+
+// The 'draft' arm below is unreachable, kept because the status union keeps its
+// defensive value and the switch stays exhaustive.
 export function listingStatusLabel(status: SellerListingStatus): string {
   switch (status) {
     case 'approved': return 'Published';
@@ -64,6 +89,9 @@ export function listingStatusLabel(status: SellerListingStatus): string {
   }
 }
 
+// Only 'approved' and 'pending' can reach this. A rejected or taken down
+// listing renders no action button at all, and 'draft' is the defensive value
+// nothing writes. The arms stay so the switch remains exhaustive.
 export function listingActionLabel(status: SellerListingStatus): string {
   switch (status) {
     case 'draft': return 'Continue';
@@ -126,17 +154,20 @@ export function applicationsForFilter(
   return applications
     .map((application) => ({
       ...application,
+      // A terminal listing has no chip, so it is dropped from Published and In
+      // review and appears under All, which is the default.
       listings: application.listings.filter((listing) => listingFilterForStatus(listing.status) === filter),
     }))
     .filter((application) => application.listings.length > 0);
 }
 
 export function listingFilterCounts(applications: SellerApplicationRecord[]): Record<SellerListingFilter, number> {
-  const counts: Record<SellerListingFilter, number> = { all: 0, published: 0, review: 0, draft: 0 };
+  const counts: Record<SellerListingFilter, number> = { all: 0, published: 0, review: 0 };
   for (const application of applications) {
     for (const listing of application.listings) {
       counts.all += 1;
-      counts[listingFilterForStatus(listing.status)] += 1;
+      const filter = listingFilterForStatus(listing.status);
+      if (filter) counts[filter] += 1;
     }
   }
   return counts;
