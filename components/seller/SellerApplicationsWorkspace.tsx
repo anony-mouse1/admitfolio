@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import styles from './SellerApplicationsWorkspace.module.css';
+import ListingPricePanel, { type ListingPriceSave } from './ListingPricePanel';
 import {
   anonymitySummary,
   applicationDecisionLabel,
@@ -28,6 +29,21 @@ export type SellerApplicationsWorkspaceProps = {
   onTakeDownListing?: (listingId: string) => void;
   /** Where a seller writes in when a finished listing needs changing. */
   supportEmail: string;
+
+  // Both editors render inside the card that opened them. They used to render
+  // outside this component entirely, above or below the whole workspace, so the
+  // button that opened them looked dead.
+  editingApplicationKey?: string | null;
+  applicationClassYear?: string;
+  applicationEditBusy?: boolean;
+  applicationEditError?: string;
+  onApplicationClassYearChange?: (value: string) => void;
+  onSaveApplication?: () => void;
+  onCancelApplicationEdit?: () => void;
+
+  activeListingId?: string | null;
+  onCloseListingControls?: () => void;
+  onSaveListingPrice?: (payload: ListingPriceSave) => Promise<string | null>;
 };
 
 const FILTER_LABELS: Record<SellerListingFilter, string> = {
@@ -80,6 +96,16 @@ export default function SellerApplicationsWorkspace({
   onEditListing,
   onTakeDownListing,
   supportEmail,
+  editingApplicationKey = null,
+  applicationClassYear = '',
+  applicationEditBusy = false,
+  applicationEditError = '',
+  onApplicationClassYearChange,
+  onSaveApplication,
+  onCancelApplicationEdit,
+  activeListingId = null,
+  onCloseListingControls,
+  onSaveListingPrice,
 }: SellerApplicationsWorkspaceProps) {
   const [filter, setFilter] = useState<SellerListingFilter>('all');
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -179,13 +205,51 @@ export default function SellerApplicationsWorkspace({
                 <div className={styles.sharedDetails}>
                   <div className={styles.sharedTopline}>
                     <div><strong>Shared application details</strong><span>Entered once</span></div>
-                    <button type="button" onClick={() => onEditApplication(application.key)}>Edit outcome</button>
+                    {editingApplicationKey === application.key ? (
+                      <button type="button" onClick={() => onCancelApplicationEdit?.()}>Cancel</button>
+                    ) : (
+                      <button type="button" onClick={() => onEditApplication(application.key)}>Edit outcome</button>
+                    )}
                   </div>
-                  <div className={styles.facts}>
-                    <div><span>Decision</span><strong>{applicationDecisionLabel(application.decision)}</strong></div>
-                    <div><span>Class year</span><strong>{application.classYear || 'Not set'}</strong></div>
-                    <div><span>School</span><strong>{application.school}</strong></div>
-                  </div>
+                  {editingApplicationKey === application.key ? (
+                    <div className={styles.inlineEditor}>
+                      <div className={styles.editorRow}>
+                        <label>
+                          Decision
+                          {/* Listing has no decision column, so this is the only
+                              value it can hold. Item 21, a schema change. */}
+                          <input value={applicationDecisionLabel(application.decision)} disabled />
+                        </label>
+                        <label>
+                          College class year
+                          <input
+                            value={applicationClassYear}
+                            inputMode="numeric"
+                            placeholder="2028"
+                            onChange={(event) => onApplicationClassYearChange?.(event.target.value)}
+                          />
+                        </label>
+                      </div>
+                      <p className={styles.inlineHint}>
+                        Saved once and reused across every {application.school} listing in this application.
+                      </p>
+                      {applicationEditError && <div className={styles.inlineError} role="alert">{applicationEditError}</div>}
+                      <div className={styles.inlineActions}>
+                        <button className={styles.primaryButton} type="button" disabled={applicationEditBusy} onClick={() => onSaveApplication?.()}>
+                          {applicationEditBusy ? 'Saving…' : 'Save outcome'}
+                        </button>
+                        <button className={styles.secondaryButton} type="button" disabled={applicationEditBusy} onClick={() => onCancelApplicationEdit?.()}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={styles.facts}>
+                      <div><span>Decision</span><strong>{applicationDecisionLabel(application.decision)}</strong></div>
+                      <div><span>Class year</span><strong>{application.classYear || 'Not set'}</strong></div>
+                      <div><span>School</span><strong>{application.school}</strong></div>
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.listings}>
@@ -221,8 +285,12 @@ export default function SellerApplicationsWorkspace({
                           <strong className={styles.price}>{formatPrice(listing.priceCents)}</strong>
                           <span className={`${styles.statusPill} ${styles[statusFilter]}`}>{listingStatusLabel(listing.status)}</span>
                           {!isFinal(listing.status) && (
-                            <button className={styles.secondaryButton} type="button" onClick={() => onEditListing(listing.id)}>
-                              {listingActionLabel(listing.status)}
+                            <button
+                              className={styles.secondaryButton}
+                              type="button"
+                              onClick={() => (activeListingId === listing.id ? onCloseListingControls?.() : onEditListing(listing.id))}
+                            >
+                              {activeListingId === listing.id ? 'Close' : listingActionLabel(listing.status)}
                             </button>
                           )}
                           {listing.status === 'approved' && onTakeDownListing && (
@@ -231,6 +299,13 @@ export default function SellerApplicationsWorkspace({
                             </button>
                           )}
                         </div>
+                        {activeListingId === listing.id && onSaveListingPrice && onCloseListingControls && (
+                          <ListingPricePanel
+                            listing={listing}
+                            onClose={onCloseListingControls}
+                            onSave={onSaveListingPrice}
+                          />
+                        )}
                       </div>
                     );
                   })}

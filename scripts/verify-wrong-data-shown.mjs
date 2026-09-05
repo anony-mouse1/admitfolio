@@ -152,10 +152,17 @@ assert(!/round2\(totalGross \* SELLER_SHARE\)/.test(page), 'Net earnings must no
 assert(/n == null \? 'Not available'/.test(page), 'A figure the API never sent must render as "Not available"');
 assert(/accountingPending && n === 0 \? 'Pending'/.test(page), 'A zero total with sales still settling must render as "Pending"');
 assert(!/: 'Free'/.test(page), 'An unpriced listing must never render as "Free"');
-assert((page.match(/step=\{1\}/g) || []).length === 4, 'All four price inputs must be whole-dollar stepped');
-assert((page.match(/max=\{MAX_PACKAGE_PRICE\}/g) || []).length === 2, 'Both package price inputs must share one cap');
-assert((page.match(/max=\{MAX_ESSAY_PRICE\}/g) || []).length === 2, 'Both essay price inputs must share one cap');
-assert(/Number\.isInteger/.test(page), 'A price with cents must be rejected before submit');
+// The wizard keeps its two inputs; the dashboard's two moved into the inline
+// price panel when that stopped rendering after the whole workspace. Still four
+// in total, still whole-dollar stepped and still capped.
+const pricePanel = fs.readFileSync(new URL('../components/seller/ListingPricePanel.tsx', import.meta.url), 'utf8');
+const stepped = (page.match(/step=\{1\}/g) || []).length + (pricePanel.match(/step=\{1\}/g) || []).length;
+assert(stepped === 4, `All four price inputs must be whole-dollar stepped, found ${stepped}`);
+assert((page.match(/max=\{MAX_PACKAGE_PRICE\}/g) || []).length === 1, 'the wizard package input must be capped');
+assert((page.match(/max=\{MAX_ESSAY_PRICE\}/g) || []).length === 1, 'the wizard essay input must be capped');
+assert((pricePanel.match(/max=\{max\}/g) || []).length === 2, 'both dashboard price inputs must be capped');
+assert(/MAX_PACKAGE_PRICE = 399/.test(pricePanel) && /MAX_ESSAY_PRICE = 99/.test(pricePanel), 'the panel must use the same caps as the wizard');
+assert(/Number\.isInteger/.test(page) && /Number\.isInteger/.test(pricePanel), 'A price with cents must be rejected before submit');
 
 const view = fs.readFileSync(new URL('../lib/sellerDashboardView.ts', import.meta.url), 'utf8');
 assert(/rows\.some\(isAdminApprovedListing\)/.test(view), 'Seller-wide verification must read the unmapped rows');

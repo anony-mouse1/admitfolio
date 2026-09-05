@@ -16,6 +16,16 @@ export type SellerApplicationListing = {
   /** Authoritative privacy choice for this listing only. */
   anonymity: Anonymity | 'firstName';
   reviewerNote?: string | null;
+  // Everything below feeds the price panel that opens inside this row. It used
+  // to live in a card rendered after the whole workspace, far from the button.
+  pricingMode: 'package' | 'separate';
+  /** Whole dollars, as stored. Null when the listing has no package price. */
+  packagePrice: number | null;
+  /** Lowest price this listing may carry, resolved from its tier server-side. */
+  priceFloor: number;
+  sales: number;
+  createdAt: string;
+  essays: Array<{ id: string; label: string; price: number | null }>;
 };
 
 export type SellerApplicationRecord = {
