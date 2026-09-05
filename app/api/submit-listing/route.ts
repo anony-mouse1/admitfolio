@@ -9,6 +9,7 @@ import { schoolKey } from '@/lib/admitProof';
 import { normalizeAnonymity } from '@/lib/anonymity';
 import { sameSchool } from '@/lib/schools';
 import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
+import { findSameSchoolConflict } from '@/lib/essayDuplication';
 import { normalizeSellerEmail } from '@/lib/sellerAccount';
 
 export const runtime = 'nodejs';
@@ -129,7 +130,9 @@ export async function POST(req: Request) {
   });
   if (!seller) return NextResponse.json({ error: 'Seller account not found.' }, { status: 401 });
 
-  const reusedEssay = await prisma.essay.findFirst({
+  // Same rule as the draft finalize route: reuse across colleges is legitimate,
+  // a repeat within one college is not. See lib/essayDuplication.
+  const reusedEssays = await prisma.essay.findMany({
     where: {
       contentHash: { in: contentHashes },
       listing: {
@@ -138,11 +141,11 @@ export async function POST(req: Request) {
         essays: { every: { pdfPath: { not: null } }, some: {} },
       },
     },
-    select: { id: true },
+    select: { listing: { select: { targetSchool: true, admitTags: true } } },
   });
-  if (reusedEssay) {
+  if (findSameSchoolConflict(reusedEssays, targetSchool)) {
     return NextResponse.json(
-      { error: 'One of these exact essay files is already in another active listing. Keep each essay in one package so buyers are never charged twice.' },
+      { error: `One of these essay files is already in another of your ${targetSchool} listings. Keep one package per college so a buyer is never charged twice for the same file.` },
       { status: 409 },
     );
   }

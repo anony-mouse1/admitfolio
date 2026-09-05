@@ -15,10 +15,14 @@ function parseStrings(value: string): string[] {
   }
 }
 
-function storedFileName(path: string | null, index: number): string {
-  if (!path) return `Previously uploaded essay ${index + 1}.pdf`;
-  const part = path.split('/').pop();
-  return part && part.toLowerCase().endsWith('.pdf') ? part : `Previously uploaded essay ${index + 1}.pdf`;
+// Always the generic label. The seller's own filename lives on
+// DraftAsset.fileName and has no equivalent on Essay, so there is nothing to
+// recover here. Essay.pdfPath is a storage path, not a name: legacy rows end in
+// "<essayId>.pdf" and current uploads in a roughly 100 character hash, and
+// sniffing for a ".pdf" suffix surfaced both to the seller as if they were the
+// file they had picked.
+function storedFileName(index: number): string {
+  return `Previously uploaded essay ${index + 1}.pdf`;
 }
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -54,14 +58,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     teaser: listing.teaser,
     appliedMajors: listing.appliedMajors,
     sellerNote: listing.sellerNote,
-    essays: listing.essays.map((essay, index) => ({
-      clientKey: `revision-${essay.id}`,
-      sourceEssayId: essay.id,
-      sourceFileName: storedFileName(essay.pdfPath, index),
-      prompt: essay.prompt,
-      question: essay.question,
-      price: essay.price,
-    })),
+    essays: listing.essays.map((essay, index) => {
+      // Only claim the stored file when finalize will actually accept it. That
+      // route needs both a storage path and a content hash, and legacy rows
+      // predate contentHash, so claiming those produced an essay row that
+      // looked attached, passed client validation, and was then rejected on
+      // submit with no way back except re-picking the file. Leaving
+      // sourceEssayId null makes the row ask for an upload, which is the truth.
+      const reusable = Boolean(essay.pdfPath && essay.contentHash);
+      return {
+        clientKey: `revision-${essay.id}`,
+        sourceEssayId: reusable ? essay.id : null,
+        sourceFileName: reusable ? storedFileName(index) : null,
+        prompt: essay.prompt,
+        question: essay.question,
+        price: essay.price,
+      };
+    }),
   });
   const draft = await prisma.sellerApplicationDraft.create({
     data: {
