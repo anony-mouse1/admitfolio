@@ -9,6 +9,7 @@ import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/com
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
+import { CONTACT_EMAIL } from '@/lib/site';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
@@ -198,6 +199,14 @@ type SellerPayouts = {
     } | null;
   };
 };
+
+// What the wizard is being opened to do. It used to take a `preferredDraftId`
+// that three of its four callers passed as '', which fell through to "whichever
+// draft was saved most recently" and silently discarded the school that was
+// clicked. Saying which of the two things is wanted removes the guess.
+type SellWizardTarget =
+  | { mode: 'new'; prefillSchool?: string }
+  | { mode: 'resume'; draftId: string };
 
 type SellerDraftSummary = {
   id: string;
@@ -552,6 +561,13 @@ export default function Page() {
   const [wlOpen, setWlOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
+  // True while the sell wizard was launched from the seller dashboard, so it
+  // layers over the dashboard and reloads it on the way out.
+  const [cameFromDashboard, setCameFromDashboard] = useState(false);
+  // closeSell is declared above openDashboard, and a dependency array is read at
+  // declaration scope, so the reloader is held here rather than reordering the
+  // file around it.
+  const reloadDashboardRef = useRef<(() => void) | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
 
@@ -715,6 +731,9 @@ export default function Page() {
   }, []);
 
   const fullResetSell = useCallback(() => {
+    // The step is part of the reset. Leaving it behind meant the next open
+    // flashed whatever pane the previous one ended on.
+    setSellStep(1);
     setEduEmail('');
     setEmailErr('');
     setCode(['', '', '', '', '', '']);
@@ -835,6 +854,7 @@ export default function Page() {
     setLoginOpen(false);
     setDashOpen(false);
     fullResetSell();
+    setCameFromDashboard(false);
     setSellStep(1);
     setSellOpen(true);
     setTimeout(() => eduEmailRef.current?.focus(), 60);
@@ -844,7 +864,15 @@ export default function Page() {
     void flushSellerDraft();
     setSellOpen(false);
     fullResetSell();
-  }, [fullResetSell]);
+    // The dashboard was never closed, so there is nothing to reopen. Refresh it
+    // in place: a listing may have just been submitted and the resume banner is
+    // built from the drafts fetch, but the seller keeps looking at the numbers
+    // they already had while the new ones arrive.
+    if (cameFromDashboard) {
+      setCameFromDashboard(false);
+      reloadDashboardRef.current?.();
+    }
+  }, [fullResetSell, cameFromDashboard]);
 
   // From the dashboard the seller is already authenticated (session cookie),
   // so skip email/OTP/password and start at the school step. The server
@@ -852,39 +880,49 @@ export default function Page() {
   async function openSellFromDashboard(
     email: string,
     lastSchool: string,
-    prefillSchool = '',
-    preferredDraftId = '',
+    target: SellWizardTarget,
     profileGraduationYear = '',
   ) {
-    setResumableDraft(null);
-    setDashOpen(false);
+    // The dashboard stays exactly as it is. It used to be closed here and
+    // reopened on exit, so the page behind the wizard changed for no reason and
+    // came back with stale data. The wizard layers over it instead.
     fullResetSell();
     setVerifiedEmail(email);
     setCurrentUni(lastSchool);
+    setCameFromDashboard(true);
+    // Step 4 before the modal opens, never after. The drafts fetch below picks
+    // between 4 and 5, but it only resolves once the modal is already on
+    // screen, and step 1 is "Verify you're a student", which reads as a forced
+    // logout to a seller who is signed in.
+    setSellStep(4);
     setSellOpen(true);
+
+    if (target.mode === 'new') {
+      const prefillSchool = target.prefillSchool || '';
+      await createSellerDraft({
+        currentUniversity: lastSchool,
+        graduationYear: profileGraduationYear,
+        targetSchool: prefillSchool,
+        admits: prefillSchool ? [prefillSchool] : [],
+      });
+      if (prefillSchool) {
+        setListingSchool(prefillSchool);
+        setAdmits([prefillSchool]);
+      }
+      setGraduationYear(profileGraduationYear);
+      setTimeout(() => uniRef.current?.focus(), 60);
+      return;
+    }
+
     try {
       const resp = await fetch('/api/seller/drafts');
       const data = (await resp.json().catch(() => ({}))) as { ok?: boolean; drafts?: SellerDraftSummary[] };
-      const draft = resp.ok && data.ok
-        ? data.drafts?.find((item) => item.id === preferredDraftId) || data.drafts?.[0]
-        : undefined;
-      if (!draft) {
-        const initialState = {
-          currentUniversity: lastSchool,
-          graduationYear: profileGraduationYear,
-          targetSchool: prefillSchool,
-          admits: prefillSchool ? [prefillSchool] : [],
-        };
-        await createSellerDraft(initialState);
-        if (prefillSchool) {
-          setListingSchool(prefillSchool);
-          setAdmits([prefillSchool]);
-        }
-        setGraduationYear(profileGraduationYear);
-        setSellStep(4);
-        setTimeout(() => uniRef.current?.focus(), 60);
-        return;
-      }
+      if (!resp.ok || !data.ok) throw new Error('Could not load your saved draft. Check your connection and try again.');
+      // Exactly the draft that was asked for. There is deliberately no fallback
+      // to the most recent one: opening a different listing than the one the
+      // seller clicked is worse than saying it is gone.
+      const draft = data.drafts?.find((item) => item.id === target.draftId);
+      if (!draft) throw new Error('That saved draft is no longer available. It may already have been submitted.');
 
       const state = draft.state || {};
       const stateAdmits = Array.isArray(state.admits) ? state.admits.map(String) : [];
@@ -934,9 +972,15 @@ export default function Page() {
       })));
       setDraftSaveLabel('Draft restored');
       setSellStep(Math.max(4, Math.min(5, draft.step)));
-    } catch {
-      await createSellerDraft({ currentUniversity: lastSchool });
-      setSellStep(4);
+    } catch (error) {
+      // Deliberately no replacement draft. Creating one here meant a network
+      // blip while opening "Resume application" silently started a blank
+      // listing and left the real draft sitting untouched behind it.
+      setSellOpen(false);
+      setCameFromDashboard(false);
+      fullResetSell();
+      setDashOpen(true);
+      setDashErr(error instanceof Error ? error.message : 'Could not load your saved draft.');
     }
   }
 
@@ -1149,11 +1193,22 @@ export default function Page() {
   async function handleSubmitListing() {
     const rows = essayRows;
     const separate = pricingMode === 'separate';
+    // Which submit path this listing will take. With a draft id the finalize
+    // route reads staged DraftAsset rows; without one the direct route uploads
+    // the browser Files.
+    const usesStagedAssets = Boolean(activeDraftId);
     let msg = '';
     if (!applicationType) msg = 'Pick the application type for these essays.';
     else if (admits.length === 0) msg = 'Add at least one school you got into.';
     else if (!listingSchool || !admits.some((school) => sameSchool(school, listingSchool))) msg = 'Choose which college this listing is for.';
-    else if (admitProofRows.some((a) => !admitFiles[a.key] && !admitAssetIds[a.key])) msg = 'Upload proof for every school you got into.';
+    // The two submit paths accept different evidence, and treating them as one
+    // is what made a failed upload unrecoverable. With a saved draft the server
+    // only ever reads staged DraftAsset rows and never receives the browser
+    // File, so a row holding just a File passed here and was then rejected on
+    // submit with no way back except re-picking the file.
+    else if (usesStagedAssets
+      ? admitProofRows.some((a) => !admitAssetIds[a.key])
+      : admitProofRows.some((a) => !admitFiles[a.key])) msg = 'Upload proof for every school you got into.';
     else if (admitProofRows.some((a) => admitFiles[a.key] && (admitFiles[a.key] as File).size > 4 * 1024 * 1024)) msg = 'Each proof file must be 4MB or smaller.';
     else if (admitProofRows.some((a) => {
       const file = admitFiles[a.key];
@@ -1162,7 +1217,9 @@ export default function Page() {
     })) msg = 'Proof must be a PDF, PNG, or JPG.';
     else if (rows.some((r) => !r.prompt)) msg = 'Choose a prompt type for every essay.';
     else if (rows.some((r) => /^other/i.test(r.prompt) && !r.question.trim())) msg = 'Type the essay question for every "Other" essay.';
-    else if (rows.some((r) => !r.file && !r.assetId && !r.sourceEssayId)) msg = 'Upload a PDF for every essay.';
+    else if (usesStagedAssets
+      ? rows.some((r) => !r.assetId && !r.sourceEssayId)
+      : rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
     else if (rows.some((r) => r.file && r.file.size > 4 * 1024 * 1024)) msg = 'Each PDF must be 4MB or smaller.';
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
     else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
@@ -1530,24 +1587,14 @@ export default function Page() {
   }, []);
   const closeLogin = useCallback(() => setLoginOpen(false), []);
 
-  const openDashboard = useCallback((email: string) => {
-    try { sessionStorage.setItem('admitfolio:seller-active', '1'); } catch {}
-    setSellerEmail(email || '');
-    setListings([]);
-    setMonthGross(0);
-    setSellerAccounting(null);
-    setSellerPayouts(null);
-    setSellerApplications([]);
-    setPayoutSetupError('');
-    setDashErr('');
-    setDashLoading(true);
-    setDashOpen(true);
-    setProfMsg({ text: '', kind: '' });
-    setResumableDraft(null);
+  // The three dashboard fetches, on their own. They run in parallel, and none of
+  // them clears anything first, so calling this again refreshes the page in
+  // place rather than emptying it and filling it back in.
+  const loadDashboardData = useCallback(() => {
     fetch('/api/seller/drafts')
       .then(async (r) => {
         const d = (await r.json().catch(() => ({}))) as { ok?: boolean; drafts?: SellerDraftSummary[] };
-        if (r.ok && d.ok && d.drafts?.[0]) setResumableDraft(d.drafts[0]);
+        if (r.ok && d.ok) setResumableDraft(d.drafts?.[0] ?? null);
       })
       .catch(() => {});
     fetch('/api/seller/profile')
@@ -1616,6 +1663,25 @@ export default function Page() {
       .catch((err) => setDashErr(err instanceof Error ? err.message : 'Could not load your listings.'))
       .finally(() => setDashLoading(false));
   }, []);
+
+  const openDashboard = useCallback((email: string) => {
+    try { sessionStorage.setItem('admitfolio:seller-active', '1'); } catch {}
+    setSellerEmail(email || '');
+    // Opening from cold blanks first, because the previous seller's numbers
+    // must never be on screen while the new ones are in flight.
+    setListings([]);
+    setMonthGross(0);
+    setSellerAccounting(null);
+    setSellerPayouts(null);
+    setSellerApplications([]);
+    setResumableDraft(null);
+    setPayoutSetupError('');
+    setDashErr('');
+    setDashLoading(true);
+    setDashOpen(true);
+    setProfMsg({ text: '', kind: '' });
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   async function handleLogin() {
     const email = slEmail.trim();
@@ -1700,6 +1766,11 @@ export default function Page() {
 
   /* ============================ Seller dashboard ============================ */
   const [sellerEmail, setSellerEmail] = useState('');
+  // Points closeSell at the in-place refresh. Declared here because
+  // loadDashboardData has to exist first.
+  useEffect(() => {
+    reloadDashboardRef.current = loadDashboardData;
+  }, [loadDashboardData]);
   const [listings, setListings] = useState<SellerListing[]>([]);
   const [monthGross, setMonthGross] = useState(0);
   const [sellerAccounting, setSellerAccounting] = useState<SellerAccounting | null>(null);
@@ -1711,6 +1782,12 @@ export default function Page() {
   const [resumableDraft, setResumableDraft] = useState<SellerDraftSummary | null>(null);
   const [sellerApplications, setSellerApplications] = useState<SellerApplicationRecord[]>([]);
   const [activeListingControlId, setActiveListingControlId] = useState<string | null>(null);
+  // Take down is one way: listing-status accepts only 'takedown' and there is no
+  // republish action, so this asks first. The listing being confirmed doubles as
+  // the open flag, matching the dialog in app/admin/SellerSupport.tsx.
+  const [confirmTakedown, setConfirmTakedown] = useState<SellerListing | null>(null);
+  const [takedownBusy, setTakedownBusy] = useState(false);
+  const [takedownErr, setTakedownErr] = useState('');
   const [editingApplication, setEditingApplication] = useState<SellerApplicationRecord | null>(null);
   const [applicationClassYear, setApplicationClassYear] = useState('');
   const [applicationEditBusy, setApplicationEditBusy] = useState(false);
@@ -1845,7 +1922,28 @@ export default function Page() {
             ? { label: 'Bank payout', cents: latestBankPayout.amountCents, detail: 'Deposit failed. Review your payout account in Stripe.' }
             : { label: 'Pending payout', cents: 0, detail: 'No unpaid earnings' };
 
-  async function listingAction(id: string, action: 'takedown') {
+  function requestTakedown(id: string) {
+    const listing = listings.find((item) => item.id === id);
+    if (!listing) return;
+    setTakedownErr('');
+    setConfirmTakedown(listing);
+  }
+
+  async function confirmTakedownNow() {
+    const listing = confirmTakedown;
+    if (!listing || takedownBusy) return;
+    setTakedownErr('');
+    setTakedownBusy(true);
+    const error = await listingAction(listing.id, 'takedown');
+    setTakedownBusy(false);
+    // Stay open on failure. Closing would drop the message behind the dashboard
+    // and leave the seller unsure whether the listing came down or not.
+    if (error) setTakedownErr(error);
+    else setConfirmTakedown(null);
+  }
+
+  /** Returns null on success, or the message to show the seller. */
+  async function listingAction(id: string, action: 'takedown'): Promise<string | null> {
     try {
       const resp = await fetch('/api/seller/listing-status', {
         method: 'POST',
@@ -1861,8 +1959,9 @@ export default function Page() {
           ? { ...listing, status: data.status as SellerApplicationRecord['listings'][number]['status'] }
           : listing),
       })));
+      return null;
     } catch (err) {
-      setDashErr(err instanceof Error ? err.message : 'Could not update the listing.');
+      return err instanceof Error ? err.message : 'Could not update the listing.';
     }
   }
 
@@ -1892,8 +1991,7 @@ export default function Page() {
     void openSellFromDashboard(
       sellerEmail,
       profCurrentUniversity || listings[0]?.school || '',
-      application?.school || '',
-      '',
+      { mode: 'new', prefillSchool: application?.school || '' },
       profGraduationYear,
     );
   }
@@ -1929,21 +2027,12 @@ export default function Page() {
     }
   }
 
-  async function editWorkspaceListing(listingId: string) {
-    const listing = listings.find((item) => item.id === listingId);
-    if (!listing || !['rejected', 'removed'].includes(listing.status)) {
-      setActiveListingControlId(listingId);
-      return;
-    }
-    setDashErr('');
-    try {
-      const response = await fetch(`/api/seller/listings/${listingId}/revision`, { method: 'POST' });
-      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; draft?: { id: string } };
-      if (!response.ok || !data.ok || !data.draft) throw new Error(data.error || 'Could not open this listing for changes.');
-      await openSellFromDashboard(sellerEmail, listing.school, '', data.draft.id, profGraduationYear);
-    } catch (error) {
-      setDashErr(error instanceof Error ? error.message : 'Could not open this listing for changes.');
-    }
+  // A rejected or taken down listing is final: there is no seller-side revise
+  // path, and the workspace offers those rows a support link instead of a
+  // control. This only ever opens the price and status card for a listing that
+  // is still live or still in review.
+  function editWorkspaceListing(listingId: string) {
+    setActiveListingControlId(listingId);
   }
 
   const closeDashboard = useCallback(() => {
@@ -1976,13 +2065,13 @@ export default function Page() {
   // waitlist auto-popup timer can check it (the hamburger menu counts as a
   // popup for that purpose, but shouldn't lock scroll).
   useEffect(() => {
-    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null;
+    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null || confirmTakedown !== null;
     overlayOpenRef.current = anyOpen || menuOpen;
     document.body.style.overflow = anyOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId]);
+  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId, confirmTakedown]);
 
   // Layout variant body classes + ?login deep-link (mirrors the original IIFEs).
   useEffect(() => {
@@ -2017,20 +2106,25 @@ export default function Page() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
-      if (matcherOpen) setMatcherOpen(false);
+      // The take-down confirmation is the topmost layer. Anything checked ahead
+      // of it would close the page underneath while the question is still up.
+      if (confirmTakedown) { if (!takedownBusy) setConfirmTakedown(null); }
+      else if (matcherOpen) setMatcherOpen(false);
       else if (menuOpen) setMenuOpen(false);
+      // The sell wizard layers above the dashboard, so it has to be closed
+      // first. Checking dashOpen ahead of it shut the page underneath instead.
+      else if (sellOpen) closeSell();
       else if (dashOpen) closeDashboard();
       // Buy sits above detail: opening it closes the sheet first, so the two
       // are never stacked, but check it first anyway in case that ever changes.
       else if (buyOpen) closeBuy();
       else if (detailId) closeDetail();
-      else if (sellOpen) closeSell();
       else if (loginOpen) closeLogin();
       else if (wlOpen) setWlOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
+  }, [confirmTakedown, takedownBusy, matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -2697,7 +2791,7 @@ export default function Page() {
       </footer>
 
       {/* ===== Sell-your-essay onboarding modal ===== */}
-      <div className={`modal-overlay${sellOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="sellTitle" onClick={(e) => { if (e.target === e.currentTarget) closeSell(); }}>
+      <div className={`modal-overlay${sellOpen ? ' open' : ''}${cameFromDashboard ? ' over-dash' : ''}`} role="dialog" aria-modal="true" aria-labelledby="sellTitle" onClick={(e) => { if (e.target === e.currentTarget) closeSell(); }}>
         <div className="modal">
           <button className="modal-close" aria-label="Close" onClick={closeSell}>&times;</button>
           <div className="modal-logo"><span className="w">admitfolio</span><span className="d"></span></div>
@@ -2807,7 +2901,17 @@ export default function Page() {
             </div>
 
             <button className="modal-btn" onClick={handleUniNext} disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Continue'}</button>
-            <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
+            {/* Steps 1 to 3 are signup: verify the email, enter the code, set a
+                password. A seller who opened this from their dashboard is
+                already authenticated and starts here, so stepping back into
+                them lands on "Set a password" and, if they fill it in, posts a
+                signup with no email token. For them this pane is the first one,
+                and the only way back is out. */}
+            {cameFromDashboard ? (
+              <button className="modal-back" onClick={closeSell}>← Back to dashboard</button>
+            ) : (
+              <button className="modal-back" onClick={() => setSellStep(3)}>← Back</button>
+            )}
           </div>
 
           {/* Step 5: listing builder */}
@@ -2890,11 +2994,26 @@ export default function Page() {
                             const file = e.target.files?.[0] ?? null;
                             setAdmitFiles((prev) => ({ ...prev, [a.key]: file }));
                             setAdmitFileNames((prev) => ({ ...prev, [a.key]: file?.name || '' }));
-                            if (file) {
-                              const assetId = await stageDraftAsset('admitProof', a.key.replace(/\s+/g, '-'), file);
-                              if (assetId) setAdmitAssetIds((prev) => ({ ...prev, [a.key]: assetId }));
-                            }
                             setDetailsErr('');
+                            if (!file) return;
+                            const assetId = await stageDraftAsset('admitProof', a.key.replace(/\s+/g, '-'), file);
+                            if (assetId) {
+                              setAdmitAssetIds((prev) => ({ ...prev, [a.key]: assetId }));
+                              return;
+                            }
+                            // Nothing was stored, so stop showing the row as
+                            // attached. Leaving the name on it made a failed
+                            // upload look like a successful one right up until
+                            // submit refused, and re-clicking Submit could never
+                            // fix it because the draft path never sends the file.
+                            setAdmitFiles((prev) => ({ ...prev, [a.key]: null }));
+                            setAdmitFileNames((prev) => ({ ...prev, [a.key]: '' }));
+                            setAdmitAssetIds((prev) => {
+                              const next = { ...prev };
+                              delete next[a.key];
+                              return next;
+                            });
+                            setDetailsErr(`${a.label} proof did not upload. Please choose the file again.`);
                           }}
                         />
                         <span className="proof-file">{f?.name || savedFileName || 'Letter, portal, or email proof'}</span>
@@ -2943,10 +3062,16 @@ export default function Page() {
                         <input type="file" accept="application/pdf,.pdf" className="essay-file" hidden onChange={async (e) => {
                           const file = e.target.files?.[0] ?? null;
                           updateEssayRow(i, { fileName: file?.name ?? '', file, assetId: null, sourceEssayId: null });
-                          if (file) {
-                            const assetId = await stageDraftAsset('essay', row.clientKey, file);
-                            if (assetId) updateEssayRow(i, { assetId });
+                          if (!file) return;
+                          const assetId = await stageDraftAsset('essay', row.clientKey, file);
+                          if (assetId) {
+                            updateEssayRow(i, { assetId });
+                            return;
                           }
+                          // Same as the proof rows above: with nothing stored,
+                          // the row must stop claiming to hold a file.
+                          updateEssayRow(i, { fileName: '', file: null, assetId: null });
+                          setDetailsErr(`Essay ${i + 1} did not upload. Please choose the file again.`);
                         }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
@@ -3036,6 +3161,46 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* ===== Take down confirmation =====
+           listing-status accepts only 'takedown' and there is no republish
+           action, so this is the last point at which the seller can stop. The
+           copy states what happens rather than asking "are you sure". */}
+      {confirmTakedown && (
+        <div
+          className="modal-overlay open confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="takedownTitle"
+          onClick={(e) => { if (e.target === e.currentTarget && !takedownBusy) setConfirmTakedown(null); }}
+        >
+          <div className="modal confirm-modal">
+            <button className="modal-close" aria-label="Close" disabled={takedownBusy} onClick={() => setConfirmTakedown(null)}>&times;</button>
+            <div className="confirm-eyebrow">This cannot be undone</div>
+            <h3 id="takedownTitle">Take this listing offline?</h3>
+            <p className="sub">
+              Your <strong>{resolveListingHeadline(confirmTakedown)}</strong> package,{' '}
+              {confirmTakedown.essays.length} {confirmTakedown.essays.length === 1 ? 'essay' : 'essays'}
+              {confirmTakedown.packagePrice != null ? ` at $${confirmTakedown.packagePrice}` : ''}, is removed
+              from the catalogue straight away. Buyers can no longer find or purchase it.
+            </p>
+            <ul className="confirm-list">
+              <li>There is no way to put it back yourself</li>
+              <li>Anyone who already bought it keeps their access</li>
+              <li>To relist, you would build a new package from scratch</li>
+            </ul>
+            {takedownErr && <div className="confirm-error" role="alert">{takedownErr}</div>}
+            <div className="confirm-actions">
+              <button className="confirm-ghost" type="button" disabled={takedownBusy} onClick={() => setConfirmTakedown(null)}>
+                Keep it listed
+              </button>
+              <button className="confirm-danger" type="button" disabled={takedownBusy} onClick={() => void confirmTakedownNow()}>
+                {takedownBusy ? 'Taking offline…' : 'Take it offline'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Listing detail sheet ===== */}
       {detailListing && (
@@ -3273,6 +3438,8 @@ export default function Page() {
                 onClick={() => openSellFromDashboard(
                   sellerEmail,
                   String(resumableDraft.state.currentUniversity || listings[0]?.school || ''),
+                  { mode: 'resume', draftId: resumableDraft.id },
+                  profGraduationYear,
                 )}
               >
                 Resume application
@@ -3557,8 +3724,9 @@ export default function Page() {
               onAddApplication={() => openApplicationListing()}
               onEditApplication={editApplicationOutcome}
               onAddListing={openApplicationListing}
-              onEditListing={(id) => void editWorkspaceListing(id)}
-              onTakeDownListing={(id) => void listingAction(id, 'takedown')}
+              onEditListing={editWorkspaceListing}
+              supportEmail={CONTACT_EMAIL}
+              onTakeDownListing={requestTakedown}
             />
             {activeListingControlId && listings.find((listing) => listing.id === activeListingControlId) && (
               <div className="dash-listing-controls" aria-label="Selected listing controls">
@@ -3576,6 +3744,17 @@ export default function Page() {
             <button className="dash-logout" onClick={handleSellerLogout}>Log out</button>
           </div>
         </div>
+        {/* A finished listing cannot be changed from here, so the way to get a
+            change made is always in reach. The address is written out as well
+            as linked, because a mailto goes nowhere without a mail client. */}
+        <a
+          className="dash-help-dock"
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Seller support')}`}
+        >
+          <span aria-hidden="true">?</span>
+          Need help with a listing
+          <small>{CONTACT_EMAIL}</small>
+        </a>
       </div>
     </>
   );

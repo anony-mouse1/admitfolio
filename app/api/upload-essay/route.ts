@@ -5,6 +5,8 @@ import { supabaseAdmin, ESSAYS_BUCKET, MAX_PDF_BYTES } from '@/lib/supabase';
 import { createHash, randomUUID } from 'node:crypto';
 import { waitUntil } from '@vercel/functions';
 import { reviewListing } from '@/lib/reviewRunner';
+import { findSameSchoolConflict } from '@/lib/essayDuplication';
+import { catalogSchool, parseAdmitTags } from '@/lib/listingSchool';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -35,6 +37,8 @@ export async function POST(req: Request) {
           status: true,
           aiReviewStartedAt: true,
           aiReviewedAt: true,
+          targetSchool: true,
+          admitTags: true,
         },
       },
     },
@@ -73,26 +77,49 @@ export async function POST(req: Request) {
   }
 
   const contentHash = createHash('sha256').update(buffer).digest('hex');
-  const duplicate = await prisma.essay.findFirst({
-    where: {
-      id: { not: essay.id },
-      contentHash,
-      OR: [
-        { listingId: essay.listingId },
-        {
-          listing: {
-            sellerId: essay.listing.sellerId,
-            status: { in: ['pending', 'approved'] },
-            essays: { every: { pdfPath: { not: null } }, some: {} },
-          },
-        },
-      ],
-    },
+
+  // Twice inside one package is always wrong: the buyer would get the same file
+  // in a single purchase.
+  const sameListingDuplicate = await prisma.essay.findFirst({
+    where: { id: { not: essay.id }, contentHash, listingId: essay.listingId },
     select: { id: true },
   });
-  if (duplicate) {
+  if (sameListingDuplicate) {
     return NextResponse.json(
-      { error: 'This exact essay is already part of another active listing. Keep each essay in one package so buyers are never charged twice for the same file.' },
+      { error: 'This exact essay is already in this package. Each essay can only appear once in a listing.' },
+      { status: 409 },
+    );
+  }
+
+  // Across the seller's other packages it depends on the college. One Common
+  // App essay legitimately appears in a Harvard package and a Yale package;
+  // twice for the same college would charge a buyer twice. See
+  // lib/essayDuplication.
+  const otherListingMatches = await prisma.essay.findMany({
+    where: {
+      id: { not: essay.id },
+      listingId: { not: essay.listingId },
+      contentHash,
+      listing: {
+        sellerId: essay.listing.sellerId,
+        status: { in: ['pending', 'approved'] },
+        essays: { every: { pdfPath: { not: null } }, some: {} },
+      },
+    },
+    select: { listing: { select: { targetSchool: true, admitTags: true } } },
+  });
+  const thisSchool = catalogSchool({
+    school: '',
+    targetSchool: essay.listing.targetSchool,
+    admitTags: parseAdmitTags(essay.listing.admitTags),
+  });
+  if (findSameSchoolConflict(otherListingMatches, thisSchool)) {
+    return NextResponse.json(
+      {
+        error: thisSchool
+          ? `This exact essay is already in another of your ${thisSchool} listings. Keep one package per college so a buyer is never charged twice for the same file.`
+          : 'This exact essay is already in another of your active listings. Keep one package per college so a buyer is never charged twice for the same file.',
+      },
       { status: 409 },
     );
   }
