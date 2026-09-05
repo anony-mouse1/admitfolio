@@ -2791,7 +2791,7 @@ export default function Page() {
             </details>
             <details className="faq-item">
               <summary className="faq-summary">What if I have another question?<span className="faq-caret" aria-hidden="true"></span></summary>
-              <div className="faq-answer">Email Fatimah at <a href="mailto:hello@admitfolio.com">hello@admitfolio.com</a> or send a message to <a href="https://www.instagram.com/fatimahs.guide/" target="_blank" rel="noopener noreferrer">@fatimahs.guide</a>.</div>
+              <div className="faq-answer">Email <a href="mailto:hello@admitfolio.com">hello@admitfolio.com</a> for further questions and we&apos;ll respond to you as soon as possible.</div>
             </details>
           </div>
         </div>
