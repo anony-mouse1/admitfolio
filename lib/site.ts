@@ -21,3 +21,18 @@ export const PROFILE_TAGS = [
 // append paths that start with one.
 export const PRODUCTION_SITE_URL = 'https://admitfolio.com';
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || PRODUCTION_SITE_URL).replace(/\/$/, '');
+
+// What robots.txt and the sitemap tell crawlers the site is. On the live
+// deployment this must be the apex: a sitemap of preview or localhost URLs
+// would tell Google the site lives somewhere else. Vercel sets VERCEL_ENV to
+// 'production' only on that deployment, so a misconfigured NEXT_PUBLIC_SITE_URL
+// fails the production build, which leaves the old site up. Local builds and
+// previews render whatever origin they were given.
+export function crawlOrigin(): string {
+  if (process.env.VERCEL_ENV === 'production' && SITE_URL !== PRODUCTION_SITE_URL) {
+    throw new Error(
+      `Refusing to publish crawl metadata for ${SITE_URL}; the production deployment must use ${PRODUCTION_SITE_URL}`,
+    );
+  }
+  return SITE_URL;
+}
