@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
+const guide = guideBySlug('common-app-essay-examples');
 const title = 'Common App Essay Examples: How to Learn From Essays That Worked';
 const description =
   'Learn how to read Common App essay examples for structure, reflection, and voice without copying another student’s story.';
-const url = 'https://admitfolio.com/guides/common-app-essay-examples';
+const url = guideUrl(guide.slug);
 
 export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-16', modifiedTime: '2026-08-16' },
+  openGraph: { title, description, url, type: 'article', publishedTime: guide.published, modifiedTime: guide.modified },
 };
 
 export default function CommonAppEssayExamplesPage() {
@@ -23,8 +25,8 @@ export default function CommonAppEssayExamplesPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-16',
-    dateModified: '2026-08-16',
+    datePublished: guide.published,
+    dateModified: guide.modified,
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -37,7 +39,7 @@ export default function CommonAppEssayExamplesPage() {
         <article className={styles.articleShell}>
           <Link className={styles.backLink} href="/guides">← Back to all essay guides</Link>
           <header className={styles.articleHeader}>
-            <span className="pill"><span className="dot" />Common App</span>
+            <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>Common App essay examples: how to learn from essays that worked</h1>
             <p className={styles.dek}>
               The best example is not the one you can copy. It is the one that helps you see a choice you can
@@ -45,8 +47,8 @@ export default function CommonAppEssayExamplesPage() {
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 16, 2026</span>
-              <span>8 min read</span>
+              <span>Updated {formatGuideDate(guide.modified)}</span>
+              <span>{guide.readTime}</span>
             </div>
           </header>
 

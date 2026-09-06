@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
+const guide = guideBySlug('how-to-take-inspiration-from-college-essays');
 const title = 'The Best Way to Take Inspiration From Other College Student Essays';
 const description =
   'Learn how to study college essay examples for voice, structure, detail, and reflection without copying another student’s words or story.';
-const url = 'https://admitfolio.com/guides/how-to-take-inspiration-from-college-essays';
+const url = guideUrl(guide.slug);
 
 export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-20', modifiedTime: '2026-08-20' },
+  openGraph: { title, description, url, type: 'article', publishedTime: guide.published, modifiedTime: guide.modified },
 };
 
 export default function HowToTakeInspirationFromCollegeEssaysPage() {
@@ -23,8 +25,8 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-20',
-    dateModified: '2026-08-20',
+    datePublished: guide.published,
+    dateModified: guide.modified,
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -37,15 +39,15 @@ export default function HowToTakeInspirationFromCollegeEssaysPage() {
         <article className={styles.articleShell}>
           <Link className={styles.backLink} href="/guides">← Back to all essay guides</Link>
           <header className={styles.articleHeader}>
-            <span className="pill"><span className="dot" />Essay examples</span>
+            <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>The best way to take inspiration from other college student essays</h1>
             <p className={styles.dek}>
               Read examples to discover better questions about your own life, not to find a story or sentence you can reuse.
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 20, 2026</span>
-              <span>7 min read</span>
+              <span>Updated {formatGuideDate(guide.modified)}</span>
+              <span>{guide.readTime}</span>
             </div>
           </header>
 

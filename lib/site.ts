@@ -14,3 +14,10 @@ export const PROFILE_TAGS = [
   'Student athlete',
   'Worked through school',
 ] as const;
+
+// The origin the public site lives at. Canonical tags, the sitemap and Stripe
+// return URLs are all built on SITE_URL. Production resolves to the apex; local
+// dev sets NEXT_PUBLIC_SITE_URL to localhost. No trailing slash, so callers
+// append paths that start with one.
+export const PRODUCTION_SITE_URL = 'https://admitfolio.com';
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || PRODUCTION_SITE_URL).replace(/\/$/, '');
