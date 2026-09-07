@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
+const guide = guideBySlug('common-app-essay-word-count');
 const title = 'Common App Essay Word Count: What to Cut and What to Keep';
 const description =
   'Understand the Common App essay word count and use a practical revision checklist to cut repetition without losing voice or reflection.';
-const url = 'https://admitfolio.com/guides/common-app-essay-word-count';
+const url = guideUrl(guide.slug);
 
 export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-07-25', modifiedTime: '2026-07-25' },
+  openGraph: { title, description, url, type: 'article', publishedTime: guide.published, modifiedTime: guide.modified },
 };
 
 export default function CommonAppEssayWordCountPage() {
@@ -23,8 +25,8 @@ export default function CommonAppEssayWordCountPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-07-25',
-    dateModified: '2026-07-25',
+    datePublished: guide.published,
+    dateModified: guide.modified,
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -37,15 +39,15 @@ export default function CommonAppEssayWordCountPage() {
         <article className={styles.articleShell}>
           <Link className={styles.backLink} href="/guides">← Back to all essay guides</Link>
           <header className={styles.articleHeader}>
-            <span className="pill"><span className="dot" />Common App</span>
+            <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>Common App essay word count: what to cut and what to keep</h1>
             <p className={styles.dek}>
               Reaching the limit is not the goal. Use the space your story needs, then make every sentence earn its place.
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated July 25, 2026</span>
-              <span>4 min read</span>
+              <span>Updated {formatGuideDate(guide.modified)}</span>
+              <span>{guide.readTime}</span>
             </div>
           </header>
 

@@ -16,4 +16,4 @@ export const STRIPE_CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_
 export const STRIPE_CONNECT_SNAPSHOT_WEBHOOK_SECRET =
   process.env.STRIPE_CONNECT_SNAPSHOT_WEBHOOK_SECRET || '';
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://admitfolio.com').replace(/\/$/, '');
+export { SITE_URL } from './site';

@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
+const guide = guideBySlug('college-essay-format');
 const title = 'College Essay Format: A Simple, Readable Structure';
 const description =
   'Format a college application essay with readable paragraphs, clean dialogue, optional titles, and a careful submission check.';
-const url = 'https://admitfolio.com/guides/college-essay-format';
+const url = guideUrl(guide.slug);
 
 export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-07-30', modifiedTime: '2026-07-30' },
+  openGraph: { title, description, url, type: 'article', publishedTime: guide.published, modifiedTime: guide.modified },
 };
 
 export default function CollegeEssayFormatPage() {
@@ -23,8 +25,8 @@ export default function CollegeEssayFormatPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-07-30',
-    dateModified: '2026-07-30',
+    datePublished: guide.published,
+    dateModified: guide.modified,
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -37,15 +39,15 @@ export default function CollegeEssayFormatPage() {
         <article className={styles.articleShell}>
           <Link className={styles.backLink} href="/guides">← Back to all essay guides</Link>
           <header className={styles.articleHeader}>
-            <span className="pill"><span className="dot" />Writing basics</span>
+            <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>College essay format: a simple, readable structure</h1>
             <p className={styles.dek}>
               College essays do not need an academic paper format. They need clear paragraphs, intentional pacing, and a clean final paste.
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated July 30, 2026</span>
-              <span>5 min read</span>
+              <span>Updated {formatGuideDate(guide.modified)}</span>
+              <span>{guide.readTime}</span>
             </div>
           </header>
 

@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
+const guide = guideBySlug('uc-piq-examples');
 const title = 'UC PIQ Examples and What Makes Each Response Work';
 const description =
   'Learn how to approach all eight UC Personal Insight Questions, choose your four prompts, and write specific 350-word responses in your own voice.';
-const url = 'https://admitfolio.com/guides/uc-piq-examples';
+const url = guideUrl(guide.slug);
 
 export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-12', modifiedTime: '2026-08-12' },
+  openGraph: { title, description, url, type: 'article', publishedTime: guide.published, modifiedTime: guide.modified },
 };
 
 export default function UcPiqExamplesPage() {
@@ -23,8 +25,8 @@ export default function UcPiqExamplesPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-12',
-    dateModified: '2026-08-12',
+    datePublished: guide.published,
+    dateModified: guide.modified,
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -37,15 +39,15 @@ export default function UcPiqExamplesPage() {
         <article className={styles.articleShell}>
           <Link className={styles.backLink} href="/guides">← Back to all essay guides</Link>
           <header className={styles.articleHeader}>
-            <span className="pill"><span className="dot" />UC applications</span>
+            <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>UC PIQ examples and what makes each response work</h1>
             <p className={styles.dek}>
               Strong PIQs answer the question early, show what you did, and make your way of thinking easy to see.
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 12, 2026</span>
-              <span>10 min read</span>
+              <span>Updated {formatGuideDate(guide.modified)}</span>
+              <span>{guide.readTime}</span>
             </div>
           </header>
 

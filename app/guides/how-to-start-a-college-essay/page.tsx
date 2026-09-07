@@ -3,18 +3,20 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
+const guide = guideBySlug('how-to-start-a-college-essay');
 const title = 'How to Start a College Essay Without Forcing the Hook';
 const description =
   'Try five practical college essay openings, avoid common hook mistakes, and find a first sentence that sounds like you.';
-const url = 'https://admitfolio.com/guides/how-to-start-a-college-essay';
+const url = guideUrl(guide.slug);
 
 export const metadata: Metadata = {
   title: `${title} | Admitfolio`,
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'article', publishedTime: '2026-08-08', modifiedTime: '2026-08-08' },
+  openGraph: { title, description, url, type: 'article', publishedTime: guide.published, modifiedTime: guide.modified },
 };
 
 export default function HowToStartACollegeEssayPage() {
@@ -23,8 +25,8 @@ export default function HowToStartACollegeEssayPage() {
     '@type': 'Article',
     headline: title,
     description,
-    datePublished: '2026-08-08',
-    dateModified: '2026-08-08',
+    datePublished: guide.published,
+    dateModified: guide.modified,
     author: { '@type': 'Organization', name: 'Admitfolio Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Admitfolio', url: 'https://admitfolio.com' },
     mainEntityOfPage: url,
@@ -37,15 +39,15 @@ export default function HowToStartACollegeEssayPage() {
         <article className={styles.articleShell}>
           <Link className={styles.backLink} href="/guides">← Back to all essay guides</Link>
           <header className={styles.articleHeader}>
-            <span className="pill"><span className="dot" />Writing basics</span>
+            <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>How to start a college essay without forcing the hook</h1>
             <p className={styles.dek}>
               Your first line does not need fireworks. It needs to lead naturally into a story only you can tell.
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
-              <span>Updated August 8, 2026</span>
-              <span>6 min read</span>
+              <span>Updated {formatGuideDate(guide.modified)}</span>
+              <span>{guide.readTime}</span>
             </div>
           </header>
 

@@ -37,6 +37,7 @@
     "test:essay-duplication": "node scripts/essay-duplication.test.mjs",
     "test:seller-listing-filters": "node scripts/seller-listing-filters.test.mjs",
     "test:launch-hardening": "node scripts/launch-hardening.test.mjs",
+    "test:sitemap": "node scripts/sitemap.test.mjs",
     "report:seller-flow-impact": "node scripts/report-seller-flow-migration-impact.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",
     "db:push": "prisma db push",
