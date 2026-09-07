@@ -54,6 +54,8 @@ assert.deepEqual(Object.values(ANALYTICS_EVENTS), [
   'Browse Opened',
   'Listing Viewed',
   'Checkout Started',
+  'Checkout Email Submitted',
+  'Checkout Payment Loaded',
   'Purchase Completed',
   'Match Search',
   'Seller Signup Started',

@@ -5,6 +5,8 @@ export const ANALYTICS_EVENTS = {
   browseOpened: 'Browse Opened',
   listingViewed: 'Listing Viewed',
   checkoutStarted: 'Checkout Started',
+  checkoutEmailSubmitted: 'Checkout Email Submitted',
+  checkoutPaymentLoaded: 'Checkout Payment Loaded',
   purchaseCompleted: 'Purchase Completed',
   matchSearch: 'Match Search',
   sellerSignupStarted: 'Seller Signup Started',

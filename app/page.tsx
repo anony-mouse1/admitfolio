@@ -1431,6 +1431,13 @@ export default function Page() {
     }
     setBuyDeliveryEmail(email);
     setBuyErr('');
+    // Same property shape as Checkout Started so the stages line up in Vercel.
+    // Never the address itself. curItem is always complete while the modal is
+    // open; the fallbacks only satisfy its Partial type.
+    trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
+      school: curItem.school ?? '',
+      value: curItem.price ?? 0,
+    });
     setBuyEmailConfirmed(true);
   }
 
@@ -3383,6 +3390,8 @@ export default function Page() {
                       key={`${curItem.listingId}:${buyDeliveryEmail}`}
                       listingId={curItem.listingId}
                       deliveryEmail={buyDeliveryEmail}
+                      school={curItem.school ?? ''}
+                      price={curItem.price ?? 0}
                       onError={setBuyErr}
                     />
                   )}

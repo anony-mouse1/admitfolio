@@ -13,7 +13,16 @@ type EventData = Record<string, EventValue>;
  * compact and must never pass emails, queries, listing IDs, or access tokens.
  */
 export function trackConversion(name: string, data?: EventData): void {
-  if (typeof window === 'undefined' || !shouldSendBrowserAnalytics(window.location.href)) return;
+  if (typeof window === 'undefined') return;
+  if (!shouldSendBrowserAnalytics(window.location.href)) {
+    // The policy silences every host except production, so a local
+    // walk-through could never show which events fire or how often. Log them
+    // in development instead. Next strips this branch from production builds.
+    if (process.env.NODE_ENV === 'development') {
+      console.info(`[analytics:dev] not sent from this host: ${name} ${JSON.stringify(data ?? {})}`);
+    }
+    return;
+  }
 
   try {
     if (data) track(name, data);
