@@ -49,7 +49,9 @@
    two was shorter left a hole. The intro length varies per collection and the
    band's does not, so there was no arrangement of the two that worked for all
    six. Stacked, neither can leave a gap at any content length. */
-.layout { display: block; }
+/* A column, so the band can be reordered below the grid on a phone without
+   moving it in the DOM (it stays where it reads: intro, stats, cards). */
+.layout { display: flex; flex-direction: column; }
 
 .headerText { max-width: none; }
 .sectionRule { margin: 36px 0 0; border: 0; border-top: 1px solid var(--card-line); }
@@ -242,6 +244,13 @@
 @media (max-width: 720px) {
   .main { padding: 88px 20px 56px; }
   .crumbs { margin-bottom: 20px; font-size: 12.5px; }
+  /* Two thirds of the traffic is mobile and these are landing pages, so the
+     cards come first and the stats follow them. Desktop order is unchanged. */
+  .headerText { order: 1; }
+  .sectionRule { order: 2; }
+  .cards { order: 3; }
+  .band { order: 4; margin-top: 44px; }
+  .notes { order: 5; }
   /* Two stats per row rather than four squeezed across 350px. */
   .band { padding: 18px 16px; }
   .bandStats { gap: 14px 0; }
