@@ -47,6 +47,13 @@ export default function PrivacyPage() {
         details go directly to Stripe and are never stored on our servers. Stripe&rsquo;s handling of your
         information is described in Stripe&rsquo;s own privacy policy.
       </p>
+      <p>
+        <b>If you begin checkout but do not complete it:</b> Stripe may record the email address you provide,
+        the essay package in your cart, your checkout activity, and a link that can reopen your checkout. If
+        you affirmatively consent to promotional emails during checkout, Stripe may provide us that information
+        so we can send one reminder about the incomplete purchase. You can opt out using the unsubscribe link in
+        that email or by contacting us at <Mail />.
+      </p>
       <p><b>If you contact us:</b> whatever you choose to include in your message.</p>
       <h3>Information collected automatically</h3>
       <p>
