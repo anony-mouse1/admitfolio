@@ -1,9 +1,17 @@
 import type { Metadata } from 'next';
-import { CONTACT_EMAIL } from '@/lib/site';
+import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Terms of Service · Admitfolio',
   description: 'The terms that govern your use of Admitfolio.',
+  // Declared because the root layout now carries the homepage's card. Without
+  // its own, this page would share as the homepage, URL included.
+  openGraph: {
+    title: 'Terms of Service · Admitfolio',
+    description: 'The terms that govern your use of Admitfolio.',
+    url: `${SITE_URL}/terms`,
+    type: 'website',
+  },
 };
 
 const Mail = () => <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
