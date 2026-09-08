@@ -24,6 +24,10 @@ node_modules/
 listings.json
 waitlist.json
 essays/
+# `essays/` above has no leading slash, so it matches a directory called essays
+# at any depth, and it silently swallowed the app/essays route. Uploaded PDFs
+# live in Supabase Storage, never on disk, so nothing real is un-ignored here.
+!app/essays/
 
 # Local tooling & throwaway
 .claude/

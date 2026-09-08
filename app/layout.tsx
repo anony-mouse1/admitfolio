@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import SiteAnalytics from '@/components/SiteAnalytics';
+import { SITE_URL } from '@/lib/site';
 import './globals.css';
 
 const fontStylesheet =
@@ -15,6 +16,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  // Every other page builds absolute canonical and OpenGraph URLs by hand.
+  // metadataBase is what lets a page pass a relative one and still emit an
+  // absolute tag, and Next warns on every build without it.
+  metadataBase: new URL(SITE_URL),
   title: 'Admitfolio, Read the essays that got them in',
   description:
     'A marketplace of real college admissions essays, written by the students who got accepted. Browse by school and prompt, see why each one worked, and find the angle only you can write.',

@@ -18,7 +18,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const PRODUCTION_ORIGIN = 'https://admitfolio.com';
-const STATIC_PATHS = ['/', '/guides', '/privacy', '/terms'];
+const STATIC_PATHS = ['/', '/guides', '/essays', '/privacy', '/terms'];
 
 function toDataUrl(source) {
   const output = ts.transpileModule(source, {
@@ -53,12 +53,22 @@ async function render(scenario, env) {
     const tag = `\n// scenario: ${scenario}\n`;
     const site = toDataUrl(read('lib/site.ts') + tag);
     const guides = toDataUrl(relink(read('lib/guides.ts'), './site', site) + tag);
-    const sitemap = toDataUrl(relink(relink(read('app/sitemap.ts'), '@/lib/guides', guides), '@/lib/site', site) + tag);
+    // lib/collections.ts imports GuideSlug as a type only, so transpiling drops
+    // that import and only lib/site.ts has to be relinked.
+    const collections = toDataUrl(relink(read('lib/collections.ts'), './site', site) + tag);
+    const sitemap = toDataUrl(
+      relink(
+        relink(relink(read('app/sitemap.ts'), '@/lib/guides', guides), '@/lib/collections', collections),
+        '@/lib/site',
+        site,
+      ) + tag,
+    );
     const robots = toDataUrl(relink(read('app/robots.ts'), '@/lib/site', site) + tag);
     const registry = await import(guides);
+    const collectionRegistry = await import(collections);
     const entries = (await import(sitemap)).default();
     const rules = (await import(robots)).default();
-    return { registry, entries, rules };
+    return { registry, collectionRegistry, entries, rules };
   } finally {
     apply(saved);
   }
@@ -67,6 +77,7 @@ async function render(scenario, env) {
 const production = await render('production', { NEXT_PUBLIC_SITE_URL: PRODUCTION_ORIGIN, VERCEL_ENV: 'production' });
 const { entries, rules } = production;
 const guides = [...production.registry.guides];
+const collections = [...production.collectionRegistry.collections];
 
 // The registry and the filesystem agree, in both directions.
 const directories = fs
@@ -104,8 +115,12 @@ for (const guide of guides) {
 const paths = entries.map((entry) => new URL(entry.url).pathname).sort();
 assert.deepEqual(
   paths,
-  [...STATIC_PATHS, ...guides.map((guide) => `/guides/${guide.slug}`)].sort(),
-  'the sitemap lists exactly the static pages and every registered guide',
+  [
+    ...STATIC_PATHS,
+    ...guides.map((guide) => `/guides/${guide.slug}`),
+    ...collections.map((collection) => `/essays/${collection.slug}`),
+  ].sort(),
+  'the sitemap lists exactly the static pages, every registered guide and every registered collection',
 );
 for (const entry of entries) {
   const { pathname } = new URL(entry.url);
@@ -124,6 +139,46 @@ assert.equal(byPath.get('/guides').lastModified, guides.map((guide) => guide.mod
 for (const pathname of ['/', '/privacy', '/terms']) {
   assert.equal(byPath.get(pathname).lastModified, undefined, `${pathname} has no invented date`);
 }
+// A collection's content moves whenever a listing is approved and nothing
+// records that date, so none of them may claim one either.
+for (const collection of collections) {
+  assert.equal(
+    byPath.get(`/essays/${collection.slug}`).lastModified,
+    undefined,
+    `/essays/${collection.slug} has no invented date`,
+  );
+}
+assert.equal(byPath.get('/essays').lastModified, undefined, '/essays has no invented date');
+
+// The collection registry is well formed, and one dynamic route renders all of
+// them, so the check is that the route exists and that every entry is complete
+// rather than one directory per slug.
+assert.ok(
+  fs.existsSync(path.join(root, 'app/essays/[collection]/page.tsx')),
+  'one dynamic route renders every collection',
+);
+assert.ok(fs.existsSync(path.join(root, 'app/essays/page.tsx')), 'the collection hub exists');
+assert.equal(new Set(collections.map((c) => c.slug)).size, collections.length, 'collection slugs are unique');
+for (const collection of collections) {
+  assert.match(collection.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/, `${collection.slug} is a clean slug`);
+  for (const key of ['name', 'dek', 'title', 'description']) {
+    assert.ok(collection[key].length > 0, `${collection.slug} has a ${key}`);
+  }
+  assert.ok(collection.intro.length >= 2, `${collection.slug} has a real intro`);
+  // AGENTS.md: no em dashes in site copy.
+  const copy = [collection.name, collection.dek, collection.title, collection.description, ...collection.intro].join(' ');
+  assert.doesNotMatch(copy, /[\u2014\u2013]/, `${collection.slug} copy uses no em or en dashes`);
+  assert.ok(
+    collection.rule.kind === 'prompt' || collection.rule.kind === 'major',
+    `${collection.slug} groups by prompt or major, never by seller or school`,
+  );
+}
+// The pages and the hub read their URLs from the registry, exactly as the
+// guides do, so a canonical cannot drift from a sitemap entry.
+const collectionRoute = read('app/essays/[collection]/page.tsx');
+assert.ok(collectionRoute.includes('collectionUrl(collection.slug)'), 'the collection canonical comes from the registry');
+assert.ok(collectionRoute.includes('alternates: { canonical: url }'), 'the collection canonical is that URL');
+assert.doesNotMatch(collectionRoute, /https:\/\/admitfolio\.com/, 'the collection route has no literal site URL');
 
 // Each article's canonical is the sitemap URL by construction: both come from
 // the same registry entry through the same function, and nothing is hardcoded.

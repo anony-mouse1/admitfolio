@@ -81,6 +81,7 @@ export function GuideFooter() {
             <div className="foot-links">
               <Link href="/#browse">Browse essays</Link>
               <Link href="/#sell">Sell your essay</Link>
+              <Link href="/essays">Essay collections</Link>
               <Link href="/guides">Blog</Link>
             </div>
           </div>

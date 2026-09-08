@@ -7,6 +7,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const listings = read('app/api/listings/route.ts');
+// The catalog query moved out of the route into a server-only module so the
+// server-rendered collection pages can reuse it. The launch gate moved with it,
+// which is why these assertions follow it there.
+const catalog = read('lib/publicCatalog.ts');
 const checkout = read('app/api/checkout/route.ts');
 const upload = read('app/api/upload-essay/route.ts');
 const reader = read('components/EssayReader.tsx');
@@ -29,13 +33,19 @@ assert.match(adminAuth, /await cookies\(\)/, 'Next 16 cookie access must stay as
 assert.match(sellerAuth, /await cookies\(\)/, 'Next 16 cookie access must stay asynchronous');
 assert.match(site, /'hello@admitfolio\.com'/, 'public contact email must default to the canonical inbox');
 
-for (const route of [listings, checkout]) {
+for (const route of [catalog, checkout]) {
   assert.match(route, /marketplaceIsLaunched\(\)/, 'public commerce routes must enforce launch state');
 }
 assert.ok(
-  listings.indexOf('marketplaceIsLaunched()') < listings.indexOf('prisma.listing.findMany'),
+  catalog.indexOf('marketplaceIsLaunched()') < catalog.indexOf('prisma.listing.findMany'),
   'catalog launch gate must run before querying listings',
 );
+// Every reader of the catalog now inherits that gate, so the route must go
+// through the module rather than querying listings itself.
+assert.match(listings, /publicCatalogListings\(\)/, 'the catalog route must read through the shared module');
+assert.doesNotMatch(listings, /prisma\./, 'the catalog route must not query the database directly');
+assert.match(catalog, /^import 'server-only';/m, 'the catalog module must never reach a browser bundle');
+assert.match(listings, /status: 503/, 'a closed marketplace must still answer 503 from the catalog route');
 assert.ok(
   checkout.indexOf('marketplaceIsLaunched()') < checkout.indexOf('stripe.checkout.sessions.create'),
   'checkout launch gate must run before creating a Stripe session',

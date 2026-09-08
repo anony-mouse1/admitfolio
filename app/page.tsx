@@ -3,19 +3,34 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
+import PublicListingCard from '@/components/PublicListingCard';
 import MatchFinder from '@/components/MatchFinder';
 import EmbeddedListingCheckout from '@/components/EmbeddedListingCheckout';
 import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/components/seller';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
-import { CONTACT_EMAIL } from '@/lib/site';
+import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
 import type { ListingPriceSave } from '@/components/seller/ListingPricePanel';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
 import { spreadRepeatedKeys } from '@/lib/listingOrder';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
+// The browse card and the pure helpers behind it live outside this file now,
+// so app/essays can server-render the same card. See lib/publicListing.ts.
+import {
+  cardTagLabel,
+  collegeAdmitTags,
+  contentsLine,
+  headlineSchool,
+  isQuestBridgeTag,
+  majorsOf,
+  priceLabel,
+  publicListingTitle,
+  questBridgeLabel,
+  type PublicListing,
+} from '@/lib/publicListing';
 
 /* ============================================================================
    Types & static data
@@ -79,29 +94,6 @@ const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
 
 type BrowseView = 'cards' | 'rows';
 
-type PublicListing = {
-  id: string;
-  school: string;
-  targetSchool?: string | null;
-  headlineSchool?: string;
-  applicationSystem?: string | null;
-  admitTags: string[];
-  // The subset of admitTags backed by an acceptance letter a human checked.
-  // /api/listings has always computed this; the client never declared it, so
-  // buyers have never seen the distinction between a claimed and a proven admit.
-  verifiedAdmitTags?: string[];
-  price: number | null;
-  teaser: string | null;
-  // A safe first sentence read from one of this listing's own PDFs. This is the
-  // card title; teaser is only a fallback/secondary seller summary.
-  openingLine?: string | null;
-  appliedMajors: string | null;
-  major?: string | null;
-  createdAt: string;
-  essays: { prompt: string; question: string | null; wordCount: number | null }[];
-  seller: { displayName: string; backgroundTags: string[]; anonymity?: Anonymity };
-  otherListingIds?: string[];
-};
 
 type CheckoutItem = {
   listingId: string;
@@ -300,8 +292,6 @@ const wholeDollarHint = 'Whole dollars only, no cents.';
 // those rows out today, so this is a guard rather than a live case, but the
 // detail sheet said "Free" while the card said nothing, and "Free" is the worst
 // available reading of "we do not know what this costs".
-const priceLabel = (price: number | null | undefined) =>
-  price != null ? `$${price}` : 'Price unavailable';
 const payoutDate = (value: string | null | undefined) => value
   ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   : null;
@@ -2187,6 +2177,13 @@ export default function Page() {
   /* ============================ Render ============================ */
   return (
     <>
+      {/* The card links on /essays make ?listing= URLs crawlable, and every one
+          of them serves this same page. Without a canonical, Google sees one
+          near-duplicate homepage per listing, which is the "Duplicate without
+          user-selected canonical" report already open in Search Console. This
+          file is a client component so it cannot export metadata; React hoists
+          a rendered <link> into <head>, and it is in the prerendered HTML. */}
+      <link rel="canonical" href={`${SITE_URL}/`} />
       {updateAvailable && (
         <div className="site-update" role="status">
           <span>Admitfolio was updated.</span>
@@ -2814,7 +2811,7 @@ export default function Page() {
             </div>
             <div>
               <div className="foot-col-title">Product</div>
-              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/guides">Blog</a></div>
+              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/essays">Essay collections</a><a href="/guides">Blog</a></div>
             </div>
             <div>
               <div className="foot-col-title">Legal</div>
@@ -3838,23 +3835,7 @@ function AltValue({ v }: { v: string }) {
   return <>{v}</>;
 }
 
-/* Real, purchasable listing card (launch mode). */
 
-// The card leads with the school a buyer is shopping FOR, not the one the
-// seller currently attends.
-//
-// `Listing.school` is the seller's current university, so a student who sold
-// their UC essays, their Common App essays and their MIT essays produced three
-// cards all titled with the same university. Measured on the live catalogue:
-// 88 of 144 cards belong to a seller with more than one listing, and every one
-// of those sellers had an identical headline on all of their cards.
-//
-// New listings store this explicitly. Older multi-admit listings use the
-// application name because the old form saved accepted schools, not a single
-// listing college. Never guess from the first admit or current university.
-function headlineSchool(l: PublicListing): string {
-  return l.headlineSchool || resolveListingHeadline({ ...l, essays: l.essays });
-}
 
 function listingRankTier(l: PublicListing): number {
   const exactSchool = catalogSchool(l);
@@ -3884,111 +3865,14 @@ function listingSchoolKey(listing: PublicListing): string {
   return schoolInfo(school)?.domain || schoolShortName(school).toLocaleLowerCase();
 }
 
-// The package pill already shows the essay count. Keep this line for the
-// contents only, matching the approved browse mockup without repeating the
-// same number twice on one card.
-//
-// This is what actually differs between one seller's listings, and it used to
-// read "Verified admit · 4 essays" on every card, which is why the grid looked
-// like duplicates.
-function contentsLine(l: PublicListing): string {
-  // De-duplicated: four UC Personal Insight Questions would otherwise print the
-  // same label four times. Labels already contain ' · ', so the separator
-  // between them has to be a comma or the whole line reads as one chain.
-  const labels: string[] = [];
-  for (const e of l.essays) {
-    const label = essayLabel(e);
-    if (label && !labels.includes(label)) labels.push(label);
-  }
-  const head = labels.slice(0, 2).join(', ') + (labels.length > 2 ? `, +${labels.length - 2} more` : '');
-  return head;
-}
 
-function majorsOf(l: PublicListing): string[] {
-  return (l.appliedMajors || l.major || '').split(',').map((m) => m.trim()).filter(Boolean);
-}
 
-// The first five schools, then a count. Five is a fixed number rather than a
-// width budget so every card lists the same amount, and .admit-names reserves
-// the height whether or not it is used.
-const MAX_ADMIT_NAMES = 5;
-function admitNameLine(list: string[]): string {
-  const names = list.map((n) => schoolShortName(n));
-  const shown = names.slice(0, MAX_ADMIT_NAMES);
-  const rest = names.length - shown.length;
-  return shown.join(', ') + (rest > 0 ? `, +${rest} more` : '');
-}
 
-function isQuestBridgeTag(value: string): boolean {
-  return schoolInfo(value)?.domain === 'questbridge.org';
-}
 
-// De-duplicated with the same rule addAdmit applies at entry, so entry and
-// render agree. Two spellings of one school ("University of Pennsylvania" and
-// "UPenn") both shorten to "UPenn" and used to print twice, on the card line
-// and again as two identical chips on the detail sheet. Only rows saved before
-// that entry check need this. The first spelling wins, so the hover title still
-// shows what the seller actually typed.
-function collegeAdmitTags(listing: PublicListing): string[] {
-  const kept: string[] = [];
-  for (const tag of listing.admitTags) {
-    if (isQuestBridgeTag(tag)) continue;
-    if (kept.some((existing) => sameSchool(existing, tag))) continue;
-    kept.push(tag);
-  }
-  return kept;
-}
 
-function questBridgeLabel(listing: PublicListing): string | null {
-  const tags = listing.admitTags.map((tag) => tag.toLowerCase().trim());
-  if (tags.includes('questbridge scholar')) return 'QuestBridge Scholar';
-  if (tags.includes('questbridge finalist')) return 'QuestBridge Finalist';
-  if (tags.includes('questbridge')) return 'QuestBridge';
-  return null;
-}
 
-// What a browse card calls an essay.
-//
-// `question` is the seller's free-text box, filled in when they pick "Other",
-// and it holds the college's prompt verbatim - some run past 300 characters.
-// Printed raw into `.ecard-prompt` (uppercase, letter-spaced) it stopped being
-// a label and became the loudest thing on the card, six lines of shouting
-// above the essay it was meant to caption.
-const OTHER_PROMPT = /^other/i;
-const PROMPT_MAX = 52;
 
-// Cut at a word boundary so a label never ends mid-word. If the last space is
-// too early to be worth keeping, cut hard instead of leaving a stub.
-function truncateWords(s: string, max: number): string {
-  if (s.length <= max) return s;
-  const cut = s.slice(0, max);
-  const space = cut.lastIndexOf(' ');
-  const kept = space > max * 0.6 ? cut.slice(0, space) : cut;
-  return kept.replace(/[\s,;:.–—-]+$/, '') + '…';
-}
 
-// A preset prompt is already a label ("Why-school · Supplement"), so it wins.
-// The seller's own wording is only the better name when there is no preset,
-// which is exactly the "Other" case it was added for.
-function essayLabel(e: { prompt: string; question: string | null }): string {
-  const custom = (e.question || '').trim();
-  const preset = (e.prompt || '').trim();
-  const raw = !preset || OTHER_PROMPT.test(preset) ? custom || preset : preset;
-  return truncateWords(raw, PROMPT_MAX);
-}
-
-// Every card gets one accurate title from an essay in this exact listing.
-// `openingLine` is extractor-approved and seller-name checks run before it is
-// stored. Seller-written marketing copy is only a fallback. A prompt label is
-// the last resort for scans or short answers with no safe prose to extract.
-function publicListingTitle(listing: PublicListing): string {
-  const written = (listing.openingLine || listing.teaser || '').trim();
-  if (written) return truncateWords(written, 120);
-  const prompt = listing.essays[0] ? essayLabel(listing.essays[0]) : '';
-  if (prompt) return prompt;
-  const school = schoolShortName(headlineSchool(listing));
-  return `${school} admission essay${listing.essays.length === 1 ? '' : ' collection'}`;
-}
 
 function checkoutItemForListing(listing: PublicListing): CheckoutItem {
   return {
@@ -4050,114 +3934,7 @@ function promptLineOf(labels: string[]): string {
   return shown.join(BETWEEN) + (rest > 0 ? `${BETWEEN}+${rest} more` : '');
 }
 
-function PublicListingCard({
-  listing,
-  onUnlock,
-  onOpen,
-}: {
-  listing: PublicListing;
-  onUnlock: () => void;
-  onOpen: () => void;
-}) {
-  const count = listing.essays.length;
-  const head = headlineSchool(listing);
-  const info = schoolInfo(head);
-  const label = info ? info.short : schoolShortName(head);
-  const majors = majorsOf(listing);
-  const title = publicListingTitle(listing);
-  const admittedColleges = collegeAdmitTags(listing);
-  const questBridge = questBridgeLabel(listing);
-  const displayTags = questBridge
-    ? [questBridge, ...listing.seller.backgroundTags.filter((tag) => tag !== questBridge)]
-    : listing.seller.backgroundTags;
-  return (
-    // The whole card opens the detail sheet. It has had `cursor: pointer` since
-    // launch while doing nothing, which is why clicking a card felt broken.
-    <div
-      className={`ecard catalog-card${count > 1 ? ' is-set' : ''}`}
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-    >
-      <div className="ecard-head">
-        <LogoBadge
-          domain={info ? info.domain : undefined}
-          letter={(label[0] || 'A').toUpperCase()}
-          color={schoolColor(head)}
-          school={head}
-          size={44}
-          fontSize={18}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className={`ecard-type ${count > 1 ? 'kind-package' : 'kind-single'}`}>
-            <span className="type-glyph" aria-hidden="true" />
-            <span>{count > 1 ? 'Package' : 'Single'}</span>
-            <b>{count} essay{count === 1 ? '' : 's'}</b>
-          </div>
-          <div className="ecard-school">{label}</div>
-          <div className="ecard-meta">{contentsLine(listing)}</div>
-        </div>
-      </div>
-      <div className={`ecard-prompt${majors.length ? '' : ' is-empty'}`} title={majors.join(', ')}>
-        {majors.length ? `${majors[0]}${majors.length > 1 ? ` +${majors.length - 1}` : ''}` : ''}
-      </div>
-      <div className="ecard-hook" title={title}>{title}</div>
-      <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>
-        {displayTags.slice(0, 2).map((t) => (
-          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`} title={t}>{cardTagLabel(t)}</span>
-        ))}
-        {displayTags.length > 2 && (
-          <span className="etag etag-more" title={displayTags.slice(2).join(', ')}>
-            +{displayTags.length - 2}
-          </span>
-        )}
-      </div>
-      {/* Two labelled lines with reserved heights, so every card is the same
-          shape and the price rules line up straight across a row. */}
-      <div className="ecard-lines">
-        <div className="ecard-admits">
-          <span className="ecard-admits-label">Seller attends</span>
-          <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
-        </div>
-        <div className="ecard-admits">
-          <span className="ecard-admits-label">Accepted at:</span>
-          <span className="admit-names multi" title={admittedColleges.join(', ')}>
-            {admittedColleges.length ? admitNameLine(admittedColleges) : 'Not listed'}
-          </span>
-        </div>
-      </div>
-      <div className="ecard-foot">
-        <div className="ecard-price">
-          <span className="p">{priceLabel(listing.price)}</span>
-          <span className="w">{count > 1 ? `${count}-essay set` : 'full essay'}</span>
-        </div>
-        {/* Decided buyers keep the one-click path; stopPropagation so it does
-            not also open the sheet behind the buy modal. */}
-        <div
-          className="ecard-unlock"
-          onClick={(e) => {
-            e.stopPropagation();
-            onUnlock();
-          }}
-        >
-          Unlock
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function cardTagLabel(tag: string): string {
-  if (tag === 'First-generation' || tag === 'First generation') return 'First gen';
-  if (tag === 'Low-income background') return 'Low-income';
-  return tag;
-}
 
 /* One school as a chip: logo plus short name. Used for both admit lists and the
    "now attends" line on the detail sheet. */

@@ -1,0 +1,123 @@
+/* Shell for the collection hub and the collection pages. The cards themselves
+   reuse .ecard / .public-grid from globals.css, so a collection looks exactly
+   like Browse. Only the page around them is defined here. */
+
+.page {
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.main {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 56px 40px 72px;
+}
+
+.backLink {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  margin-bottom: 22px;
+}
+
+.backLink:hover { color: var(--accent); }
+
+.header { max-width: 720px; }
+
+.header h1 {
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.14;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.dek {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.intro { max-width: 720px; margin: 26px 0 0; }
+.intro p { font-size: 16.5px; line-height: 1.62; color: var(--ink); margin: 0 0 14px; }
+
+.guideNote {
+  max-width: 720px;
+  margin: 22px 0 0;
+  padding: 16px 18px;
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.guideNote a { color: var(--accent); font-weight: 600; }
+
+.sectionRule {
+  margin: 40px 0 0;
+  border: 0;
+  border-top: 1px solid var(--card-line);
+}
+
+/* The hub's list of collections. Plain cards, not listing cards. */
+.hubGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.hubCard {
+  display: block;
+  padding: 22px;
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+}
+
+.hubCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 44px rgba(20,18,15,0.12);
+  border-color: #e4e0d7;
+}
+
+.hubCardCount {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.hubCardTitle {
+  font-family: var(--serif);
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 8px 0 8px;
+}
+
+.hubCardDek { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+@media (max-width: 720px) {
+  .main { padding: 40px 20px 56px; }
+}

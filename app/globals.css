@@ -3158,3 +3158,8 @@ body { -webkit-tap-highlight-color: transparent; }
   .dash-help-dock { right: 12px; bottom: 12px; padding: 10px 14px; font-size: 12.5px; }
   .dash-help-dock small { display: none; }
 }
+
+/* A browse card rendered as a link, used by the server-rendered collection
+   pages under app/essays. Same card, real href, no anchor styling. */
+a.ecard-link { text-decoration: none; color: inherit; }
+a.ecard-link:hover { text-decoration: none; }

@@ -59,7 +59,10 @@ for (const field of ['aiCheckedAt', 'aiGenuine', 'aiNote']) {
 }
 assert.match(upload, /relatedListingIds/, 're-upload must requeue only related pending listings');
 
-const publicListings = fs.readFileSync(new URL('../app/api/listings/route.ts', import.meta.url), 'utf8');
+// The catalog query lives in lib/publicCatalog.ts now, shared by the JSON API
+// and the server-rendered collection pages, so buyer-visible verification is
+// asserted where it is actually computed.
+const publicListings = fs.readFileSync(new URL('../lib/publicCatalog.ts', import.meta.url), 'utf8');
 assert.match(
   publicListings,
   /verifiedAdmitTags:\s*verifiedAdmissionTags\([\s\S]*adminApprovedSellerIds\.has\(l\.sellerId\)/,
