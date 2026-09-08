@@ -3164,8 +3164,10 @@ body { -webkit-tap-highlight-color: transparent; }
 a.ecard-link { text-decoration: none; color: inherit; }
 a.ecard-link:hover { text-decoration: none; }
 
-/* ---- Collections band on the homepage ---- */
-.home-collections { margin-top: 54px; }
+/* ---- Collections section on the homepage ---- */
+/* Its own section above Featured, so the #featured anchor still lands on the
+   essays rather than on this heading. */
+.home-collections { padding-top: 8px; }
 .home-collections .featured-head { align-items: flex-start; }
 .home-collections .featured-head > div { flex: 1; min-width: 0; }
 .home-collections-all { color: var(--accent); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
@@ -3187,4 +3189,9 @@ a.ecard-link:hover { text-decoration: none; }
   display: block; font-family: var(--serif); font-size: 19px; font-weight: 700; line-height: 1.25; margin: 8px 0 7px;
 }
 .home-collection-dek { display: block; font-size: 14px; line-height: 1.45; color: var(--muted); }
-@media (max-width: 900px) { .home-collections-grid { grid-template-columns: 1fr; } }
+/* Follows the site's own .grid breakpoints (globals.css:765 and :779) so the
+   collection cards and the Featured cards below them break at the same widths.
+   A single break at 900px left six full-width cards on a tablet while Featured
+   was still two across. */
+@media (max-width: 900px) { .home-collections-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .home-collections-grid { grid-template-columns: 1fr; } }

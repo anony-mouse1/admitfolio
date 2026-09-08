@@ -224,6 +224,7 @@ const comparisonRows: CmpRow[] = [
   { feature: 'Cost to get started', mineText: 'Up to 80% cheaper', diy: 'Free, unreliable', agency: '$200+ / hour' },
 ];
 
+const HOME_FEATURED_COUNT = 3;
 const chipLabels = ['All', 'Common App', 'Supplements', 'STEM', 'Humanities'];
 
 const promptOptions = [
@@ -501,6 +502,10 @@ export default function Page() {
     const ranked = [...matchingListings].sort(compareListingRank);
     return spreadRepeatedKeys(ranked, listingSchoolKey);
   }, [matchingListings]);
+  // Featured sits under the collections now and is proof rather than the lead,
+  // so it is one row. The selection below still picks six, one per school, and
+  // this takes the top of that list: changing the memo would change which
+  // schools appear, not just how many.
   const featuredListings = useMemo(() => {
     const priorityDomains = ['harvard.edu', 'stanford.edu', 'yale.edu', 'columbia.edu', 'upenn.edu', 'uchicago.edu'];
     const ranked = [...pubListings].sort(compareListingRank);
@@ -2327,6 +2332,31 @@ export default function Page() {
         </div>
       </section>
 
+      {/* ===== Collections ===== */}
+      {LAUNCHED && pageView === 'home' && (
+        <section className="home-collections catalog-section">
+          <div className="featured-head home-featured-head">
+            <div>
+              <h2>Find the essay you are actually writing</h2>
+              <p>Grouped by the prompt in front of you and by the subject you are applying into.</p>
+            </div>
+            <a className="home-collections-all" href={COLLECTIONS_PATH}>All collections →</a>
+          </div>
+          <div className="home-collections-grid">
+            {collections.map((entry) => {
+              const n = pubListings.length ? listingsInCollection(pubListings, entry.rule).length : 0;
+              return (
+                <a key={entry.slug} className="home-collection" href={collectionPath(entry.slug)}>
+                  {n > 0 && <span className="home-collection-count">{n} listings</span>}
+                  <span className="home-collection-title">{entry.name}</span>
+                  <span className="home-collection-dek">{entry.dek}</span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ===== Featured ===== */}
       <section className={`featured${LAUNCHED ? ' catalog-section' : ''}${LAUNCHED && pageView === 'home' ? ' home-featured' : ''}`} id={LAUNCHED && pageView === 'home' ? 'featured' : 'browse'}>
         {LAUNCHED && pageView === 'home' ? (
@@ -2334,14 +2364,14 @@ export default function Page() {
             <div className="featured-head home-featured-head">
               <div>
                 <h2>Featured essays</h2>
-                <p>Six standout schools to start with. The full catalogue stays one click away.</p>
+                <p>Or start from a real one. Three schools to begin with, and the full catalogue stays one click away.</p>
               </div>
             </div>
             {pubState === 'loading' && <div className="pub-empty">Loading essays&hellip;</div>}
             {pubState === 'error' && <div className="pub-empty">Could not load essays right now. Refresh to try again.</div>}
             {featuredListings.length > 0 && (
               <div className="grid public-grid home-featured-grid">
-                {featuredListings.map((listing) => (
+                {featuredListings.slice(0, HOME_FEATURED_COUNT).map((listing) => (
                   <PublicListingCard
                     key={listing.id}
                     listing={listing}
@@ -2359,34 +2389,6 @@ export default function Page() {
             )}
             <div className="home-see-wrap">
               <a className="home-see-more" href="#browse" onClick={(event) => { event.preventDefault(); openBrowse(); }}>See all essays</a>
-            </div>
-
-            {/* Six real links into the catalogue, and the first place on this
-                page that says what is actually in it. Placed under the featured
-                grid on purpose: a visitor who has just read six cards has the
-                intent to narrow down, and one who has not does not yet know
-                what a collection is. Counts fill in with the catalogue; the
-                links themselves are in the served HTML either way. */}
-            <div className="home-collections">
-              <div className="featured-head home-featured-head">
-                <div>
-                  <h2>Find the essay you are actually writing</h2>
-                  <p>Grouped by the prompt in front of you and by the subject you are applying into.</p>
-                </div>
-                <a className="home-collections-all" href={COLLECTIONS_PATH}>All collections →</a>
-              </div>
-              <div className="home-collections-grid">
-                {collections.map((entry) => {
-                  const n = pubListings.length ? listingsInCollection(pubListings, entry.rule).length : 0;
-                  return (
-                    <a key={entry.slug} className="home-collection" href={collectionPath(entry.slug)}>
-                      {n > 0 && <span className="home-collection-count">{n} listings</span>}
-                      <span className="home-collection-title">{entry.name}</span>
-                      <span className="home-collection-dek">{entry.dek}</span>
-                    </a>
-                  );
-                })}
-              </div>
             </div>
           </>
         ) : LAUNCHED ? (
