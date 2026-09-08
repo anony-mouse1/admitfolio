@@ -73,6 +73,7 @@ const SCHOOLS: School[] = [
   { domain: 'rice.edu', short: 'Rice', keys: ['rice'] },
   { domain: 'nd.edu', short: 'Notre Dame', keys: ['notre dame'] },
   { domain: 'wustl.edu', short: 'WashU', keys: ['washington university', 'washu', 'wustl'] },
+  { domain: 'gwu.edu', short: 'George Washington', keys: ['george washington university', 'george washington', 'gwu'] },
   { domain: 'georgetown.edu', short: 'Georgetown', keys: ['georgetown'] },
   { domain: 'emory.edu', short: 'Emory', keys: ['emory'] },
   { domain: 'cmu.edu', short: 'Carnegie Mellon', keys: ['carnegie mellon', 'cmu'] },
@@ -80,7 +81,7 @@ const SCHOOLS: School[] = [
   { domain: 'usc.edu', short: 'USC', keys: ['usc', 'university of southern california'], exactKeys: ['southern california'] },
   { domain: 'tufts.edu', short: 'Tufts', keys: ['tufts'] },
   { domain: 'bc.edu', short: 'Boston College', keys: ['boston college'] },
-  { domain: 'bu.edu', short: 'Boston University', keys: ['boston university'] },
+  { domain: 'bu.edu', short: 'Boston University', keys: ['boston university'], exactKeys: ['bu'] },
   { domain: 'northeastern.edu', short: 'Northeastern', keys: ['northeastern'] },
   { domain: 'wfu.edu', short: 'Wake Forest', keys: ['wake forest'] },
   { domain: 'villanova.edu', short: 'Villanova', keys: ['villanova'] },
@@ -111,7 +112,9 @@ const SCHOOLS: School[] = [
   { domain: 'ucsb.edu', short: 'UC Santa Barbara', keys: ['ucsb', 'uc santa barbara', 'california santa barbara'] },
   { domain: 'ucsc.edu', short: 'UC Santa Cruz', keys: ['ucsc', 'uc santa cruz', 'california santa cruz'] },
   { domain: 'ucr.edu', short: 'UC Riverside', keys: ['ucr', 'uc riverside', 'california riverside'] },
-  { domain: 'ucmerced.edu', short: 'UC Merced', keys: ['uc merced', 'california merced'] },
+  // "UCM" also names schools outside this table, so it resolves only when it is
+  // the whole of the seller's text.
+  { domain: 'ucmerced.edu', short: 'UC Merced', keys: ['uc merced', 'california merced'], exactKeys: ['ucm'] },
 
   // ── Large publics ────────────────────────────────────────
   { domain: 'umich.edu', short: 'Michigan (Ann Arbor)', keys: ['university of michigan', 'umich', 'ann arbor'], exactKeys: ['michigan'] },
@@ -119,9 +122,9 @@ const SCHOOLS: School[] = [
   { domain: 'umflint.edu', short: 'Michigan-Flint', keys: ['university of michigan flint', 'um flint', 'michigan flint'] },
   { domain: 'msu.edu', short: 'Michigan State', keys: ['michigan state'] },
   { domain: 'unc.edu', short: 'UNC Chapel Hill', keys: ['unc', 'university of north carolina', 'chapel hill'], exactKeys: ['north carolina'] },
-  { domain: 'charlotte.edu', short: 'UNC Charlotte', keys: ['university of north carolina at charlotte', 'unc charlotte', 'north carolina at charlotte', 'north carolina charlotte'] },
-  { domain: 'uncg.edu', short: 'UNC Greensboro', keys: ['university of north carolina at greensboro', 'unc greensboro', 'north carolina at greensboro', 'north carolina greensboro'] },
-  { domain: 'uncw.edu', short: 'UNC Wilmington', keys: ['university of north carolina at wilmington', 'unc wilmington', 'north carolina at wilmington', 'north carolina wilmington'] },
+  { domain: 'charlotte.edu', short: 'UNC Charlotte', keys: ['university of north carolina at charlotte', 'university of north carolina charlotte', 'unc charlotte', 'north carolina at charlotte', 'north carolina charlotte'] },
+  { domain: 'uncg.edu', short: 'UNC Greensboro', keys: ['university of north carolina at greensboro', 'university of north carolina greensboro', 'unc greensboro', 'north carolina at greensboro', 'north carolina greensboro'] },
+  { domain: 'uncw.edu', short: 'UNC Wilmington', keys: ['university of north carolina at wilmington', 'university of north carolina wilmington', 'unc wilmington', 'north carolina at wilmington', 'north carolina wilmington'] },
   { domain: 'virginia.edu', short: 'UVA', keys: ['uva', 'university of virginia'], exactKeys: ['virginia'] },
   // Campus qualifiers matter: a bare 'university of texas' key swallowed every
   // campus in the system and rendered them all as UT Austin, with UT Austin's
@@ -135,7 +138,11 @@ const SCHOOLS: School[] = [
   { domain: 'uttyler.edu', short: 'UT Tyler', keys: ['ut tyler', 'texas at tyler'] },
   { domain: 'tamu.edu', short: 'Texas A&M', keys: ['texas a and m', 'tamu'] },
   { domain: 'wisc.edu', short: 'Wisconsin', keys: ['university of wisconsin', 'wisconsin madison', 'uw madison'], exactKeys: ['wisconsin'] },
-  { domain: 'illinois.edu', short: 'UIUC', keys: ['illinois urbana', 'uiuc'] },
+  // 'illinois urbana' needs the two words adjacent, so the "at Urbana" spelling
+  // matched nothing. Unqualified "University of Illinois" means Urbana-Champaign,
+  // but only as an exactKey: as an ordinary key it would out-rank UI Chicago's
+  // 'illinois at chicago' and swallow that campus.
+  { domain: 'illinois.edu', short: 'UIUC', keys: ['illinois urbana', 'illinois at urbana', 'uiuc'], exactKeys: ['university of illinois'] },
   { domain: 'uic.edu', short: 'UI Chicago', keys: ['uic', 'illinois chicago', 'illinois at chicago'] },
   { domain: 'washington.edu', short: 'University of Washington', keys: ['university of washington', 'uw seattle', 'washington seattle'], exactKeys: ['uw'] },
   { domain: 'gatech.edu', short: 'Georgia Tech', keys: ['georgia tech', 'georgia institute'] },
@@ -145,14 +152,15 @@ const SCHOOLS: School[] = [
   { domain: 'osu.edu', short: 'Ohio State', keys: ['ohio state'] },
   { domain: 'psu.edu', short: 'Penn State', keys: ['penn state', 'pennsylvania state', 'schreyer'] },
   { domain: 'umd.edu', short: 'Maryland', keys: ['university of maryland', 'umd', 'college park'], exactKeys: ['maryland'] },
+  { domain: 'umbc.edu', short: 'UMBC', keys: ['university of maryland baltimore county', 'maryland baltimore county', 'umbc'] },
   { domain: 'ufl.edu', short: 'Florida', keys: ['university of florida', 'uflorida', 'ufl'] },
   { domain: 'rutgers.edu', short: 'Rutgers', keys: ['rutgers'] },
   { domain: 'asu.edu', short: 'ASU', keys: ['arizona state', 'asu'] },
   { domain: 'colorado.edu', short: 'CU Boulder', keys: ['cu boulder', 'colorado boulder'] },
   { domain: 'umn.edu', short: 'Minnesota', keys: ['university of minnesota', 'twin cities'] },
-  { domain: 'temple.edu', short: 'Temple', keys: ['temple university'] },
+  { domain: 'temple.edu', short: 'Temple', keys: ['temple university', 'temple'] },
   { domain: 'drexel.edu', short: 'Drexel', keys: ['drexel'] },
-  { domain: 'stonybrook.edu', short: 'Stony Brook', keys: ['stony brook'] },
+  { domain: 'stonybrook.edu', short: 'Stony Brook', keys: ['stony brook', 'stonybrook'] },
   { domain: 'binghamton.edu', short: 'Binghamton', keys: ['binghamton'] },
   { domain: 'sjsu.edu', short: 'San Jose State', keys: ['san jose state'] },
   { domain: 'calpoly.edu', short: 'Cal Poly', keys: ['cal poly'] },
@@ -170,8 +178,8 @@ const SCHOOLS: School[] = [
   { domain: 'ou.edu', short: 'Oklahoma', keys: ['university of oklahoma'] },
   { domain: 'okstate.edu', short: 'Oklahoma State', keys: ['oklahoma state'] },
   { domain: 'uh.edu', short: 'Houston', keys: ['university of houston'] },
-  { domain: 'lmu.edu', short: 'LMU', keys: ['loyola marymount'] },
-  { domain: 'scu.edu', short: 'Santa Clara', keys: ['santa clara'] },
+  { domain: 'lmu.edu', short: 'LMU', keys: ['loyola marymount', 'lmu'] },
+  { domain: 'scu.edu', short: 'Santa Clara', keys: ['santa clara', 'scu'] },
   { domain: 'chapman.edu', short: 'Chapman', keys: ['chapman'] },
   { domain: 'fsu.edu', short: 'Florida State', keys: ['florida state'] },
   { domain: 'rit.edu', short: 'RIT', keys: ['rochester institute', 'rit'] },
@@ -186,7 +194,13 @@ const SCHOOLS: School[] = [
   { domain: 'ncsu.edu', short: 'NC State', keys: ['north carolina state', 'nc state'] },
   { domain: 'wpi.edu', short: 'WPI', keys: ['worcester polytechnic', 'wpi'] },
   { domain: 'scad.edu', short: 'SCAD', keys: ['savannah college', 'scad'] },
+  // The three UMass campuses in the catalogue. Without these, 'amherst' and
+  // 'dartmouth' matched inside "UMass Amherst" and "Umass Dartmouth" and put
+  // those sellers under Amherst College and Dartmouth. Bare "UMass" is the
+  // Amherst flagship, but only as an exactKey so it can never swallow a campus.
   { domain: 'umb.edu', short: 'UMass Boston', keys: ['university of massachusetts boston', 'umass boston'] },
+  { domain: 'umass.edu', short: 'UMass Amherst', keys: ['university of massachusetts amherst', 'umass amherst'], exactKeys: ['umass'] },
+  { domain: 'umassd.edu', short: 'UMass Dartmouth', keys: ['university of massachusetts dartmouth', 'umass dartmouth'] },
   { domain: 'baylor.edu', short: 'Baylor', keys: ['baylor'] },
   { domain: 'duq.edu', short: 'Duquesne', keys: ['duquesne'] },
   { domain: 'uri.edu', short: 'Rhode Island', keys: ['university of rhode island'] },

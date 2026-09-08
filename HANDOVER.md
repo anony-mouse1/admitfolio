@@ -4,8 +4,8 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/enable-checkout-recovery`, based on `origin/main` at `14d0026`
-(PR #84 merged).
+Branch: `codex/enable-checkout-recovery`, merged forward through `origin/main`
+at `52daae0` (PR #86).
 
 ## Why
 
@@ -24,12 +24,14 @@ without submitting a payment.
   account. This was a hand-run Dashboard action.
 - The live Stripe webhook was inspected and already subscribes to
   `checkout.session.expired`, so no webhook configuration changed.
+- PR #86's school-resolution fixes were merged forward unchanged while
+  resolving the handover-file conflict.
 
 No payment, database, migration, or backfill code changed.
 
 ## Verification completed
 
-- `npx tsc --noEmit` passed.
+- `npx tsc --noEmit` passed before the merge-forward.
 - `npm run test:checkout-recovery` passed.
 - `npm run test:launch-hardening` passed.
 - `git diff --check` passed.
@@ -41,19 +43,22 @@ No payment, database, migration, or backfill code changed.
 
 ## What is left
 
-1. Merge this disclosure into `main` and wait for the production deployment.
-2. Confirm the new privacy disclosure is live.
-3. Add `STRIPE_CHECKOUT_RECOVERY_ENABLED=1` to Vercel production and redeploy
+1. Re-run the focused checks after the merge-forward, then push the updated PR.
+2. Merge PR #85 with Fatimah's repository-owner override.
+3. Confirm the new privacy disclosure is live.
+4. Add `STRIPE_CHECKOUT_RECOVERY_ENABLED=1` to Vercel production and redeploy
    the current `main` commit so the setting is loaded.
-4. Confirm live checkout opens successfully with recovery enabled. Do not
+5. Confirm live checkout opens successfully with recovery enabled. Do not
    submit a payment.
 
 ## Found but not fixed
 
-- PR #84's `Purchase Completed` event uses the full listing headline for its
-  `school` field, while the three earlier browser funnel events use the short
-  school name. This can split the final funnel stage into different school
-  groupings. It is unrelated to checkout recovery and remains unchanged.
+- `Purchase Completed` uses the full listing headline for its `school` field,
+  while the three earlier browser funnel events use the short school name. This
+  can split the final funnel stage into different school groupings. It is
+  unrelated to checkout recovery and remains unchanged.
+- Duke Kunshan College still resolves to Duke. PR #86 deliberately left that
+  existing issue for a separate product decision.
 
 ## Environment
 

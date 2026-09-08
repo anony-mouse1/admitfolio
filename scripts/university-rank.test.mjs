@@ -44,6 +44,65 @@ assert.deepEqual(
   'the live UFlorida alias must resolve to University of Florida',
 );
 
+// Nine more live aliases, all of them spellings of a school the table already
+// held. Until 2026-09-08 they resolved to nothing, so the card fell back to the
+// seller's raw text with no logo, no national rank and the tier 3 price floor.
+for (const [typed, domain, short] of [
+  ['BU', 'bu.edu', 'Boston University'],
+  ['LMU', 'lmu.edu', 'LMU'],
+  ['SCU', 'scu.edu', 'Santa Clara'],
+  ['SUNY Stonybrook University', 'stonybrook.edu', 'Stony Brook'],
+  ['Stonybrook WISE Honors Program', 'stonybrook.edu', 'Stony Brook'],
+  ['Temple Honors College', 'temple.edu', 'Temple'],
+  ['UCM', 'ucmerced.edu', 'UC Merced'],
+  ['University of Illinois at Urbana Champaign', 'illinois.edu', 'UIUC'],
+  ['University of Illinois', 'illinois.edu', 'UIUC'],
+]) {
+  assert.deepEqual(schools.schoolInfo(typed), { domain, short }, `live alias must resolve: ${typed}`);
+}
+
+// Unqualified "University of Illinois" and bare "UMass" are exactKeys for a
+// reason. As ordinary keys, 'university of illinois' (22) would out-rank UI
+// Chicago's 'illinois at chicago' (19) and swallow that campus, and 'umass'
+// would sit under every named UMass campus. Both systems must survive them.
+assert.equal(schools.schoolInfo('University of Illinois at Chicago')?.domain, 'uic.edu');
+assert.equal(schools.schoolInfo('University of Illinois Chicago')?.domain, 'uic.edu');
+assert.equal(schools.schoolInfo('Illinois Institute of Technology')?.domain, 'iit.edu');
+assert.deepEqual(schools.schoolInfo('umass'), { domain: 'umass.edu', short: 'UMass Amherst' });
+assert.equal(schools.schoolInfo('UMass Boston')?.domain, 'umb.edu');
+assert.equal(schools.schoolInfo('Umass Dartmouth')?.domain, 'umassd.edu');
+
+// Ranks order the public catalogue, so a name resolving to the wrong school also
+// borrowed that school's position on Browse. These are the ranks the seven
+// corrected names used to inherit, and the two that were owed a real one.
+assert.equal(
+  schools.nationalUniversityRank('George Washington University'),
+  null,
+  'George Washington must not inherit the WashU rank',
+);
+assert.equal(
+  schools.nationalUniversityRank('Umass Dartmouth'),
+  null,
+  'UMass Dartmouth must not inherit the Dartmouth rank',
+);
+assert.equal(
+  schools.nationalUniversityRank('University of Maryland Baltimore County'),
+  null,
+  'UMBC must not inherit the College Park rank',
+);
+assert.equal(
+  schools.nationalUniversityRank('University of North Carolina Charlotte'),
+  null,
+  'UNC Charlotte must not inherit the Chapel Hill rank',
+);
+assert.equal(
+  schools.nationalUniversityRank('University of North Carolina Greensboro'),
+  null,
+  'UNC Greensboro must not inherit the Chapel Hill rank',
+);
+assert.equal(schools.nationalUniversityRank('University of Illinois at Urbana Champaign'), 36);
+assert.equal(schools.nationalUniversityRank('BU'), 42);
+
 // Keep this fixture comparator in lockstep with the public catalogue's sorting
 // contract: exact national rank, then the broader tier, then canonical school
 // name. The fixtures deliberately mix single essays and packages so a ranking
