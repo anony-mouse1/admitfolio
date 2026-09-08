@@ -121,6 +121,56 @@ export default async function CollectionPage({ params, searchParams }: Params) {
             )}
           </div>
 
+          {/* Everything here is aggregated from the listings already on the page.
+              School names are counts, never links: per-school routes are a
+              separate decision and this must not become one by accident.
+
+              A full-width band rather than a column beside the intro. Side by
+              side, whichever of the two was shorter left a hole, and the intro
+              length varies per collection while this does not. Stacked, neither
+              can leave a gap at any content length. */}
+          <section className={styles.band} aria-label="What is in this collection">
+            <div className={styles.bandStats}>
+              <div className={styles.bandStat}>
+                <b>{summary.listings}</b><span>Listing{summary.listings === 1 ? '' : 's'}</span>
+              </div>
+              <div className={styles.bandStat}>
+                <b>{summary.essays}</b><span>Essay{summary.essays === 1 ? '' : 's'}</span>
+              </div>
+              <div className={styles.bandStat}>
+                <b>{summary.packages}</b><span>Multi-essay package{summary.packages === 1 ? '' : 's'}</span>
+              </div>
+              {summary.priceLow != null && summary.priceHigh != null && (
+                <div className={styles.bandStat}>
+                  <b>{summary.priceLow === summary.priceHigh ? `$${summary.priceLow}` : `$${summary.priceLow} to $${summary.priceHigh}`}</b>
+                  <span>Price range</span>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.bandGroup}>
+              <h2>Essay types inside</h2>
+              <ul className={styles.bandItems}>
+                {summary.prompts.map((row) => (
+                  <li key={row.label} className={styles.bandItem}><span>{row.label}</span><b>{row.count}</b></li>
+                ))}
+              </ul>
+            </div>
+
+            <div className={styles.bandGroup}>
+              <h2>Where these writers got in</h2>
+              <ul className={styles.bandItems}>
+                {summary.schools.map((row) => (
+                  <li key={row.label} className={styles.bandItem}><span>{row.label}</span><b>{row.count}</b></li>
+                ))}
+              </ul>
+            </div>
+
+            <Link className={styles.bandMore} href={COLLECTIONS_PATH}>
+              Browse the other {others.length} collections →
+            </Link>
+          </section>
+
           <hr className={styles.sectionRule} />
 
           {/* Every listing, no pagination: a crawler should not have to follow a
@@ -140,39 +190,6 @@ export default async function CollectionPage({ params, searchParams }: Params) {
               </div>
             </CollectionBrowser>
           </div>
-
-          {/* Everything here is aggregated from the listings already on the page.
-              School names are counts, never links: per-school routes are a
-              separate decision and this must not become one by accident. */}
-          <aside className={styles.panel} aria-label="What is in this collection">
-            <h2>What is in this collection</h2>
-            <dl className={styles.stats}>
-              <dt>Listings</dt><dd>{summary.listings}</dd>
-              <dt>Essays</dt><dd>{summary.essays}</dd>
-              <dt>Multi-essay packages</dt><dd>{summary.packages}</dd>
-              {summary.priceLow != null && summary.priceHigh != null && (
-                <>
-                  <dt>Price range</dt>
-                  <dd>{summary.priceLow === summary.priceHigh ? `$${summary.priceLow}` : `$${summary.priceLow} to $${summary.priceHigh}`}</dd>
-                </>
-              )}
-            </dl>
-            <h2>Essay types inside</h2>
-            <ul className={styles.rows}>
-              {summary.prompts.map((row) => (
-                <li key={row.label}><span>{row.label}</span><b>{row.count}</b></li>
-              ))}
-            </ul>
-            <h2>Where these writers got in</h2>
-            <ul className={styles.rows}>
-              {summary.schools.map((row) => (
-                <li key={row.label}><span>{row.label}</span><b>{row.count}</b></li>
-              ))}
-            </ul>
-            <Link className={styles.panelMore} href={COLLECTIONS_PATH}>
-              Browse the other {others.length} collections →
-            </Link>
-          </aside>
 
           <section className={styles.notes} aria-label="How to read these">
             <h2>How to read these</h2>

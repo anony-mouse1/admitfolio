@@ -210,6 +210,27 @@ assert.match(browser, /Omit<PublicListing, 'otherListingIds'>/, 'the browser mus
 
 // A listing that was taken down keeps its indexed link, so the page has to say
 // what happened rather than silently ignoring the query.
+// The stats band is real indexable text and answers the two questions a buyer
+// has on this page, so a layout change must not quietly drop half of it.
+for (const [what, pattern] of [
+  ['listing count', /summary\.listings/],
+  ['essay count', /summary\.essays/],
+  ['package count', /summary\.packages/],
+  ['price range', /summary\.priceLow/],
+  ['essay types', /summary\.prompts\.map/],
+  ['where writers got in', /summary\.schools\.map/],
+]) {
+  assert.match(collectionRoute, pattern, `the stats band must keep its ${what}`);
+}
+// It sits between the intro and the grid, in one column. Beside the intro,
+// whichever of the two was shorter left a hole, and the intro length varies per
+// collection while the band's does not.
+assert.ok(
+  collectionRoute.indexOf('styles.band') > collectionRoute.indexOf('styles.headerText')
+    && collectionRoute.indexOf('styles.band') < collectionRoute.indexOf('styles.cards'),
+  'the band must sit between the intro and the card grid',
+);
+
 assert.match(collectionRoute, /missingListing/, 'a collection must handle a listing id it does not hold');
 assert.match(collectionRoute, /no longer for sale/, 'and say so in words');
 

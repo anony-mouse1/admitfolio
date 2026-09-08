@@ -44,22 +44,17 @@
   max-width: 720px;
 }
 
-/* One grid for the whole page. On desktop the panel is pulled up beside the
-   header, which is what fills the 480px of dead space the text column left. On
-   mobile every child falls back to source order, and the panel is written after
-   the cards so a phone reaches a listing without scrolling past a stats block. */
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  column-gap: 56px;
-  align-items: start;
-}
+/* One column, top to bottom: intro, stats band, rule, cards, notes.
+   It used to put the stats in a column beside the intro, and whichever of the
+   two was shorter left a hole. The intro length varies per collection and the
+   band's does not, so there was no arrangement of the two that worked for all
+   six. Stacked, neither can leave a gap at any content length. */
+.layout { display: block; }
 
-.headerText { grid-column: 1; grid-row: 1; max-width: 720px; }
-.panel { grid-column: 2; grid-row: 1; }
-.sectionRule { grid-column: 1 / -1; grid-row: 2; margin: 40px 0 0; border: 0; border-top: 1px solid var(--card-line); }
-.cards { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
-.notes { grid-column: 1 / -1; grid-row: 4; max-width: 720px; margin-top: 44px; }
+.headerText { max-width: none; }
+.sectionRule { margin: 36px 0 0; border: 0; border-top: 1px solid var(--card-line); }
+.cards { min-width: 0; margin-top: 0; }
+.notes { max-width: 72ch; margin-top: 44px; }
 
 .headerText h1 {
   font-family: var(--serif);
@@ -70,7 +65,11 @@
 }
 
 .dek { font-size: 17px; line-height: 1.5; color: var(--muted); margin: 0 0 18px; }
-.lead { font-size: 16.5px; line-height: 1.62; margin: 0; }
+/* Full width block, but the line itself is capped: 1120px of 16.5px text is
+   about 110 characters and stops being readable well before it stops fitting.
+   Nothing sits beside it, so the space to its right is trailing whitespace
+   rather than a hole. */
+.lead { font-size: 16.5px; line-height: 1.62; margin: 0; max-width: 76ch; }
 
 .count {
   display: inline-flex;
@@ -85,6 +84,7 @@
 
 .guideNote {
   margin: 20px 0 0;
+  max-width: 76ch;
   padding: 14px 18px;
   border: 1px solid var(--card-line);
   border-radius: 14px;
@@ -104,59 +104,75 @@
 
 .notes p { font-size: 16.5px; line-height: 1.62; margin: 0 0 14px; }
 
-/* ---- The what-is-in-here panel ---- */
+/* ---- The what-is-in-here band ---- */
 
-.panel {
+.band {
+  margin-top: 30px;
+  padding: 22px 24px;
   border: 1px solid var(--card-line);
   border-radius: 18px;
   background: #fff;
-  padding: 22px;
 }
 
-.panel h2 {
+.band h2 {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent);
-  margin: 0 0 11px;
+  margin: 0 0 9px;
 }
 
-.panel h2 + * { margin-bottom: 18px; }
-
-.stats {
-  margin: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 7px 14px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.stats dt { color: var(--muted); }
-.stats dd { margin: 0; font-weight: 600; text-align: right; }
-
-.rows { list-style: none; margin: 0; padding: 0; font-size: 14px; line-height: 1.5; }
-.rows li {
+/* The only side-by-side thing left, and its content is a number and a short
+   word, so it cannot vary enough to leave a gap. */
+.bandStats {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0;
+  flex-wrap: wrap;
+  gap: 14px 44px;
+  padding-bottom: 18px;
   border-bottom: 1px solid #f2efe9;
 }
-.rows li:last-child { border-bottom: 0; }
-.rows b { font-weight: 700; }
 
-.panelMore {
-  display: block;
-  margin-top: 4px;
+.bandStat { display: flex; flex-direction: column; gap: 2px; }
+.bandStat b { font-family: var(--serif); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.bandStat span { font-size: 12.5px; color: var(--muted); }
+
+.bandGroup { padding-top: 16px; }
+
+.bandItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bandItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--card-line);
+  border-radius: 999px;
+  font-size: 13.5px;
+  line-height: 1.3;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 3%, #fff);
+}
+
+.bandItem b { font-weight: 700; color: var(--accent); }
+
+.bandMore {
+  display: inline-block;
+  margin-top: 18px;
   color: var(--accent);
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
 }
 
-.panelMore:hover { text-decoration: underline; }
+.bandMore:hover { text-decoration: underline; }
 
 /* ---- The hub ---- */
 
@@ -223,14 +239,13 @@
 
 .hubCardDek { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 0; }
 
-@media (max-width: 1040px) {
-  .layout { grid-template-columns: 1fr; column-gap: 0; }
-  /* Source order takes over: header, rule, cards, panel, notes. */
-  .headerText, .panel, .sectionRule, .cards, .notes { grid-column: 1; grid-row: auto; }
-  .panel { margin-top: 40px; }
-}
-
 @media (max-width: 720px) {
   .main { padding: 88px 20px 56px; }
   .crumbs { margin-bottom: 20px; font-size: 12.5px; }
+  /* Two stats per row rather than four squeezed across 350px. */
+  .band { padding: 18px 16px; }
+  .bandStats { gap: 14px 0; }
+  .bandStat { flex: 0 0 50%; }
+  .bandStat b { font-size: 22px; }
+  .bandItem { font-size: 13px; padding: 4px 10px; }
 }
