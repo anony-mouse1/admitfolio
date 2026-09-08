@@ -205,7 +205,7 @@ assert.match(
   /listings\.map\(\(\{ otherListingIds: _siblings, \.\.\.listing \}\) => listing\)/,
   'the collection route must strip sibling ids before they reach the client',
 );
-assert.match(collectionRoute, /<CollectionBrowser listings=\{browsable\}/, 'and pass the stripped list, not the raw one');
+assert.match(collectionRoute, /<CollectionBrowser\s+listings=\{browsable\}/, 'and pass the stripped list, not the raw one');
 assert.match(browser, /Omit<PublicListing, 'otherListingIds'>/, 'the browser must not accept sibling ids at all');
 
 // A listing that was taken down keeps its indexed link, so the page has to say

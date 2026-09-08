@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import ListingDetail from '@/components/ListingDetail';
-import type { PublicListing } from '@/lib/publicListing';
+import ListingCheckout from '@/components/ListingCheckout';
+import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
+import { checkoutItemForListing, headlineSchool, type CheckoutItem, type PublicListing } from '@/lib/publicListing';
+import { schoolShortName } from '@/lib/schools';
 
 // Opens a listing in place on a collection page.
 //
@@ -16,10 +19,11 @@ import type { PublicListing } from '@/lib/publicListing';
 // Because there is no navigation, Back is a plain popstate: the sheet closes
 // and the collection page is still underneath, at the same scroll position.
 //
-// Checkout is deliberately still a real navigation. openBuy in app/page.tsx
-// builds its URL as /?checkout=<id> and the whole purchase flow lives on the
-// homepage; duplicating it here would fork the payment path, which is not worth
-// it for a step the buyer expects to change pages.
+// Checkout opens here too. app/page.tsx used to be the only place that could
+// run it, because openBuy wrote its URL against a hardcoded '/', so Unlock had
+// to throw the buyer onto the homepage at the exact moment they decided to buy.
+// components/ListingCheckout is the one implementation of that dialog and this
+// mounts it against this collection's own path instead.
 
 type Props = {
   /** Without otherListingIds: see the note in app/essays/[collection]/page.tsx. */
@@ -28,11 +32,20 @@ type Props = {
   basePath: string;
   /** From ?listing= on the server, already checked against this collection. */
   initialListingId: string | null;
+  /** From ?checkout= on the server. Restores the dialog after a reload. */
+  initialCheckoutId: string | null;
   children: ReactNode;
 };
 
-export default function CollectionBrowser({ listings, basePath, initialListingId, children }: Props) {
-  const [openId, setOpenId] = useState<string | null>(initialListingId);
+export default function CollectionBrowser({ listings, basePath, initialListingId, initialCheckoutId, children }: Props) {
+  const [openId, setOpenId] = useState<string | null>(initialListingId || initialCheckoutId);
+  const [checkoutItem, setCheckoutItem] = useState<Partial<CheckoutItem>>(() => {
+    const listing = initialCheckoutId ? listings.find((l) => l.id === initialCheckoutId) : null;
+    return listing ? checkoutItemForListing(listing as PublicListing) : {};
+  });
+  // Restored from the URL, so Checkout Started is not re-fired: app/page.tsx
+  // makes the same distinction with its trackStart argument.
+  const [checkoutOpen, setCheckoutOpen] = useState(Boolean(initialCheckoutId));
   // True once this component pushed a history entry, which decides whether
   // closing should pop that entry or replace the URL in place. A visitor who
   // arrived on ?listing= directly has nothing of ours to pop.
@@ -63,10 +76,33 @@ export default function CollectionBrowser({ listings, basePath, initialListingId
     window.history.replaceState({ collectionListing: id }, '', `${basePath}?listing=${encodeURIComponent(id)}`);
   }, [basePath]);
 
+  // Unlock. The URL gets ?checkout= on this collection, so Back closes the
+  // dialog and puts the listing sheet straight back, and the buyer never leaves
+  // the page they were reading.
+  const openCheckout = useCallback((listing: (typeof listings)[number]) => {
+    const item = checkoutItemForListing(listing as PublicListing);
+    trackConversion(ANALYTICS_EVENTS.checkoutStarted, { school: item.school, value: item.price });
+    setCheckoutItem(item);
+    setCheckoutOpen(true);
+    window.history.pushState({ collectionCheckout: item.listingId }, '', `${basePath}?checkout=${encodeURIComponent(item.listingId)}`);
+    checkoutPushedRef.current = true;
+  }, [basePath]);
+
+  const checkoutPushedRef = useRef(Boolean(!initialCheckoutId));
+  const closeCheckout = useCallback(() => {
+    if (checkoutPushedRef.current) { window.history.back(); return; }
+    setCheckoutOpen(false);
+    window.history.replaceState({}, '', openId ? `${basePath}?listing=${encodeURIComponent(openId)}` : basePath);
+  }, [basePath, openId]);
+
   useEffect(() => {
     function onPop() {
-      const id = new URLSearchParams(window.location.search).get('listing');
+      const params = new URLSearchParams(window.location.search);
+      const checkoutId = params.get('checkout');
+      const id = params.get('listing') || checkoutId;
       pushedRef.current = false;
+      checkoutPushedRef.current = false;
+      setCheckoutOpen(Boolean(checkoutId && listings.some((l) => l.id === checkoutId)));
       setOpenId(id && listings.some((l) => l.id === id) ? id : null);
     }
     window.addEventListener('popstate', onPop);
@@ -91,21 +127,36 @@ export default function CollectionBrowser({ listings, basePath, initialListingId
   }, [listings, open]);
 
   useEffect(() => {
-    if (!openId) return;
+    if (!openId && !checkoutOpen) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') close();
+      if (event.key !== 'Escape') return;
+      if (checkoutOpen) closeCheckout();
+      else close();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openId, close]);
+  }, [openId, checkoutOpen, close, closeCheckout]);
 
   // Same lock the homepage applies while an overlay is open.
   useEffect(() => {
-    document.body.style.overflow = openId ? 'hidden' : '';
+    document.body.style.overflow = openId || checkoutOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [openId]);
+  }, [openId, checkoutOpen]);
 
   const listing = openId ? listings.find((l) => l.id === openId) || null : null;
+
+  // Listing Viewed, once per listing per session, exactly as app/page.tsx
+  // records it. Without this a checkout opened from a collection page has no
+  // preceding view in the funnel and the two surfaces do not add up.
+  const trackedViews = useRef(new Set<string>());
+  useEffect(() => {
+    if (!listing || trackedViews.current.has(listing.id)) return;
+    trackedViews.current.add(listing.id);
+    trackConversion(ANALYTICS_EVENTS.listingViewed, {
+      school: schoolShortName(headlineSchool(listing as PublicListing)),
+      listingType: listing.essays.length > 1 ? 'package' : 'single',
+    });
+  }, [listing]);
 
   return (
     <>
@@ -120,9 +171,11 @@ export default function CollectionBrowser({ listings, basePath, initialListingId
           showSiblings={false}
           onClose={close}
           onOpenListing={swap}
-          onUnlock={() => { window.location.assign(`/?checkout=${encodeURIComponent(listing.id)}`); }}
+          obscured={checkoutOpen}
+          onUnlock={() => openCheckout(listing)}
         />
       )}
+      <ListingCheckout open={checkoutOpen} item={checkoutItem} onClose={closeCheckout} />
     </>
   );
 }

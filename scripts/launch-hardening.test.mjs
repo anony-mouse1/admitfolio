@@ -25,6 +25,7 @@ const layout = read('app/layout.tsx');
 const styles = read('app/globals.css');
 const page = read('app/page.tsx');
 const sheet = read('components/ListingDetail.tsx');
+const checkoutDialog = read('components/ListingCheckout.tsx');
 
 assert.equal(packageJson.dependencies.next, '16.3.2');
 assert.equal(packageJson.dependencies.react, '19.2.8');
@@ -82,7 +83,7 @@ assert.match(layout, /fonts\.gstatic\.com/);
 assert.match(styles, /html\s*\{[\s\S]*?overflow-x:\s*hidden;[\s\S]*?overscroll-behavior-x:\s*none;/);
 assert.match(styles, /@supports \(overflow:\s*clip\)\s*\{\s*html, body \{ overflow-x:\s*clip; \}\s*\}/);
 assert.match(styles, /\.trust-marquee\s*\{[\s\S]*?contain:\s*paint;[\s\S]*?touch-action:\s*pan-y;/);
-assert.match(page, /modal-overlay buy-overlay/);
+assert.match(checkoutDialog, /modal-overlay buy-overlay/);
 assert.match(sheet, /sheet-x mobile-page-close/);
 assert.match(styles, /\.sheet\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);
 assert.match(styles, /\.buy-overlay \.modal\.buy-modal\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);

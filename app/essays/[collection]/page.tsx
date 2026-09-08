@@ -22,7 +22,7 @@ import styles from '../essays.module.css';
 // a crawler that does not run JavaScript sees "Loading essays..." there.
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ collection: string }>; searchParams: Promise<{ listing?: string }> };
+type Params = { params: Promise<{ collection: string }>; searchParams: Promise<{ listing?: string; checkout?: string }> };
 
 export async function generateStaticParams() {
   return collections.map((collection) => ({ collection: collection.slug }));
@@ -59,8 +59,12 @@ export default async function CollectionPage({ params, searchParams }: Params) {
   if (!listings.length) notFound();
 
   const basePath = collectionPath(collection.slug);
-  const requested = (await searchParams).listing || null;
+  const query = await searchParams;
+  // ?checkout= means the buyer reloaded or came back to a checkout in progress.
+  // The listing sheet belongs underneath it either way.
+  const requested = query.listing || query.checkout || null;
   const openListing = requested && listings.some((l) => l.id === requested) ? requested : null;
+  const openCheckout = query.checkout && listings.some((l) => l.id === query.checkout) ? query.checkout : null;
   // A listing that was taken down keeps its indexed link. Rather than dropping
   // the visitor on a page that silently ignores the request, say what happened
   // and leave them in a collection full of alternatives.
@@ -123,7 +127,12 @@ export default async function CollectionPage({ params, searchParams }: Params) {
               "load more" control to reach the rest of the collection. The browser
               wrapper opens one in place instead of navigating to the homepage. */}
           <div className={styles.cards}>
-            <CollectionBrowser listings={browsable} basePath={basePath} initialListingId={openListing}>
+            <CollectionBrowser
+              listings={browsable}
+              basePath={basePath}
+              initialListingId={openListing}
+              initialCheckoutId={openCheckout}
+            >
               <div className="grid public-grid">
                 {listings.map((listing) => (
                   <CollectionListingCard key={listing.id} listing={listing} basePath={basePath} />

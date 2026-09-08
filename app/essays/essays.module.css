@@ -56,7 +56,7 @@
 }
 
 .headerText { grid-column: 1; grid-row: 1; max-width: 720px; }
-.panel { grid-column: 2; grid-row: 1; position: sticky; top: 100px; }
+.panel { grid-column: 2; grid-row: 1; }
 .sectionRule { grid-column: 1 / -1; grid-row: 2; margin: 40px 0 0; border: 0; border-top: 1px solid var(--card-line); }
 .cards { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
 .notes { grid-column: 1 / -1; grid-row: 4; max-width: 720px; margin-top: 44px; }
@@ -160,9 +160,18 @@
 
 /* ---- The hub ---- */
 
-.intro { max-width: 720px; margin: 26px 0 0; }
-.intro p { font-size: 16.5px; line-height: 1.62; color: var(--ink); margin: 0 0 14px; }
-.header { max-width: 720px; }
+/* The hub's intro runs the full width of the card grid below it. Capped at
+   720px it left the same empty right-hand column the collection pages had, with
+   nothing to put in it: the hub has no per-collection panel to show.
+   Three columns rather than one long measure: a single 1200px line runs to
+   about 110 characters and stops being readable well before it stops fitting.
+   Three also means one paragraph per column, so nothing breaks across a
+   gutter, and the columns line up with the three cards below. */
+.intro { margin: 26px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.intro p { font-size: 16px; line-height: 1.6; color: var(--ink); margin: 0; }
+.header { max-width: none; }
+
+@media (max-width: 900px) { .intro { grid-template-columns: 1fr; gap: 14px; } }
 
 .header h1 {
   font-family: var(--serif);
@@ -218,7 +227,7 @@
   .layout { grid-template-columns: 1fr; column-gap: 0; }
   /* Source order takes over: header, rule, cards, panel, notes. */
   .headerText, .panel, .sectionRule, .cards, .notes { grid-column: 1; grid-row: auto; }
-  .panel { position: static; margin-top: 40px; }
+  .panel { margin-top: 40px; }
 }
 
 @media (max-width: 720px) {

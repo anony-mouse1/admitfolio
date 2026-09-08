@@ -200,3 +200,24 @@ export function sameTitleText(a: string | null | undefined, b: string | null | u
   const right = normalize(b);
   return Boolean(left && right && left.slice(0, 60) === right.slice(0, 60));
 }
+
+// What checkout needs to know about a listing. Shared because the homepage and
+// the collection pages both open the same checkout over the same shape.
+export type CheckoutItem = {
+  listingId: string;
+  school: string;
+  price: number;
+  summary?: string | null;
+  essayCount?: number;
+};
+
+export function checkoutItemForListing(listing: PublicListing): CheckoutItem {
+  return {
+    listingId: listing.id,
+    school: schoolShortName(headlineSchool(listing)),
+    price: listing.price || 0,
+    summary: publicListingTitle(listing),
+    essayCount: listing.essays.length,
+  };
+}
+

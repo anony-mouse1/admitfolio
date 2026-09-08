@@ -5,8 +5,8 @@ import type React from 'react';
 import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
 import PublicListingCard from '@/components/PublicListingCard';
 import ListingDetail from '@/components/ListingDetail';
+import ListingCheckout from '@/components/ListingCheckout';
 import MatchFinder from '@/components/MatchFinder';
-import EmbeddedListingCheckout from '@/components/EmbeddedListingCheckout';
 import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/components/seller';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
@@ -23,6 +23,7 @@ import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
 // so app/essays can server-render the same card. See lib/publicListing.ts.
 import {
   cardTagLabel,
+  checkoutItemForListing,
   collegeAdmitTags,
   contentsLine,
   headlineSchool,
@@ -31,6 +32,7 @@ import {
   priceLabel,
   publicListingTitle,
   questBridgeLabel,
+  type CheckoutItem,
   type PublicListing,
 } from '@/lib/publicListing';
 
@@ -96,14 +98,6 @@ const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
 
 type BrowseView = 'cards' | 'rows';
 
-
-type CheckoutItem = {
-  listingId: string;
-  school: string;
-  price: number;
-  summary?: string | null;
-  essayCount?: number;
-};
 
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
@@ -1382,9 +1376,6 @@ export default function Page() {
   // Stripe securely renders Checkout inside this modal. Card details never
   // enter Admitfolio's React state or touch our servers.
   const [curItem, setCurItem] = useState<Partial<CheckoutItem>>({});
-  const [buyErr, setBuyErr] = useState('');
-  const [buyDeliveryEmail, setBuyDeliveryEmail] = useState('');
-  const [buyEmailConfirmed, setBuyEmailConfirmed] = useState(false);
 
   const openBuy = useCallback((item: CheckoutItem, syncUrl = true, trackStart = true) => {
     if (trackStart) {
@@ -1399,9 +1390,6 @@ export default function Page() {
       window.history.pushState({ checkout: item.listingId }, '', url);
     }
     setCurItem(item);
-    setBuyErr('');
-    setBuyDeliveryEmail('');
-    setBuyEmailConfirmed(false);
     setBuyOpen(true);
   }, []);
   const closeBuy = useCallback(() => {
@@ -1437,24 +1425,6 @@ export default function Page() {
     window.addEventListener('popstate', syncCheckoutFromUrl);
     return () => window.removeEventListener('popstate', syncCheckoutFromUrl);
   }, [openBuy, pubListings]);
-
-  function confirmBuyDeliveryEmail() {
-    const email = buyDeliveryEmail.trim().toLowerCase();
-    if (!emailRe.test(email)) {
-      setBuyErr('Enter a valid delivery email.');
-      return;
-    }
-    setBuyDeliveryEmail(email);
-    setBuyErr('');
-    // Same property shape as Checkout Started so the stages line up in Vercel.
-    // Never the address itself. curItem is always complete while the modal is
-    // open; the fallbacks only satisfy its Partial type.
-    trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
-      school: curItem.school ?? '',
-      value: curItem.price ?? 0,
-    });
-    setBuyEmailConfirmed(true);
-  }
 
   function handleUnlock(essay: Essay) {
     // Sample cards are teasers - they are not purchasable.
@@ -3365,103 +3335,7 @@ export default function Page() {
       )}
 
       {/* ===== Buyer checkout modal ===== */}
-      <div className={`modal-overlay buy-overlay${buyOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) closeBuy(); }}>
-        <div className="modal buy-modal">
-          <button className="modal-close mobile-page-close" aria-label="Back to essays" onClick={closeBuy}>
-            <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
-            <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
-          </button>
-          <section className="buy-order">
-            <div className="buy-order-logo"><span>admitfolio</span><i /></div>
-            <button className="buy-back" type="button" onClick={closeBuy}>← Back to listing</button>
-            <div className="modal-eyebrow">Checkout · No account needed</div>
-            <h3 id="buyTitle">Unlock this listing</h3>
-            <p className="buy-intro">Read the full listing immediately after checkout.</p>
-            <div className="buy-summary">
-              <div className="buy-summary-essay">
-                <div className="buy-summary-school">{curItem.school || 'This listing'}</div>
-                <div className="buy-summary-hook">
-                  {curItem.summary || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
-                </div>
-              </div>
-              <div className="buy-summary-price">{priceLabel(curItem.price)}</div>
-            </div>
-            <div className="buy-total"><span>Total</span><i /><strong>{priceLabel(curItem.price)}</strong></div>
-            <div className="buy-delivery">
-              <div><b>✓</b><span>Instant private access after payment</span></div>
-              <div><b>✓</b><span>Secure reading link sent to your email</span></div>
-              <div><b>✓</b><span>For inspiration only, never for copying</span></div>
-            </div>
-          </section>
-
-          <section className="buy-payment">
-            {!buyEmailConfirmed ? (
-              <>
-                <div className="modal-eyebrow">Step 1 of 2 · Delivery</div>
-                <h4>Where should we send your essays?</h4>
-                <p>Confirm the email for your private reading link. Your card or Link account can use a different email.</p>
-                <div className="buy-email-field">
-                  <label htmlFor="buyDeliveryEmail">Delivery email</label>
-                  <input
-                    id="buyDeliveryEmail"
-                    type="email"
-                    maxLength={254}
-                    autoComplete="email"
-                    spellCheck={false}
-                    value={buyDeliveryEmail}
-                    onChange={(event) => { setBuyDeliveryEmail(event.target.value); setBuyErr(''); }}
-                    onKeyDown={(event) => { if (event.key === 'Enter') confirmBuyDeliveryEmail(); }}
-                    placeholder="you@email.com"
-                  />
-                  <small>We will send the receipt and reading link to this exact address.</small>
-                </div>
-                <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-                <button className="buy-email-continue" type="button" onClick={confirmBuyDeliveryEmail}>
-                  Continue to secure payment
-                </button>
-                <div className="buy-secure">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-                  Card details are still handled securely by Stripe
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="modal-eyebrow">Step 2 of 2 · Secure checkout</div>
-                <h4>Pay without leaving Admitfolio</h4>
-                <p>Stripe shows Link, Apple Pay, or card when each option is available on your device.</p>
-                <div className="buy-email-confirmed">
-                  <span>Delivery to <b>{buyDeliveryEmail}</b></span>
-                  <button type="button" onClick={() => { setBuyEmailConfirmed(false); setBuyErr(''); }}>Change</button>
-                </div>
-                <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-                <div className="buy-stripe-card">
-                  <div className="buy-stripe-head">
-                    <div className="buy-stripe-head-main">
-                      <span className="buy-stripe-shield" aria-hidden="true">✓</span>
-                      <span><strong>Secure payment</strong><small>Encrypted from end to end</small></span>
-                    </div>
-                    <span className="buy-stripe-brand">Powered by Stripe</span>
-                  </div>
-                  {buyOpen && curItem.listingId && (
-                    <EmbeddedListingCheckout
-                      key={`${curItem.listingId}:${buyDeliveryEmail}`}
-                      listingId={curItem.listingId}
-                      deliveryEmail={buyDeliveryEmail}
-                      school={curItem.school ?? ''}
-                      price={curItem.price ?? 0}
-                      onError={setBuyErr}
-                    />
-                  )}
-                </div>
-                <div className="buy-secure">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-                  Payments handled by Stripe · Card details never touch our servers
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-      </div>
+      <ListingCheckout open={buyOpen} item={curItem} onClose={closeBuy} />
 
       {/* ===== Sticky floating waitlist button ===== */}
       <button className={`wl-fab${fabShow ? ' show' : ''}`} type="button" aria-label="Join the waitlist" onClick={openWaitlist}>
@@ -3933,16 +3807,6 @@ function listingSchoolKey(listing: PublicListing): string {
 
 
 
-
-function checkoutItemForListing(listing: PublicListing): CheckoutItem {
-  return {
-    listingId: listing.id,
-    school: schoolShortName(headlineSchool(listing)),
-    price: listing.price || 0,
-    summary: publicListingTitle(listing),
-    essayCount: listing.essays.length,
-  };
-}
 
 // Two shortened labels joined can still run past 100 characters, which is what
 // made cards in the same row different heights. So the line gets its own budget:
