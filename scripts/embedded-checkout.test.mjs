@@ -8,6 +8,10 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const route = read('app/api/checkout/route.ts');
 const page = read('app/page.tsx');
+// The detail sheet moved to its own component so the collection pages can open
+// it in place. The homepage still owns the checkout, so obscured stays here and
+// the aria-hidden it drives is asserted where the sheet now lives.
+const sheet = read('components/ListingDetail.tsx');
 const component = read('components/EmbeddedListingCheckout.tsx');
 const commerce = read('lib/commerce.ts');
 const styles = read('app/globals.css');
@@ -23,7 +27,7 @@ assert.match(page, /url\.searchParams\.set\('checkout', item\.listingId\);[\s\S]
 assert.match(page, /get\('checkout'\)[\s\S]*checkoutItemForListing\(listing\), false, false\)/);
 assert.match(page, /const closeBuy = useCallback\(\(\) => \{[\s\S]*setBuyOpen\(false\);[\s\S]*url\.searchParams\.set\('listing', curItem\.listingId\);[\s\S]*url\.hash = 'browse';/);
 assert.match(page, /obscured=\{buyOpen\}/);
-assert.match(page, /aria-hidden=\{obscured \|\| undefined\}/);
+assert.match(sheet, /aria-hidden=\{obscured \|\| undefined\}/);
 assert.doesNotMatch(page, /setDetailId\(null\);[\s\S]{0,160}openBuy\(/);
 assert.match(styles, /@keyframes checkoutPageIn[\s\S]*translateX\(44px\)/);
 assert.match(styles, /\.modal-overlay\.buy-overlay \{[\s\S]*z-index: 130;[\s\S]*animation: checkoutPageIn \.38s/);

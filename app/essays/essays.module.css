@@ -8,26 +8,60 @@
   background: var(--bg);
 }
 
+/* The site nav is position:fixed at top:10px with a 66px pill, so page content
+   has to start below 76px or it renders underneath it. It used to start at
+   56px, which put the back link inside the nav: invisible behind the opaque
+   pill on mobile, and reading as a tagline under the logo on desktop. */
 .main {
   width: min(1200px, 100%);
   margin: 0 auto;
-  padding: 56px 40px 72px;
+  padding: 104px 40px 72px;
 }
 
-.backLink {
-  display: inline-block;
-  font-size: 14px;
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--muted);
-  text-decoration: none;
-  margin-bottom: 22px;
+  color: var(--faint);
+  margin-bottom: 26px;
 }
 
-.backLink:hover { color: var(--accent); }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--accent); text-decoration: underline; }
+.crumbs span[aria-current] { color: var(--ink); }
 
-.header { max-width: 720px; }
+.gone {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, #fff);
+  background: color-mix(in srgb, var(--accent) 6%, #fff);
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 720px;
+}
 
-.header h1 {
+/* One grid for the whole page. On desktop the panel is pulled up beside the
+   header, which is what fills the 480px of dead space the text column left. On
+   mobile every child falls back to source order, and the panel is written after
+   the cards so a phone reaches a listing without scrolling past a stats block. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  column-gap: 56px;
+  align-items: start;
+}
+
+.headerText { grid-column: 1; grid-row: 1; max-width: 720px; }
+.panel { grid-column: 2; grid-row: 1; position: sticky; top: 100px; }
+.sectionRule { grid-column: 1 / -1; grid-row: 2; margin: 40px 0 0; border: 0; border-top: 1px solid var(--card-line); }
+.cards { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
+.notes { grid-column: 1 / -1; grid-row: 4; max-width: 720px; margin-top: 44px; }
+
+.headerText h1 {
   font-family: var(--serif);
   font-size: clamp(30px, 4vw, 44px);
   line-height: 1.14;
@@ -35,12 +69,8 @@
   margin: 0 0 12px;
 }
 
-.dek {
-  font-size: 17px;
-  line-height: 1.5;
-  color: var(--muted);
-  margin: 0 0 18px;
-}
+.dek { font-size: 17px; line-height: 1.5; color: var(--muted); margin: 0 0 18px; }
+.lead { font-size: 16.5px; line-height: 1.62; margin: 0; }
 
 .count {
   display: inline-flex;
@@ -53,13 +83,9 @@
   color: var(--accent);
 }
 
-.intro { max-width: 720px; margin: 26px 0 0; }
-.intro p { font-size: 16.5px; line-height: 1.62; color: var(--ink); margin: 0 0 14px; }
-
 .guideNote {
-  max-width: 720px;
-  margin: 22px 0 0;
-  padding: 16px 18px;
+  margin: 20px 0 0;
+  padding: 14px 18px;
   border: 1px solid var(--card-line);
   border-radius: 14px;
   background: #fff;
@@ -69,13 +95,83 @@
 
 .guideNote a { color: var(--accent); font-weight: 600; }
 
-.sectionRule {
-  margin: 40px 0 0;
-  border: 0;
-  border-top: 1px solid var(--card-line);
+.notes h2 {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 14px;
 }
 
-/* The hub's list of collections. Plain cards, not listing cards. */
+.notes p { font-size: 16.5px; line-height: 1.62; margin: 0 0 14px; }
+
+/* ---- The what-is-in-here panel ---- */
+
+.panel {
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 22px;
+}
+
+.panel h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 11px;
+}
+
+.panel h2 + * { margin-bottom: 18px; }
+
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 7px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; font-weight: 600; text-align: right; }
+
+.rows { list-style: none; margin: 0; padding: 0; font-size: 14px; line-height: 1.5; }
+.rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f2efe9;
+}
+.rows li:last-child { border-bottom: 0; }
+.rows b { font-weight: 700; }
+
+.panelMore {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.panelMore:hover { text-decoration: underline; }
+
+/* ---- The hub ---- */
+
+.intro { max-width: 720px; margin: 26px 0 0; }
+.intro p { font-size: 16.5px; line-height: 1.62; color: var(--ink); margin: 0 0 14px; }
+.header { max-width: 720px; }
+
+.header h1 {
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.14;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
 .hubGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -118,6 +214,14 @@
 
 .hubCardDek { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 0; }
 
+@media (max-width: 1040px) {
+  .layout { grid-template-columns: 1fr; column-gap: 0; }
+  /* Source order takes over: header, rule, cards, panel, notes. */
+  .headerText, .panel, .sectionRule, .cards, .notes { grid-column: 1; grid-row: auto; }
+  .panel { position: static; margin-top: 40px; }
+}
+
 @media (max-width: 720px) {
-  .main { padding: 40px 20px 56px; }
+  .main { padding: 88px 20px 56px; }
+  .crumbs { margin-bottom: 20px; font-size: 12.5px; }
 }

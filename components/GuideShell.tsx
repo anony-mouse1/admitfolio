@@ -1,19 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export function GuideHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  // The glass background is keyed on data-scrolled, which only app/page.tsx was
+  // setting. Everywhere else the nav stayed fully transparent at every scroll
+  // position, so body text ran underneath it and both were unreadable.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 0);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
 
   return (
-    <nav className="nav" aria-label="Main navigation">
+    <nav className="nav" data-scrolled={scrolled ? 'true' : 'false'} aria-label="Main navigation">
       <Link className="logo" href="/">
         <div className="logo-word">Admitfolio</div>
         <div className="logo-dot" aria-hidden="true" />
       </Link>
       <div className="nav-links">
         <Link href="/#browse">Browse essays</Link>
+        <Link href="/essays">Collections</Link>
         <Link href="/#featured">High schooler?</Link>
         <Link href="/#sell">In college?</Link>
       </div>
@@ -42,6 +53,9 @@ export function GuideHeader() {
               <div className="nav-menu-label">For applicants</div>
               <Link href="/#browse" onClick={() => setMenuOpen(false)}>
                 <span>Browse essays</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
+              </Link>
+              <Link href="/essays" onClick={() => setMenuOpen(false)}>
+                <span>Essay collections</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
               </Link>
               <Link href="/?matches=1" onClick={() => setMenuOpen(false)}>
                 <span>Find my matches</span><span className="nav-menu-arrow" aria-hidden="true">→</span>

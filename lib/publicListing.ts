@@ -147,16 +147,41 @@ export function questBridgeLabel(listing: PublicListing): string | null {
   return null;
 }
 
+// The closed prompt list in app/page.tsx, written the way a person would say it.
+// Used only when a listing has no safe excerpt, so the card still names what it
+// is instead of printing a form label.
+const ESSAY_KIND: Record<string, string> = {
+  'Common App · Personal Statement': 'Common App personal statement',
+  'UC · Personal Insight Question': 'Personal Insight Question',
+  'Why-school · Supplement': 'why-school supplement',
+  'Community / Identity · Supplement': 'community and identity supplement',
+  'Intellectual vitality · Supplement': 'intellectual vitality supplement',
+  'Activity / Extracurricular · Supplement': 'activity supplement',
+  'Short answer': 'short answer',
+  'Other supplement': 'supplement',
+};
+
 // Every card gets one accurate title from an essay in this exact listing.
 // `openingLine` is extractor-approved and seller-name checks run before it is
-// stored. Seller-written marketing copy is only a fallback. A prompt label is
-// the last resort for scans or short answers with no safe prose to extract.
+// stored. Seller-written marketing copy is only a fallback.
+//
+// When neither exists the card used to print the raw prompt label, so a
+// collection page could show three cards in a row all headed "Why-school ·
+// Supplement" and read as broken duplicates. It now names the listing in the
+// site's own words instead, which is the same fact said properly.
 export function publicListingTitle(listing: PublicListing): string {
   const written = (listing.openingLine || listing.teaser || '').trim();
   if (written) return truncateWords(written, 120);
-  const prompt = listing.essays[0] ? essayLabel(listing.essays[0]) : '';
-  if (prompt) return prompt;
   const school = schoolShortName(headlineSchool(listing));
+  const kinds = [...new Set(listing.essays.map((e) => ESSAY_KIND[e.prompt]).filter(Boolean))];
+  if (kinds.length === 1) {
+    const plural = listing.essays.length > 1;
+    return `${school} ${plural ? `${kinds[0]}s` : kinds[0]}`;
+  }
+  if (kinds.length > 1) return `${school} application essays`;
+  // A seller's own "Other" wording is the only thing left worth showing.
+  const custom = listing.essays[0] ? essayLabel(listing.essays[0]) : '';
+  if (custom) return `${school}: ${custom}`;
   return `${school} admission essay${listing.essays.length === 1 ? '' : ' collection'}`;
 }
 
@@ -164,4 +189,14 @@ export function cardTagLabel(tag: string): string {
   if (tag === 'First-generation' || tag === 'First generation') return 'First gen';
   if (tag === 'Low-income background') return 'Low-income';
   return tag;
+}
+
+// Does the card title already say what this essay label would say? Used by the
+// detail sheet so the hook and the first essay row do not print the same line.
+export function sameTitleText(a: string | null | undefined, b: string | null | undefined): boolean {
+  const normalize = (value: string | null | undefined) =>
+    (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const left = normalize(a);
+  const right = normalize(b);
+  return Boolean(left && right && left.slice(0, 60) === right.slice(0, 60));
 }

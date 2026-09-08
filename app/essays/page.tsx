@@ -30,7 +30,11 @@ export default async function EssayCollectionsPage() {
     <div className={styles.page}>
       <GuideHeader />
       <main className={styles.main}>
-        <Link className={styles.backLink} href="/">← Back to Admitfolio</Link>
+        <nav className={styles.crumbs} aria-label="Breadcrumb">
+          <Link href="/">Admitfolio</Link>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">Essay collections</span>
+        </nav>
         <header className={styles.header}>
           <span className={styles.count}>{listings.length} essays for sale</span>
           <h1>College essay collections</h1>

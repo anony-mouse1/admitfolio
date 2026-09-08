@@ -164,9 +164,10 @@ for (const collection of collections) {
   for (const key of ['name', 'dek', 'title', 'description']) {
     assert.ok(collection[key].length > 0, `${collection.slug} has a ${key}`);
   }
-  assert.ok(collection.intro.length >= 2, `${collection.slug} has a real intro`);
+  assert.ok(collection.lead.length > 80, `${collection.slug} has a lead paragraph`);
+  assert.ok(collection.notes.length >= 1, `${collection.slug} has closing notes`);
   // AGENTS.md: no em dashes in site copy.
-  const copy = [collection.name, collection.dek, collection.title, collection.description, ...collection.intro].join(' ');
+  const copy = [collection.name, collection.dek, collection.title, collection.description, collection.lead, ...collection.notes].join(' ');
   assert.doesNotMatch(copy, /[\u2014\u2013]/, `${collection.slug} copy uses no em or en dashes`);
   assert.ok(
     collection.rule.kind === 'prompt' || collection.rule.kind === 'major',
@@ -179,6 +180,48 @@ const collectionRoute = read('app/essays/[collection]/page.tsx');
 assert.ok(collectionRoute.includes('collectionUrl(collection.slug)'), 'the collection canonical comes from the registry');
 assert.ok(collectionRoute.includes('alternates: { canonical: url }'), 'the collection canonical is that URL');
 assert.doesNotMatch(collectionRoute, /https:\/\/admitfolio\.com/, 'the collection route has no literal site URL');
+
+// A card link has to be a real href a crawler can follow, and it has to point at
+// the collection rather than the homepage. Pointing it at /?listing= is what
+// made a click paint the whole homepage before the sheet arrived.
+const collectionCard = read('components/CollectionListingCard.tsx');
+assert.match(collectionCard, /<a\b/, 'a listing card must be an anchor');
+assert.match(collectionCard, /href=\{`\$\{basePath\}\?listing=/, 'a card must link into its own collection');
+assert.doesNotMatch(collectionCard, /href=\{`\/\?listing=/, 'a card must not send a visitor to the homepage');
+
+// "Browse more essays from this seller" is a same-seller grouping. lib/anonymity
+// exists to stop that being published, so it must never be in the HTML a crawler
+// reads: the sheet renders on the server for a ?listing= deep link, and the
+// block is gated on a flag that is false until the client has mounted.
+const sheet = read('components/ListingDetail.tsx');
+const browser = read('components/CollectionBrowser.tsx');
+assert.match(sheet, /showSiblings \&\& otherListings\.length > 0/, 'the sibling block must be gated');
+assert.match(browser, /showSiblings=\{false\}/, 'the collection sheet must never show siblings');
+// Handing listings to a client component serialises every field into the RSC
+// payload inside the HTML, so the ids have to be dropped at that boundary or
+// the grouping is published in an indexable document.
+assert.match(
+  collectionRoute,
+  /listings\.map\(\(\{ otherListingIds: _siblings, \.\.\.listing \}\) => listing\)/,
+  'the collection route must strip sibling ids before they reach the client',
+);
+assert.match(collectionRoute, /<CollectionBrowser listings=\{browsable\}/, 'and pass the stripped list, not the raw one');
+assert.match(browser, /Omit<PublicListing, 'otherListingIds'>/, 'the browser must not accept sibling ids at all');
+
+// A listing that was taken down keeps its indexed link, so the page has to say
+// what happened rather than silently ignoring the query.
+assert.match(collectionRoute, /missingListing/, 'a collection must handle a listing id it does not hold');
+assert.match(collectionRoute, /no longer for sale/, 'and say so in words');
+
+// Closing the sheet must pop the entry opening it pushed. Pushing a third entry
+// is what left a visitor from a collection page stranded on the homepage.
+const homepage = read('app/page.tsx');
+assert.match(homepage, /detailPushedRef\.current = false;\s*\n\s*\/\/[\s\S]{0,200}window\.history\.back\(\);/, 'closeDetail must pop its own history entry');
+assert.doesNotMatch(
+  homepage,
+  /const closeDetail = useCallback\(\(\) => \{[\s\S]*?url\.searchParams\.delete\('listing'\);\s*\n\s*window\.history\.pushState/,
+  'closeDetail must never push on close',
+);
 
 // Each article's canonical is the sitemap URL by construction: both come from
 // the same registry entry through the same function, and nothing is hardcoded.

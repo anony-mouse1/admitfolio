@@ -34,8 +34,17 @@ export type Collection = {
   dek: string;
   title: string;
   description: string;
-  /** Paragraphs of the page intro. Public copy: no em dashes, per AGENTS.md. */
-  intro: string[];
+  /**
+   * The one paragraph that runs above the card grid, so a visitor who arrived
+   * from a search result sees a listing inside the first screen.
+   */
+  lead: string;
+  /**
+   * The rest of the intro, printed under the grid as "How to read these". Same
+   * words, later, once the reader has seen what is on offer. All of it is still
+   * in the served HTML. Public copy: no em dashes, per AGENTS.md.
+   */
+  notes: string[];
   rule: CollectionRule;
   /** The guide that covers the same ground, where one exists. */
   guide?: GuideSlug;
@@ -49,8 +58,9 @@ export const collections = [
     title: 'UC Personal Insight Question Examples From Admitted Students | Admitfolio',
     description:
       'Real UC Personal Insight Question responses from students who were admitted, sold by the students who wrote them. Most listings hold a complete set of four.',
-    intro: [
+    lead:
       'The University of California asks for four Personal Insight Questions of up to 350 words each, and nothing else. There is no personal statement, no separate supplement, and no interview. Those four responses carry the entire written case for your application, which is why they reward close reading.',
+    notes: [
       'These listings are PIQ responses from students who were admitted to a UC, sold by the students who wrote them. Most are complete sets, so you can follow one writer across all four: which prompts they picked, what they put in each one, and what they kept out of the rest. A set is a different thing from four separate essays.',
       'Read them for the choices rather than the stories. Your four will only work if they are yours.',
     ],
@@ -64,8 +74,9 @@ export const collections = [
     title: 'Common App Personal Statement Examples From Admitted Students | Admitfolio',
     description:
       'Real Common App personal statements from students who were admitted, sold by the students who wrote them. Many listings include the supplements sent in the same application.',
-    intro: [
+    lead:
       'One essay of up to 650 words, sent to every school on your Common App list. It is the only piece of writing you cannot tailor to a single college, so it has to work everywhere at once, and it is usually the first thing an admissions reader sees of your writing.',
+    notes: [
       'These are personal statements from students who were admitted, sold by the students who wrote them. Many listings also include the school supplements that went out in the same application, which is the part that is hard to find anywhere else: one voice, in one year, doing two different jobs.',
       'Read them side by side and study the structure rather than the subject. Then close the tab and write the version only you could write.',
     ],
@@ -79,8 +90,9 @@ export const collections = [
     title: 'Engineering College Application Essay Examples | Admitfolio',
     description:
       'Application essays from students admitted into biomedical, aerospace, mechanical, electrical, computer, civil and chemical engineering programs.',
-    intro: [
+    lead:
       'These listings come from students who applied into an engineering program and were admitted. The collection spans biomedical, aerospace, mechanical, electrical, computer, civil, chemical and general engineering, along with the undeclared and first-year engineering routes that several large public universities use.',
+    notes: [
       'Most include a Common App personal statement. A number also carry the school supplements a specific program asked for, and some are full sets of UC Personal Insight Questions, so you can watch the same applicant answer a general prompt and a technical one.',
       'If you are writing about a project, this is the collection to read for calibration. The open question in almost every engineering draft is how much of the build to explain, and these show you where other admitted applicants drew that line.',
     ],
@@ -93,8 +105,9 @@ export const collections = [
     title: 'Business School Application Essay Examples From Admitted Students | Admitfolio',
     description:
       'Application essays from students admitted into undergraduate business, economics, finance, marketing and entrepreneurship programs, including named business schools.',
-    intro: [
+    lead:
       'These listings come from students who applied into business, economics, finance, marketing, management or entrepreneurship, and were admitted. The collection includes the named undergraduate business programs that run supplements of their own, so it is not only general Common App writing.',
+    notes: [
       'Most listings include a personal statement. Some also carry the why-school supplements a business program asked for, which are the ones applicants find hardest to draft, because the school is asking about fit while the student is trying to prove drive.',
       'Read for the opening. Ambition is easy to announce and hard to show, and the first two sentences usually tell you which one an essay is doing.',
     ],
@@ -107,8 +120,9 @@ export const collections = [
     title: 'Biology and Pre-Med Application Essay Examples | Admitfolio',
     description:
       'Application essays from students admitted into biology, biological sciences, molecular and cell biology, biochemistry, neuroscience and biomedical sciences.',
-    intro: [
+    lead:
       'These listings come from students who applied into biology and the life sciences, and were admitted. The collection covers general biology and biological sciences, along with molecular and cell biology, biochemistry, neuroscience, genetics, microbiology and biomedical sciences.',
+    notes: [
       'Nearly every listing here is a multi-essay package rather than a single essay, so you are usually reading a whole application at once: a personal statement, the supplements that went with it, and in several cases a full set of UC Personal Insight Questions.',
       'If you are on a pre-med track, read these with one question in mind. The arc every admissions reader has already seen is the bedside moment that turns into a calling. Look at where each of these chooses to start instead.',
     ],
@@ -121,8 +135,9 @@ export const collections = [
     title: 'Computer Science College Essay Examples From Admitted Students | Admitfolio',
     description:
       'Application essays from students admitted into computer science, computer engineering, data science, artificial intelligence and informatics programs.',
-    intro: [
+    lead:
       'These listings come from students who applied into computing and were admitted. The collection covers computer science, computer engineering, electrical and computer engineering, data science, artificial intelligence, informatics and symbolic systems.',
+    notes: [
       'Most include a Common App personal statement, and many also carry a why-school supplement. That second part is the useful one. Computer science is the field where the largest number of applicants arrive with the same stated interest, so the piece of writing that separates two similar transcripts is often the one about a specific department.',
       'Read the supplements first here. They are shorter, they are more concrete, and they show what an admitted applicant found worth naming about a program they had not attended yet.',
     ],
