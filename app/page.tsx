@@ -2201,8 +2201,13 @@ export default function Page() {
           <div className="logo-word">Admitfolio</div>
           <div className="logo-dot"></div>
         </a>
+        {/* No Collections entry here, or in either menu block below. The
+            homepage carries the collections band, six cards with live counts,
+            which is a better entry point than a nav link. Guides and the
+            collection pages have no band, so components/GuideShell keeps the
+            nav entry: that is their only route. The footer link below stays on
+            both. */}
         <div className="nav-links">
-          {LAUNCHED && <a href="/essays">Collections</a>}
           <a href="#featured" onClick={(event) => { event.preventDefault(); openFeatured(); }}>High schooler?</a>
           <a onClick={openSell}>In college?</a>
         </div>
@@ -2221,11 +2226,6 @@ export default function Page() {
               <div className="nav-menu-tablet-content">
                 <div className="nav-menu-group">
                   <div className="nav-menu-label">Choose your path</div>
-                  {LAUNCHED && (
-                    <a href="/essays" onClick={() => setMenuOpen(false)}>
-                      <span>Essay collections</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
-                    </a>
-                  )}
                   <a href="#featured" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openFeatured(); }}>
                     <span>High schooler?</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
                   </a>
@@ -2240,11 +2240,6 @@ export default function Page() {
                   <a href="#browse" onClick={(event) => { event.preventDefault(); setMenuOpen(false); openBrowse(); }}>
                     <span>Browse essays</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
                   </a>
-                  {LAUNCHED && (
-                    <a href="/essays" onClick={() => setMenuOpen(false)}>
-                      <span>Essay collections</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
-                    </a>
-                  )}
                   {LAUNCHED && (
                     <button type="button" onClick={() => { setMenuOpen(false); openMatcher(); }}>
                       <span>Find my matches</span><span className="nav-menu-arrow" aria-hidden="true">→</span>
