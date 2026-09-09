@@ -2340,7 +2340,6 @@ export default function Page() {
               <h2>Find the essay you are actually writing</h2>
               <p>Grouped by the prompt in front of you and by the subject you are applying into.</p>
             </div>
-            <a className="home-collections-all" href={COLLECTIONS_PATH}>All collections →</a>
           </div>
           <div className="home-collections-grid">
             {collections.map((entry) => {
@@ -2353,6 +2352,11 @@ export default function Page() {
                 </a>
               );
             })}
+          </div>
+          {/* The same centered pill Featured uses below its grid, so the two
+              sections have identical anatomy: heading, cards, one way deeper. */}
+          <div className="home-see-wrap">
+            <a className="home-see-more" href={COLLECTIONS_PATH}>See all collections</a>
           </div>
         </section>
       )}
