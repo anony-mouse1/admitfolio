@@ -158,6 +158,15 @@ assert.ok(
   'one dynamic route renders every collection',
 );
 assert.ok(fs.existsSync(path.join(root, 'app/essays/page.tsx')), 'the collection hub exists');
+const vercelIgnore = read('.vercelignore');
+assert.match(
+  vercelIgnore,
+  /^!app\/essays\/$/m,
+  'Vercel must not drop the app/essays route from the deployment output',
+);
+const collectionHub = read('app/essays/page.tsx');
+assert.match(collectionHub, /listings\.length\} listings for sale/, 'the hub labels its listing count accurately');
+assert.doesNotMatch(collectionHub, /listings\.length\} essays for sale/, 'the hub must not label listings as essays');
 assert.equal(new Set(collections.map((c) => c.slug)).size, collections.length, 'collection slugs are unique');
 for (const collection of collections) {
   assert.match(collection.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/, `${collection.slug} is a clean slug`);

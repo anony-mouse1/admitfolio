@@ -220,4 +220,3 @@ export function checkoutItemForListing(listing: PublicListing): CheckoutItem {
     essayCount: listing.essays.length,
   };
 }
-

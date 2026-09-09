@@ -36,7 +36,7 @@ export default async function EssayCollectionsPage() {
           <span aria-current="page">Essay collections</span>
         </nav>
         <header className={styles.header}>
-          <span className={styles.count}>{listings.length} essays for sale</span>
+          <span className={styles.count}>{listings.length} listings for sale</span>
           <h1>College essay collections</h1>
           <p className={styles.dek}>
             Real admissions essays, grouped by the prompt in front of you and by the subject you are applying into.
