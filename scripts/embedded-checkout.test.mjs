@@ -8,22 +8,44 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const route = read('app/api/checkout/route.ts');
 const page = read('app/page.tsx');
+// The detail sheet moved to its own component so the collection pages can open
+// it in place. The homepage still owns the checkout, so obscured stays here and
+// the aria-hidden it drives is asserted where the sheet now lives.
+const sheet = read('components/ListingDetail.tsx');
+// The checkout dialog moved too, for the same reason. app/page.tsx keeps only
+// which listing is open and what the URL says.
+const checkout = read('components/ListingCheckout.tsx');
+const browser = read('components/CollectionBrowser.tsx');
 const component = read('components/EmbeddedListingCheckout.tsx');
 const commerce = read('lib/commerce.ts');
 const styles = read('app/globals.css');
 
 assert.match(route, /clientSecret:\s*session\.client_secret/);
 assert.doesNotMatch(route, /url:\s*session\.url/);
-assert.match(page, /<EmbeddedListingCheckout/);
-assert.match(page, /Where should we send your essays\?/);
-assert.match(page, /deliveryEmail=\{buyDeliveryEmail\}/);
-assert.match(page, /buy-stripe-card/);
-assert.match(page, /Link, Apple Pay, or card/);
+assert.match(checkout, /<EmbeddedListingCheckout/);
+assert.match(checkout, /Where should we send your essays\?/);
+assert.match(checkout, /deliveryEmail=\{deliveryEmail\}/);
+assert.match(checkout, /buy-stripe-card/);
+assert.match(checkout, /Link, Apple Pay, or card/);
 assert.match(page, /url\.searchParams\.set\('checkout', item\.listingId\);[\s\S]*pushState\(\{ checkout: item\.listingId \}/);
+// A collection page must write ?checkout= against its own path, never '/'.
+// Writing it against the homepage is what threw a buyer out of the page they
+// were reading at the moment they decided to buy.
+assert.match(browser, /\$\{basePath\}\?checkout=/, 'the collection checkout URL must be the collection');
+assert.doesNotMatch(browser, /location\.assign/, 'and it must not navigate away');
+assert.match(browser, /ANALYTICS_EVENTS\.checkoutStarted/, 'Checkout Started must still fire on a fresh click');
+assert.match(checkout, /ANALYTICS_EVENTS\.checkoutEmailSubmitted/, 'and the email stage from the shared dialog');
+// Both surfaces record a view, or a checkout from a collection page has no
+// preceding step and the funnel does not add up.
+for (const [name, source] of [['app/page.tsx', page], ['components/CollectionBrowser.tsx', browser]]) {
+  assert.match(source, /ANALYTICS_EVENTS\.listingViewed/, `${name} must record Listing Viewed`);
+  assert.match(source, /trackedViews|trackedListingViews/, `${name} must record it once per listing`);
+}
 assert.match(page, /get\('checkout'\)[\s\S]*checkoutItemForListing\(listing\), false, false\)/);
 assert.match(page, /const closeBuy = useCallback\(\(\) => \{[\s\S]*setBuyOpen\(false\);[\s\S]*url\.searchParams\.set\('listing', curItem\.listingId\);[\s\S]*url\.hash = 'browse';/);
 assert.match(page, /obscured=\{buyOpen\}/);
-assert.match(page, /aria-hidden=\{obscured \|\| undefined\}/);
+assert.match(browser, /obscured=\{checkoutOpen\}/, 'the collection sheet must dim under checkout too');
+assert.match(sheet, /aria-hidden=\{obscured \|\| undefined\}/);
 assert.doesNotMatch(page, /setDetailId\(null\);[\s\S]{0,160}openBuy\(/);
 assert.match(styles, /@keyframes checkoutPageIn[\s\S]*translateX\(44px\)/);
 assert.match(styles, /\.modal-overlay\.buy-overlay \{[\s\S]*z-index: 130;[\s\S]*animation: checkoutPageIn \.38s/);

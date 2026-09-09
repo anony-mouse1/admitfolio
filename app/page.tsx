@@ -3,19 +3,38 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
 import LogoBadge, { universityLogoSrc } from '@/components/LogoBadge';
+import PublicListingCard from '@/components/PublicListingCard';
+import ListingDetail from '@/components/ListingDetail';
+import ListingCheckout from '@/components/ListingCheckout';
 import MatchFinder from '@/components/MatchFinder';
-import EmbeddedListingCheckout from '@/components/EmbeddedListingCheckout';
 import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/components/seller';
 import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
-import { CONTACT_EMAIL } from '@/lib/site';
+import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
+import { COLLECTIONS_PATH, collectionPath, collections, listingsInCollection } from '@/lib/collections';
 import type { ListingPriceSave } from '@/components/seller/ListingPricePanel';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
 import { catalogSchool, listingHeadline as resolveListingHeadline } from '@/lib/listingSchool';
 import { spreadRepeatedKeys } from '@/lib/listingOrder';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
+// The browse card and the pure helpers behind it live outside this file now,
+// so app/essays can server-render the same card. See lib/publicListing.ts.
+import {
+  cardTagLabel,
+  checkoutItemForListing,
+  collegeAdmitTags,
+  contentsLine,
+  headlineSchool,
+  isQuestBridgeTag,
+  majorsOf,
+  priceLabel,
+  publicListingTitle,
+  questBridgeLabel,
+  type CheckoutItem,
+  type PublicListing,
+} from '@/lib/publicListing';
 
 /* ============================================================================
    Types & static data
@@ -79,37 +98,6 @@ const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
 
 type BrowseView = 'cards' | 'rows';
 
-type PublicListing = {
-  id: string;
-  school: string;
-  targetSchool?: string | null;
-  headlineSchool?: string;
-  applicationSystem?: string | null;
-  admitTags: string[];
-  // The subset of admitTags backed by an acceptance letter a human checked.
-  // /api/listings has always computed this; the client never declared it, so
-  // buyers have never seen the distinction between a claimed and a proven admit.
-  verifiedAdmitTags?: string[];
-  price: number | null;
-  teaser: string | null;
-  // A safe first sentence read from one of this listing's own PDFs. This is the
-  // card title; teaser is only a fallback/secondary seller summary.
-  openingLine?: string | null;
-  appliedMajors: string | null;
-  major?: string | null;
-  createdAt: string;
-  essays: { prompt: string; question: string | null; wordCount: number | null }[];
-  seller: { displayName: string; backgroundTags: string[]; anonymity?: Anonymity };
-  otherListingIds?: string[];
-};
-
-type CheckoutItem = {
-  listingId: string;
-  school: string;
-  price: number;
-  summary?: string | null;
-  essayCount?: number;
-};
 
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
@@ -236,6 +224,7 @@ const comparisonRows: CmpRow[] = [
   { feature: 'Cost to get started', mineText: 'Up to 80% cheaper', diy: 'Free, unreliable', agency: '$200+ / hour' },
 ];
 
+const HOME_FEATURED_COUNT = 3;
 const chipLabels = ['All', 'Common App', 'Supplements', 'STEM', 'Humanities'];
 
 const promptOptions = [
@@ -300,8 +289,6 @@ const wholeDollarHint = 'Whole dollars only, no cents.';
 // those rows out today, so this is a guard rather than a live case, but the
 // detail sheet said "Free" while the card said nothing, and "Free" is the worst
 // available reading of "we do not know what this costs".
-const priceLabel = (price: number | null | undefined) =>
-  price != null ? `$${price}` : 'Price unavailable';
 const payoutDate = (value: string | null | undefined) => value
   ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   : null;
@@ -430,30 +417,53 @@ export default function Page() {
     });
   }, [detailListing]);
 
+  // True once opening the sheet pushed a history entry of our own. Closing then
+  // pops that entry instead of pushing a third one. Pushing on close is what
+  // stranded anyone arriving from a collection page: open a listing, close it,
+  // and Back reopened the listing rather than returning to where they came
+  // from, so the collection was three presses away through a reopening sheet.
+  const detailPushedRef = useRef(false);
+
   const openDetail = useCallback((id: string) => {
     setDetailId(id);
     const url = new URL(window.location.href);
     url.searchParams.set('listing', id);
     window.history.pushState({ listing: id }, '', url);
+    detailPushedRef.current = true;
   }, []);
 
   const closeDetail = useCallback(() => {
+    if (detailPushedRef.current) {
+      detailPushedRef.current = false;
+      // The popstate handler below clears detailId, so this closes the sheet
+      // and restores whatever the visitor was on before it opened.
+      window.history.back();
+      return;
+    }
     setDetailId(null);
     const url = new URL(window.location.href);
     url.searchParams.delete('listing');
-    window.history.pushState({}, '', url);
+    window.history.replaceState({}, '', url);
   }, []);
 
   // Open from the URL once the catalogue has arrived, so a shared link lands on
   // the right listing rather than an empty sheet.
+  //
+  // An id that is not in the catalogue used to do nothing at all: the visitor
+  // got the homepage with no explanation, which is what a link to a taken-down
+  // listing looks like from a search result or someone's saved tab.
+  const [missingListing, setMissingListing] = useState(false);
   useEffect(() => {
     if (!LAUNCHED || !pubListings.length) return;
     const id = new URLSearchParams(window.location.search).get('listing');
-    if (id && pubListings.some((l) => l.id === id)) setDetailId(id);
+    if (!id) return;
+    if (pubListings.some((l) => l.id === id)) setDetailId(id);
+    else setMissingListing(true);
   }, [pubListings]);
 
   useEffect(() => {
     function onPop() {
+      detailPushedRef.current = false;
       setDetailId(new URLSearchParams(window.location.search).get('listing'));
     }
     window.addEventListener('popstate', onPop);
@@ -492,6 +502,10 @@ export default function Page() {
     const ranked = [...matchingListings].sort(compareListingRank);
     return spreadRepeatedKeys(ranked, listingSchoolKey);
   }, [matchingListings]);
+  // Featured sits under the collections now and is proof rather than the lead,
+  // so it is one row. The selection below still picks six, one per school, and
+  // this takes the top of that list: changing the memo would change which
+  // schools appear, not just how many.
   const featuredListings = useMemo(() => {
     const priorityDomains = ['harvard.edu', 'stanford.edu', 'yale.edu', 'columbia.edu', 'upenn.edu', 'uchicago.edu'];
     const ranked = [...pubListings].sort(compareListingRank);
@@ -1367,9 +1381,6 @@ export default function Page() {
   // Stripe securely renders Checkout inside this modal. Card details never
   // enter Admitfolio's React state or touch our servers.
   const [curItem, setCurItem] = useState<Partial<CheckoutItem>>({});
-  const [buyErr, setBuyErr] = useState('');
-  const [buyDeliveryEmail, setBuyDeliveryEmail] = useState('');
-  const [buyEmailConfirmed, setBuyEmailConfirmed] = useState(false);
 
   const openBuy = useCallback((item: CheckoutItem, syncUrl = true, trackStart = true) => {
     if (trackStart) {
@@ -1384,9 +1395,6 @@ export default function Page() {
       window.history.pushState({ checkout: item.listingId }, '', url);
     }
     setCurItem(item);
-    setBuyErr('');
-    setBuyDeliveryEmail('');
-    setBuyEmailConfirmed(false);
     setBuyOpen(true);
   }, []);
   const closeBuy = useCallback(() => {
@@ -1422,24 +1430,6 @@ export default function Page() {
     window.addEventListener('popstate', syncCheckoutFromUrl);
     return () => window.removeEventListener('popstate', syncCheckoutFromUrl);
   }, [openBuy, pubListings]);
-
-  function confirmBuyDeliveryEmail() {
-    const email = buyDeliveryEmail.trim().toLowerCase();
-    if (!emailRe.test(email)) {
-      setBuyErr('Enter a valid delivery email.');
-      return;
-    }
-    setBuyDeliveryEmail(email);
-    setBuyErr('');
-    // Same property shape as Checkout Started so the stages line up in Vercel.
-    // Never the address itself. curItem is always complete while the modal is
-    // open; the fallbacks only satisfy its Partial type.
-    trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
-      school: curItem.school ?? '',
-      value: curItem.price ?? 0,
-    });
-    setBuyEmailConfirmed(true);
-  }
 
   function handleUnlock(essay: Essay) {
     // Sample cards are teasers - they are not purchasable.
@@ -2187,6 +2177,19 @@ export default function Page() {
   /* ============================ Render ============================ */
   return (
     <>
+      {/* The card links on /essays make ?listing= URLs crawlable, and every one
+          of them serves this same page. Without a canonical, Google sees one
+          near-duplicate homepage per listing, which is the "Duplicate without
+          user-selected canonical" report already open in Search Console. This
+          file is a client component so it cannot export metadata; React hoists
+          a rendered <link> into <head>, and it is in the prerendered HTML. */}
+      <link rel="canonical" href={`${SITE_URL}/`} />
+      {missingListing && (
+        <div className="site-update" role="status">
+          <span>That essay is no longer for sale. Browse the rest below.</span>
+          <button type="button" onClick={() => setMissingListing(false)}>Dismiss</button>
+        </div>
+      )}
       {updateAvailable && (
         <div className="site-update" role="status">
           <span>Admitfolio was updated.</span>
@@ -2198,6 +2201,12 @@ export default function Page() {
           <div className="logo-word">Admitfolio</div>
           <div className="logo-dot"></div>
         </a>
+        {/* No Collections entry here, or in either menu block below. The
+            homepage carries the collections band, six cards with live counts,
+            which is a better entry point than a nav link. Guides and the
+            collection pages have no band, so components/GuideShell keeps the
+            nav entry: that is their only route. The footer link below stays on
+            both. */}
         <div className="nav-links">
           <a href="#featured" onClick={(event) => { event.preventDefault(); openFeatured(); }}>High schooler?</a>
           <a onClick={openSell}>In college?</a>
@@ -2318,6 +2327,35 @@ export default function Page() {
         </div>
       </section>
 
+      {/* ===== Collections ===== */}
+      {LAUNCHED && pageView === 'home' && (
+        <section className="home-collections catalog-section">
+          <div className="featured-head home-featured-head">
+            <div>
+              <h2>Find the essay you are actually writing</h2>
+              <p>Grouped by the prompt in front of you and by the subject you are applying into.</p>
+            </div>
+          </div>
+          <div className="home-collections-grid">
+            {collections.map((entry) => {
+              const n = pubListings.length ? listingsInCollection(pubListings, entry.rule).length : 0;
+              return (
+                <a key={entry.slug} className="home-collection" href={collectionPath(entry.slug)}>
+                  {n > 0 && <span className="home-collection-count">{n} listings</span>}
+                  <span className="home-collection-title">{entry.name}</span>
+                  <span className="home-collection-dek">{entry.dek}</span>
+                </a>
+              );
+            })}
+          </div>
+          {/* The same centered pill Featured uses below its grid, so the two
+              sections have identical anatomy: heading, cards, one way deeper. */}
+          <div className="home-see-wrap">
+            <a className="home-see-more" href={COLLECTIONS_PATH}>See all collections</a>
+          </div>
+        </section>
+      )}
+
       {/* ===== Featured ===== */}
       <section className={`featured${LAUNCHED ? ' catalog-section' : ''}${LAUNCHED && pageView === 'home' ? ' home-featured' : ''}`} id={LAUNCHED && pageView === 'home' ? 'featured' : 'browse'}>
         {LAUNCHED && pageView === 'home' ? (
@@ -2325,14 +2363,14 @@ export default function Page() {
             <div className="featured-head home-featured-head">
               <div>
                 <h2>Featured essays</h2>
-                <p>Six standout schools to start with. The full catalogue stays one click away.</p>
+                <p>Or start from a real one. Three schools to begin with, and the full catalogue stays one click away.</p>
               </div>
             </div>
             {pubState === 'loading' && <div className="pub-empty">Loading essays&hellip;</div>}
             {pubState === 'error' && <div className="pub-empty">Could not load essays right now. Refresh to try again.</div>}
             {featuredListings.length > 0 && (
               <div className="grid public-grid home-featured-grid">
-                {featuredListings.map((listing) => (
+                {featuredListings.slice(0, HOME_FEATURED_COUNT).map((listing) => (
                   <PublicListingCard
                     key={listing.id}
                     listing={listing}
@@ -2814,7 +2852,7 @@ export default function Page() {
             </div>
             <div>
               <div className="foot-col-title">Product</div>
-              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/guides">Blog</a></div>
+              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/essays">Essay collections</a><a href="/guides">Blog</a></div>
             </div>
             <div>
               <div className="foot-col-title">Legal</div>
@@ -3308,103 +3346,7 @@ export default function Page() {
       )}
 
       {/* ===== Buyer checkout modal ===== */}
-      <div className={`modal-overlay buy-overlay${buyOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) closeBuy(); }}>
-        <div className="modal buy-modal">
-          <button className="modal-close mobile-page-close" aria-label="Back to essays" onClick={closeBuy}>
-            <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
-            <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
-          </button>
-          <section className="buy-order">
-            <div className="buy-order-logo"><span>admitfolio</span><i /></div>
-            <button className="buy-back" type="button" onClick={closeBuy}>← Back to listing</button>
-            <div className="modal-eyebrow">Checkout · No account needed</div>
-            <h3 id="buyTitle">Unlock this listing</h3>
-            <p className="buy-intro">Read the full listing immediately after checkout.</p>
-            <div className="buy-summary">
-              <div className="buy-summary-essay">
-                <div className="buy-summary-school">{curItem.school || 'This listing'}</div>
-                <div className="buy-summary-hook">
-                  {curItem.summary || `${curItem.essayCount || 1} essay${(curItem.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
-                </div>
-              </div>
-              <div className="buy-summary-price">{priceLabel(curItem.price)}</div>
-            </div>
-            <div className="buy-total"><span>Total</span><i /><strong>{priceLabel(curItem.price)}</strong></div>
-            <div className="buy-delivery">
-              <div><b>✓</b><span>Instant private access after payment</span></div>
-              <div><b>✓</b><span>Secure reading link sent to your email</span></div>
-              <div><b>✓</b><span>For inspiration only, never for copying</span></div>
-            </div>
-          </section>
-
-          <section className="buy-payment">
-            {!buyEmailConfirmed ? (
-              <>
-                <div className="modal-eyebrow">Step 1 of 2 · Delivery</div>
-                <h4>Where should we send your essays?</h4>
-                <p>Confirm the email for your private reading link. Your card or Link account can use a different email.</p>
-                <div className="buy-email-field">
-                  <label htmlFor="buyDeliveryEmail">Delivery email</label>
-                  <input
-                    id="buyDeliveryEmail"
-                    type="email"
-                    maxLength={254}
-                    autoComplete="email"
-                    spellCheck={false}
-                    value={buyDeliveryEmail}
-                    onChange={(event) => { setBuyDeliveryEmail(event.target.value); setBuyErr(''); }}
-                    onKeyDown={(event) => { if (event.key === 'Enter') confirmBuyDeliveryEmail(); }}
-                    placeholder="you@email.com"
-                  />
-                  <small>We will send the receipt and reading link to this exact address.</small>
-                </div>
-                <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-                <button className="buy-email-continue" type="button" onClick={confirmBuyDeliveryEmail}>
-                  Continue to secure payment
-                </button>
-                <div className="buy-secure">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-                  Card details are still handled securely by Stripe
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="modal-eyebrow">Step 2 of 2 · Secure checkout</div>
-                <h4>Pay without leaving Admitfolio</h4>
-                <p>Stripe shows Link, Apple Pay, or card when each option is available on your device.</p>
-                <div className="buy-email-confirmed">
-                  <span>Delivery to <b>{buyDeliveryEmail}</b></span>
-                  <button type="button" onClick={() => { setBuyEmailConfirmed(false); setBuyErr(''); }}>Change</button>
-                </div>
-                <div className={`field-error${buyErr ? ' show' : ''}`}>{buyErr || ''}</div>
-                <div className="buy-stripe-card">
-                  <div className="buy-stripe-head">
-                    <div className="buy-stripe-head-main">
-                      <span className="buy-stripe-shield" aria-hidden="true">✓</span>
-                      <span><strong>Secure payment</strong><small>Encrypted from end to end</small></span>
-                    </div>
-                    <span className="buy-stripe-brand">Powered by Stripe</span>
-                  </div>
-                  {buyOpen && curItem.listingId && (
-                    <EmbeddedListingCheckout
-                      key={`${curItem.listingId}:${buyDeliveryEmail}`}
-                      listingId={curItem.listingId}
-                      deliveryEmail={buyDeliveryEmail}
-                      school={curItem.school ?? ''}
-                      price={curItem.price ?? 0}
-                      onError={setBuyErr}
-                    />
-                  )}
-                </div>
-                <div className="buy-secure">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-                  Payments handled by Stripe · Card details never touch our servers
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-      </div>
+      <ListingCheckout open={buyOpen} item={curItem} onClose={closeBuy} />
 
       {/* ===== Sticky floating waitlist button ===== */}
       <button className={`wl-fab${fabShow ? ' show' : ''}`} type="button" aria-label="Join the waitlist" onClick={openWaitlist}>
@@ -3838,23 +3780,7 @@ function AltValue({ v }: { v: string }) {
   return <>{v}</>;
 }
 
-/* Real, purchasable listing card (launch mode). */
 
-// The card leads with the school a buyer is shopping FOR, not the one the
-// seller currently attends.
-//
-// `Listing.school` is the seller's current university, so a student who sold
-// their UC essays, their Common App essays and their MIT essays produced three
-// cards all titled with the same university. Measured on the live catalogue:
-// 88 of 144 cards belong to a seller with more than one listing, and every one
-// of those sellers had an identical headline on all of their cards.
-//
-// New listings store this explicitly. Older multi-admit listings use the
-// application name because the old form saved accepted schools, not a single
-// listing college. Never guess from the first admit or current university.
-function headlineSchool(l: PublicListing): string {
-  return l.headlineSchool || resolveListingHeadline({ ...l, essays: l.essays });
-}
 
 function listingRankTier(l: PublicListing): number {
   const exactSchool = catalogSchool(l);
@@ -3884,129 +3810,14 @@ function listingSchoolKey(listing: PublicListing): string {
   return schoolInfo(school)?.domain || schoolShortName(school).toLocaleLowerCase();
 }
 
-// The package pill already shows the essay count. Keep this line for the
-// contents only, matching the approved browse mockup without repeating the
-// same number twice on one card.
-//
-// This is what actually differs between one seller's listings, and it used to
-// read "Verified admit · 4 essays" on every card, which is why the grid looked
-// like duplicates.
-function contentsLine(l: PublicListing): string {
-  // De-duplicated: four UC Personal Insight Questions would otherwise print the
-  // same label four times. Labels already contain ' · ', so the separator
-  // between them has to be a comma or the whole line reads as one chain.
-  const labels: string[] = [];
-  for (const e of l.essays) {
-    const label = essayLabel(e);
-    if (label && !labels.includes(label)) labels.push(label);
-  }
-  const head = labels.slice(0, 2).join(', ') + (labels.length > 2 ? `, +${labels.length - 2} more` : '');
-  return head;
-}
 
-function majorsOf(l: PublicListing): string[] {
-  return (l.appliedMajors || l.major || '').split(',').map((m) => m.trim()).filter(Boolean);
-}
 
-// The first five schools, then a count. Five is a fixed number rather than a
-// width budget so every card lists the same amount, and .admit-names reserves
-// the height whether or not it is used.
-const MAX_ADMIT_NAMES = 5;
-function admitNameLine(list: string[]): string {
-  const names = list.map((n) => schoolShortName(n));
-  const shown = names.slice(0, MAX_ADMIT_NAMES);
-  const rest = names.length - shown.length;
-  return shown.join(', ') + (rest > 0 ? `, +${rest} more` : '');
-}
 
-function isQuestBridgeTag(value: string): boolean {
-  return schoolInfo(value)?.domain === 'questbridge.org';
-}
 
-// De-duplicated with the same rule addAdmit applies at entry, so entry and
-// render agree. Two spellings of one school ("University of Pennsylvania" and
-// "UPenn") both shorten to "UPenn" and used to print twice, on the card line
-// and again as two identical chips on the detail sheet. Only rows saved before
-// that entry check need this. The first spelling wins, so the hover title still
-// shows what the seller actually typed.
-function collegeAdmitTags(listing: PublicListing): string[] {
-  const kept: string[] = [];
-  for (const tag of listing.admitTags) {
-    if (isQuestBridgeTag(tag)) continue;
-    if (kept.some((existing) => sameSchool(existing, tag))) continue;
-    kept.push(tag);
-  }
-  return kept;
-}
 
-function questBridgeLabel(listing: PublicListing): string | null {
-  const tags = listing.admitTags.map((tag) => tag.toLowerCase().trim());
-  if (tags.includes('questbridge scholar')) return 'QuestBridge Scholar';
-  if (tags.includes('questbridge finalist')) return 'QuestBridge Finalist';
-  if (tags.includes('questbridge')) return 'QuestBridge';
-  return null;
-}
 
-// What a browse card calls an essay.
-//
-// `question` is the seller's free-text box, filled in when they pick "Other",
-// and it holds the college's prompt verbatim - some run past 300 characters.
-// Printed raw into `.ecard-prompt` (uppercase, letter-spaced) it stopped being
-// a label and became the loudest thing on the card, six lines of shouting
-// above the essay it was meant to caption.
-const OTHER_PROMPT = /^other/i;
-const PROMPT_MAX = 52;
 
-// Cut at a word boundary so a label never ends mid-word. If the last space is
-// too early to be worth keeping, cut hard instead of leaving a stub.
-function truncateWords(s: string, max: number): string {
-  if (s.length <= max) return s;
-  const cut = s.slice(0, max);
-  const space = cut.lastIndexOf(' ');
-  const kept = space > max * 0.6 ? cut.slice(0, space) : cut;
-  return kept.replace(/[\s,;:.–—-]+$/, '') + '…';
-}
 
-// A preset prompt is already a label ("Why-school · Supplement"), so it wins.
-// The seller's own wording is only the better name when there is no preset,
-// which is exactly the "Other" case it was added for.
-function essayLabel(e: { prompt: string; question: string | null }): string {
-  const custom = (e.question || '').trim();
-  const preset = (e.prompt || '').trim();
-  const raw = !preset || OTHER_PROMPT.test(preset) ? custom || preset : preset;
-  return truncateWords(raw, PROMPT_MAX);
-}
-
-// Every card gets one accurate title from an essay in this exact listing.
-// `openingLine` is extractor-approved and seller-name checks run before it is
-// stored. Seller-written marketing copy is only a fallback. A prompt label is
-// the last resort for scans or short answers with no safe prose to extract.
-function publicListingTitle(listing: PublicListing): string {
-  const written = (listing.openingLine || listing.teaser || '').trim();
-  if (written) return truncateWords(written, 120);
-  const prompt = listing.essays[0] ? essayLabel(listing.essays[0]) : '';
-  if (prompt) return prompt;
-  const school = schoolShortName(headlineSchool(listing));
-  return `${school} admission essay${listing.essays.length === 1 ? '' : ' collection'}`;
-}
-
-function checkoutItemForListing(listing: PublicListing): CheckoutItem {
-  return {
-    listingId: listing.id,
-    school: schoolShortName(headlineSchool(listing)),
-    price: listing.price || 0,
-    summary: publicListingTitle(listing),
-    essayCount: listing.essays.length,
-  };
-}
-
-function sameTitleText(a: string | null | undefined, b: string | null | undefined): boolean {
-  const normalize = (value: string | null | undefined) =>
-    (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const left = normalize(a);
-  const right = normalize(b);
-  return Boolean(left && right && left.slice(0, 60) === right.slice(0, 60));
-}
 
 // Two shortened labels joined can still run past 100 characters, which is what
 // made cards in the same row different heights. So the line gets its own budget:
@@ -4050,369 +3861,8 @@ function promptLineOf(labels: string[]): string {
   return shown.join(BETWEEN) + (rest > 0 ? `${BETWEEN}+${rest} more` : '');
 }
 
-function PublicListingCard({
-  listing,
-  onUnlock,
-  onOpen,
-}: {
-  listing: PublicListing;
-  onUnlock: () => void;
-  onOpen: () => void;
-}) {
-  const count = listing.essays.length;
-  const head = headlineSchool(listing);
-  const info = schoolInfo(head);
-  const label = info ? info.short : schoolShortName(head);
-  const majors = majorsOf(listing);
-  const title = publicListingTitle(listing);
-  const admittedColleges = collegeAdmitTags(listing);
-  const questBridge = questBridgeLabel(listing);
-  const displayTags = questBridge
-    ? [questBridge, ...listing.seller.backgroundTags.filter((tag) => tag !== questBridge)]
-    : listing.seller.backgroundTags;
-  return (
-    // The whole card opens the detail sheet. It has had `cursor: pointer` since
-    // launch while doing nothing, which is why clicking a card felt broken.
-    <div
-      className={`ecard catalog-card${count > 1 ? ' is-set' : ''}`}
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-    >
-      <div className="ecard-head">
-        <LogoBadge
-          domain={info ? info.domain : undefined}
-          letter={(label[0] || 'A').toUpperCase()}
-          color={schoolColor(head)}
-          school={head}
-          size={44}
-          fontSize={18}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className={`ecard-type ${count > 1 ? 'kind-package' : 'kind-single'}`}>
-            <span className="type-glyph" aria-hidden="true" />
-            <span>{count > 1 ? 'Package' : 'Single'}</span>
-            <b>{count} essay{count === 1 ? '' : 's'}</b>
-          </div>
-          <div className="ecard-school">{label}</div>
-          <div className="ecard-meta">{contentsLine(listing)}</div>
-        </div>
-      </div>
-      <div className={`ecard-prompt${majors.length ? '' : ' is-empty'}`} title={majors.join(', ')}>
-        {majors.length ? `${majors[0]}${majors.length > 1 ? ` +${majors.length - 1}` : ''}` : ''}
-      </div>
-      <div className="ecard-hook" title={title}>{title}</div>
-      <div className={`ecard-tags${displayTags.length ? '' : ' is-empty'}`}>
-        {displayTags.slice(0, 2).map((t) => (
-          <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`} title={t}>{cardTagLabel(t)}</span>
-        ))}
-        {displayTags.length > 2 && (
-          <span className="etag etag-more" title={displayTags.slice(2).join(', ')}>
-            +{displayTags.length - 2}
-          </span>
-        )}
-      </div>
-      {/* Two labelled lines with reserved heights, so every card is the same
-          shape and the price rules line up straight across a row. */}
-      <div className="ecard-lines">
-        <div className="ecard-admits">
-          <span className="ecard-admits-label">Seller attends</span>
-          <span className="admit-names" title={listing.school}>{schoolShortName(listing.school)}</span>
-        </div>
-        <div className="ecard-admits">
-          <span className="ecard-admits-label">Accepted at:</span>
-          <span className="admit-names multi" title={admittedColleges.join(', ')}>
-            {admittedColleges.length ? admitNameLine(admittedColleges) : 'Not listed'}
-          </span>
-        </div>
-      </div>
-      <div className="ecard-foot">
-        <div className="ecard-price">
-          <span className="p">{priceLabel(listing.price)}</span>
-          <span className="w">{count > 1 ? `${count}-essay set` : 'full essay'}</span>
-        </div>
-        {/* Decided buyers keep the one-click path; stopPropagation so it does
-            not also open the sheet behind the buy modal. */}
-        <div
-          className="ecard-unlock"
-          onClick={(e) => {
-            e.stopPropagation();
-            onUnlock();
-          }}
-        >
-          Unlock
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function cardTagLabel(tag: string): string {
-  if (tag === 'First-generation' || tag === 'First generation') return 'First gen';
-  if (tag === 'Low-income background') return 'Low-income';
-  return tag;
-}
 
-/* One school as a chip: logo plus short name. Used for both admit lists and the
-   "now attends" line on the detail sheet. */
-function SchoolChip({ name, verified }: { name: string; verified?: boolean }) {
-  const info = schoolInfo(name);
-  const label = info ? info.short : schoolShortName(name);
-  return (
-    <span className="d-school" title={name}>
-      <LogoBadge
-        domain={info ? info.domain : undefined}
-        letter={(label[0] || '?').toUpperCase()}
-        color={schoolColor(name)}
-        school={name}
-        size={24}
-        fontSize={11}
-      />
-      {label}
-      {verified && <span className="d-verified" title="Acceptance letter checked by a human">✓</span>}
-    </span>
-  );
-}
-
-/* What the seller is promised, in the seller's own terms. Never a name.
-   'anonymous' means never named, even to the buyer, so saying "anonymous until
-   purchase" for that case would be a promise the product does not keep. */
-function anonymityNote(mode: Anonymity | undefined): string {
-  if (mode === 'full') return 'Shares their name publicly.';
-  if (mode === 'revealOnPurchase') return 'Anonymous until purchase.';
-  return 'Stays anonymous, before and after purchase.';
-}
-
-/* The listing detail sheet.
-   Pure presentation over a PublicListing, so it can move into a /listing/[id]
-   route later without changing. Rendered as JSX rather than an HTML string:
-   Essay.question is seller free text that runs to 1,200 characters in the live
-   data, and one missed escape in a template would be stored XSS. */
-function ListingDetail({
-  listing,
-  allListings,
-  obscured = false,
-  onClose,
-  onOpenListing,
-  onUnlock,
-}: {
-  listing: PublicListing;
-  allListings: PublicListing[];
-  obscured?: boolean;
-  onClose: () => void;
-  onOpenListing: (id: string) => void;
-  onUnlock: () => void;
-}) {
-  const head = headlineSchool(listing);
-  const info = schoolInfo(head);
-  const label = info ? info.short : schoolShortName(head);
-  const majors = majorsOf(listing);
-  const verified = new Set(listing.verifiedAdmitTags || []);
-  const listed = new Date(listing.createdAt).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  const count = listing.essays.length;
-  const firstEssayLabel = listing.essays[0]?.prompt
-    .replace(/\s*·\s*/g, ' ')
-    .replace(/Personal Statement/g, 'personal statement')
-    .replace(/Supplement/g, 'supplement') || 'Essay';
-  const remainingEssays = listing.essays.slice(1);
-  const remainingAreSupplements = remainingEssays.length > 0
-    && remainingEssays.every((essay) => /supplement/i.test(essay.prompt));
-  const essayPreview = count === 1
-    ? firstEssayLabel
-    : `${firstEssayLabel} + ${count - 1} ${remainingAreSupplements
-      ? `supplement${count === 2 ? '' : 's'}`
-      : 'more'}`;
-  const title = publicListingTitle(listing);
-  const admittedColleges = collegeAdmitTags(listing);
-  const questBridge = questBridgeLabel(listing);
-  const sellerTags = questBridge
-    ? [questBridge, ...listing.seller.backgroundTags.filter((tag) => tag !== questBridge)]
-    : listing.seller.backgroundTags;
-  const otherListings = (listing.otherListingIds || [])
-    .map((id) => allListings.find((candidate) => candidate.id === id))
-    .filter((candidate): candidate is PublicListing => Boolean(candidate));
-
-  return (
-    <div
-      className="ov"
-      role="dialog"
-      aria-modal="true"
-      aria-hidden={obscured || undefined}
-      inert={obscured || undefined}
-      aria-label={`${label} listing`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="sheet">
-        <button className="sheet-x mobile-page-close" type="button" aria-label="Back to essays" onClick={onClose}>
-          <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
-          <span className="mobile-page-back-label" aria-hidden="true">←</span>
-        </button>
-
-        <div className="d-head">
-          <LogoBadge
-            domain={info ? info.domain : undefined}
-            letter={(label[0] || 'A').toUpperCase()}
-            color={schoolColor(head)}
-            school={head}
-            size={54}
-            fontSize={22}
-          />
-          <div style={{ minWidth: 0 }}>
-            <div className="d-title">{label}</div>
-            <div className="d-sub">{contentsLine(listing)}</div>
-          </div>
-        </div>
-
-        <div className="d-hook">{title}</div>
-        {/* The actual essay excerpt stays primary. A distinct seller-written
-            description can still add context once the buyer opens the card. */}
-        {listing.teaser && listing.openingLine && !sameTitleText(listing.teaser, listing.openingLine) && (
-          <div className="d-teaser">Seller&apos;s summary: {listing.teaser}</div>
-        )}
-
-        <div className="d-foot d-foot-top">
-          <div className="d-price">
-            {priceLabel(listing.price)}
-            <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
-          </div>
-          <button className="d-unlock-btn" type="button" onClick={onUnlock}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="5" y="10" width="14" height="11" rx="2" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-            </svg>
-            {count > 1 ? `Unlock ${count} essays` : 'Unlock full essay'}
-            <span className="d-unlock-arrow" aria-hidden="true">→</span>
-          </button>
-        </div>
-
-        <div className="d-sec">
-          <details className="d-essay-details">
-            <summary>
-              <span className="d-essay-summary-copy">
-                <strong>{count === 1 ? 'One essay included' : `${count} essays included`}</strong>
-                <span>{essayPreview}</span>
-              </span>
-              <span className="d-essay-summary-count">{count} {count === 1 ? 'essay' : 'essays'}</span>
-              <span className="d-essay-chevron" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            </summary>
-            <ul className="d-essays">
-              {listing.essays.map((e, i) => (
-                <li key={i}>
-                  <div className="p">{e.prompt}</div>
-                  {e.question && <div className="q">{e.question}</div>}
-                  {e.wordCount ? <div className="q">{e.wordCount} words</div> : null}
-                </li>
-              ))}
-            </ul>
-          </details>
-        </div>
-
-        <div className="d-sec d-overview" aria-label="Listing overview">
-          {admittedColleges.length > 0 && (
-            <div className="d-overview-row">
-              <div className="d-overview-label">Admitted to</div>
-              <div className="d-schools">
-                {admittedColleges.map((t) => (
-                  <SchoolChip key={t} name={t} verified={verified.has(t)} />
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="d-overview-row">
-            <div className="d-overview-label">Now attends</div>
-            <div className="d-schools">
-              <SchoolChip name={listing.school} />
-            </div>
-          </div>
-          {majors.length > 0 && (
-            <div className="d-overview-row">
-              <div className="d-overview-label">Applied as</div>
-              <div className="d-schools">
-                {majors.map((m) => (
-                  <span key={m} className="etag">{m}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="d-sec d-seller-strip" aria-label="Seller information">
-          <LogoBadge letter="V" color="#4a1d6b" school={listing.seller.displayName} size={40} fontSize={16} />
-          <div className="d-seller-copy">
-            <span className="d-seller-kicker">Seller</span>
-            <div className="d-profile-name">{listing.seller.displayName}</div>
-            <div className="d-profile-note">
-              {anonymityNote(listing.seller.anonymity)} Listed {listed}.
-            </div>
-          </div>
-          {sellerTags.length > 0 && (
-            <div className="d-seller-tags">
-              {sellerTags.map((t) => (
-                <span key={t} className={`etag${isQuestBridgeTag(t) ? ' questbridge' : ''}`}>{cardTagLabel(t)}</span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {otherListings.length > 0 && (
-          <div className="d-more-seller">
-            <h3>Browse more essays from this seller</h3>
-            <p>{otherListings.length} other public listing{otherListings.length === 1 ? '' : 's'}</p>
-            <div className="d-related-list">
-              {otherListings.map((other) => {
-                const otherSchool = headlineSchool(other);
-                const otherInfo = schoolInfo(otherSchool);
-                const otherLabel = otherInfo ? otherInfo.short : schoolShortName(otherSchool);
-                return (
-                  <button
-                    key={other.id}
-                    className="d-related"
-                    type="button"
-                    onClick={() => onOpenListing(other.id)}
-                  >
-                    <LogoBadge
-                      domain={otherInfo ? otherInfo.domain : undefined}
-                      letter={(otherLabel[0] || 'A').toUpperCase()}
-                      color={schoolColor(otherSchool)}
-                      school={otherSchool}
-                      size={36}
-                      fontSize={14}
-                    />
-                    <span className="d-related-copy">
-                      <strong>{otherLabel}</strong>
-                      <span>{publicListingTitle(other)}</span>
-                    </span>
-                    <span className="d-related-meta">
-                      {other.essays.length} {other.essays.length === 1 ? 'essay' : 'essays'}
-                      {` · ${priceLabel(other.price)}`}
-                    </span>
-                    <span className="d-related-arrow" aria-hidden="true">→</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function EssayCard({ essay, onUnlock }: { essay: Essay; onUnlock: () => void }) {
   return (

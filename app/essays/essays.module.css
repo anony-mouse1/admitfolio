@@ -1,0 +1,260 @@
+/* Shell for the collection hub and the collection pages. The cards themselves
+   reuse .ecard / .public-grid from globals.css, so a collection looks exactly
+   like Browse. Only the page around them is defined here. */
+
+.page {
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+/* The site nav is position:fixed at top:10px with a 66px pill, so page content
+   has to start below 76px or it renders underneath it. It used to start at
+   56px, which put the back link inside the nav: invisible behind the opaque
+   pill on mobile, and reading as a tagline under the logo on desktop. */
+.main {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 104px 40px 72px;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--faint);
+  margin-bottom: 26px;
+}
+
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--accent); text-decoration: underline; }
+.crumbs span[aria-current] { color: var(--ink); }
+
+.gone {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, #fff);
+  background: color-mix(in srgb, var(--accent) 6%, #fff);
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 720px;
+}
+
+/* One column, top to bottom: intro, stats band, rule, cards, notes.
+   It used to put the stats in a column beside the intro, and whichever of the
+   two was shorter left a hole. The intro length varies per collection and the
+   band's does not, so there was no arrangement of the two that worked for all
+   six. Stacked, neither can leave a gap at any content length. */
+/* A column, so the band can be reordered below the grid on a phone without
+   moving it in the DOM (it stays where it reads: intro, stats, cards). */
+.layout { display: flex; flex-direction: column; }
+
+.headerText { max-width: none; }
+.sectionRule { margin: 36px 0 0; border: 0; border-top: 1px solid var(--card-line); }
+.cards { min-width: 0; margin-top: 0; }
+.notes { max-width: 72ch; margin-top: 44px; }
+
+.headerText h1 {
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.14;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.dek { font-size: 17px; line-height: 1.5; color: var(--muted); margin: 0 0 18px; }
+/* Full width block, but the line itself is capped: 1120px of 16.5px text is
+   about 110 characters and stops being readable well before it stops fitting.
+   Nothing sits beside it, so the space to its right is trailing whitespace
+   rather than a hole. */
+.lead { font-size: 16.5px; line-height: 1.62; margin: 0; max-width: 76ch; }
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.guideNote {
+  margin: 20px 0 0;
+  max-width: 76ch;
+  padding: 14px 18px;
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.guideNote a { color: var(--accent); font-weight: 600; }
+
+.notes h2 {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+.notes p { font-size: 16.5px; line-height: 1.62; margin: 0 0 14px; }
+
+/* ---- The what-is-in-here band ---- */
+
+.band {
+  margin-top: 30px;
+  padding: 22px 24px;
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.band h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 9px;
+}
+
+/* The only side-by-side thing left, and its content is a number and a short
+   word, so it cannot vary enough to leave a gap. */
+.bandStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 44px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f2efe9;
+}
+
+.bandStat { display: flex; flex-direction: column; gap: 2px; }
+.bandStat b { font-family: var(--serif); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.bandStat span { font-size: 12.5px; color: var(--muted); }
+
+.bandGroup { padding-top: 16px; }
+
+.bandItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bandItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--card-line);
+  border-radius: 999px;
+  font-size: 13.5px;
+  line-height: 1.3;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 3%, #fff);
+}
+
+.bandItem b { font-weight: 700; color: var(--accent); }
+
+.bandMore {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.bandMore:hover { text-decoration: underline; }
+
+/* ---- The hub ---- */
+
+/* The hub's intro runs the full width of the card grid below it. Capped at
+   720px it left the same empty right-hand column the collection pages had, with
+   nothing to put in it: the hub has no per-collection panel to show.
+   Three columns rather than one long measure: a single 1200px line runs to
+   about 110 characters and stops being readable well before it stops fitting.
+   Three also means one paragraph per column, so nothing breaks across a
+   gutter, and the columns line up with the three cards below. */
+.intro { margin: 26px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.intro p { font-size: 16px; line-height: 1.6; color: var(--ink); margin: 0; }
+.header { max-width: none; }
+
+@media (max-width: 900px) { .intro { grid-template-columns: 1fr; gap: 14px; } }
+
+.header h1 {
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.14;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.hubGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.hubCard {
+  display: block;
+  padding: 22px;
+  border: 1px solid var(--card-line);
+  border-radius: 18px;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+}
+
+.hubCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 44px rgba(20,18,15,0.12);
+  border-color: #e4e0d7;
+}
+
+.hubCardCount {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.hubCardTitle {
+  font-family: var(--serif);
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 8px 0 8px;
+}
+
+.hubCardDek { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+@media (max-width: 720px) {
+  .main { padding: 88px 20px 56px; }
+  .crumbs { margin-bottom: 20px; font-size: 12.5px; }
+  /* Two thirds of the traffic is mobile and these are landing pages, so the
+     cards come first and the stats follow them. Desktop order is unchanged. */
+  .headerText { order: 1; }
+  .sectionRule { order: 2; }
+  .cards { order: 3; }
+  .band { order: 4; margin-top: 44px; }
+  .notes { order: 5; }
+  /* Two stats per row rather than four squeezed across 350px. */
+  .band { padding: 18px 16px; }
+  .bandStats { gap: 14px 0; }
+  .bandStat { flex: 0 0 50%; }
+  .bandStat b { font-size: 22px; }
+  .bandItem { font-size: 13px; padding: 4px 10px; }
+}

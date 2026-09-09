@@ -199,7 +199,7 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) { .trust-row { animation: none; } }
 
 /* ---- Featured ---- */
-.featured { max-width: 1200px; margin: 0 auto; padding: 80px 40px 40px; }
+.featured, .home-collections { max-width: 1200px; margin: 0 auto; padding: 80px 40px 40px; }
 .featured-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 .featured-head h2 { font-family: var(--serif); font-size: 42px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
 .featured-head p { font-size: 17px; line-height: 1.6; color: var(--muted); margin: 14px 0 0; max-width: 480px; }
@@ -787,7 +787,7 @@ footer { background: #1b1a17; color: #cfccc4; }
   .hero p { font-size: 15px; line-height: 1.5; margin-top: 14px; }
   .hero-sub-long { display: none; }
   .hero-sub-short { display: inline; }
-  .featured, .trust, .seller { padding-left: 20px; padding-right: 20px; }
+  .featured, .trust, .seller, .home-collections { padding-left: 20px; padding-right: 20px; }
   .how-inner, .why-inner, .foot-inner { padding-left: 20px; padding-right: 20px; }
   .faq-section-inner { padding: 72px 20px 80px; }
   .faq-section h2 { margin-bottom: 32px; font-size: 34px; white-space: normal; }
@@ -2462,7 +2462,12 @@ body { -webkit-tap-highlight-color: transparent; }
   font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline;
 }
 
-.home-featured { padding-top: 48px; padding-bottom: 76px; }
+.home-featured, .home-collections { padding-top: 48px; padding-bottom: 76px; }
+/* The one value not shared with Featured. 76 here plus Featured's own 48 above
+   would put 124px between two sections meant to read as a pair, which is more
+   than the 76px Featured has to How it works below it. 28 makes that gap 76 as
+   well, so every break through this part of the page is the same size. */
+.home-collections { padding-bottom: 28px; }
 .home-featured-grid { margin-top: 30px; }
 .home-see-wrap { display: flex; justify-content: center; margin-top: 38px; }
 .home-see-more {
@@ -2572,7 +2577,7 @@ body { -webkit-tap-highlight-color: transparent; }
 .mf-form button { flex: none; padding: 11px 18px; }
 
 @media (max-width: 560px) {
-  .home-featured { padding-top: 24px; }
+  .home-featured, .home-collections { padding-top: 24px; }
   .mf-band { margin: 28px 20px 88px; padding: 19px 20px; align-items: flex-start; flex-direction: column; gap: 14px; }
   .mf-band .btn-primary { width: 100%; }
   .mf-nudge { right: 14px; bottom: 14px; width: auto; max-width: calc(100vw - 28px); }
@@ -2601,7 +2606,7 @@ body { -webkit-tap-highlight-color: transparent; }
   from { opacity: 0; transform: translateY(18px) scale(.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.public-grid {
+.public-grid, .home-collections-grid {
   gap: 22px; margin-top: 20px; padding: 14px 0 0;
 }
 .public-grid .catalog-card {
@@ -2736,7 +2741,7 @@ body { -webkit-tap-highlight-color: transparent; }
   .browse-match-btn { display: none; }
   .pub-search { flex: 1 1 100%; min-width: 0; }
   .view-toggle { align-self: flex-start; }
-  .public-grid { gap: 14px; padding: 10px 0 0; }
+  .public-grid, .home-collections-grid { gap: 14px; padding: 10px 0 0; }
   .public-grid .catalog-card {
     min-height: 386px;
     aspect-ratio: auto;
@@ -3158,3 +3163,36 @@ body { -webkit-tap-highlight-color: transparent; }
   .dash-help-dock { right: 12px; bottom: 12px; padding: 10px 14px; font-size: 12.5px; }
   .dash-help-dock small { display: none; }
 }
+
+/* A browse card rendered as a link, used by the server-rendered collection
+   pages under app/essays. Same card, real href, no anchor styling. */
+a.ecard-link { text-decoration: none; color: inherit; }
+a.ecard-link:hover { text-decoration: none; }
+
+/* ---- Collections section on the homepage ---- */
+/* The section is a peer of Featured essays and sits directly above it, so it
+   shares Featured's declarations rather than copying its numbers: the section
+   box, the mobile gutters, the 48px above the heading and the grid's spacing
+   are all set in the same rules Featured uses. Only the column count and the
+   card styling live here, so the two cannot drift apart again. */
+.home-collections-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.home-collection {
+  display: block; padding: 20px; border: 1px solid var(--card-line); border-radius: 16px;
+  background: #fff; text-decoration: none; color: inherit;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+}
+.home-collection:hover { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(20,18,15,0.11); border-color: #e4e0d7; }
+.home-collection-count {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+}
+.home-collection-title {
+  display: block; font-family: var(--serif); font-size: 19px; font-weight: 700; line-height: 1.25; margin: 8px 0 7px;
+}
+.home-collection-dek { display: block; font-size: 14px; line-height: 1.45; color: var(--muted); }
+/* Follows the site's own .grid breakpoints (globals.css:765 and :779) so the
+   collection cards and the Featured cards below them break at the same widths.
+   A single break at 900px left six full-width cards on a tablet while Featured
+   was still two across. */
+@media (max-width: 900px) { .home-collections-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .home-collections-grid { grid-template-columns: 1fr; } }

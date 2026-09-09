@@ -638,10 +638,14 @@ a.guideCard:hover {
   background: var(--bg);
 }
 
+/* The nav is position:fixed at top:10px with a 66px pill, so content has to
+   start below 76px. At 62px the back link rendered underneath it: elementFromPoint
+   at the link's own centre returned the nav on desktop and the logo on mobile, so
+   "Back to all essay guides" was not clickable on any of the seven articles. */
 .articleShell {
   width: min(780px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 62px 0 100px;
+  padding: 104px 0 100px;
 }
 
 .backLink {
@@ -989,7 +993,9 @@ a.guideCard:hover {
 
   .articleShell {
     width: calc(100% - 36px);
-    padding-top: 38px;
+    /* The mobile nav pill is opaque and its bottom is at 69px, so 38 put the
+       back link behind the logo. */
+    padding-top: 88px;
   }
 
   .articleHeader {

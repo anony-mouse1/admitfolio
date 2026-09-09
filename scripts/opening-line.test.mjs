@@ -78,10 +78,21 @@ assert.equal(directIdentifierReason('My phone screen lights up.'), null);
 const decisionSource = await readFile(new URL('../lib/listingDecision.ts', import.meta.url), 'utf8');
 const reviewSource = await readFile(new URL('../lib/reviewRunner.ts', import.meta.url), 'utf8');
 const openingSource = await readFile(new URL('../lib/openingLine.ts', import.meta.url), 'utf8');
-const pageSource = await readFile(new URL('../app/page.tsx', import.meta.url), 'utf8');
+// publicListingTitle moved out of app/page.tsx into lib/publicListing.ts so the
+// server-rendered collection pages build the same card title. The rule that the
+// real opening line beats the seller's marketing teaser followed it there.
+const cardTitleSource = await readFile(new URL('../lib/publicListing.ts', import.meta.url), 'utf8');
 assert.match(decisionSource, /decision === 'approved'[\s\S]+ensureListingOpeningLine\(id\)/);
 assert.match(reviewSource, /ensureListingOpeningLine\(listing\.id\)/);
 assert.doesNotMatch(openingSource, /status: 'seller_teaser'/);
-assert.match(pageSource, /listing\.openingLine \|\| listing\.teaser/);
+assert.match(cardTitleSource, /listing\.openingLine \|\| listing\.teaser/);
+// The homepage and the collection pages must build that title the same way, so
+// neither may reimplement it.
+const homepageSource = await readFile(new URL('../app/page.tsx', import.meta.url), 'utf8');
+const cardBodySource = await readFile(new URL('../components/ListingCardBody.tsx', import.meta.url), 'utf8');
+for (const [name, source] of [['app/page.tsx', homepageSource], ['components/ListingCardBody.tsx', cardBodySource]]) {
+  assert.doesNotMatch(source, /openingLine \|\| /, `${name} must call publicListingTitle rather than reimplement it`);
+  assert.match(source, /publicListingTitle/, `${name} must use the shared card title`);
+}
 
 console.log('opening-line tests passed');

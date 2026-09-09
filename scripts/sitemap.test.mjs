@@ -18,7 +18,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const PRODUCTION_ORIGIN = 'https://admitfolio.com';
-const STATIC_PATHS = ['/', '/guides', '/privacy', '/terms'];
+const STATIC_PATHS = ['/', '/guides', '/essays', '/privacy', '/terms'];
 
 function toDataUrl(source) {
   const output = ts.transpileModule(source, {
@@ -53,12 +53,22 @@ async function render(scenario, env) {
     const tag = `\n// scenario: ${scenario}\n`;
     const site = toDataUrl(read('lib/site.ts') + tag);
     const guides = toDataUrl(relink(read('lib/guides.ts'), './site', site) + tag);
-    const sitemap = toDataUrl(relink(relink(read('app/sitemap.ts'), '@/lib/guides', guides), '@/lib/site', site) + tag);
+    // lib/collections.ts imports GuideSlug as a type only, so transpiling drops
+    // that import and only lib/site.ts has to be relinked.
+    const collections = toDataUrl(relink(read('lib/collections.ts'), './site', site) + tag);
+    const sitemap = toDataUrl(
+      relink(
+        relink(relink(read('app/sitemap.ts'), '@/lib/guides', guides), '@/lib/collections', collections),
+        '@/lib/site',
+        site,
+      ) + tag,
+    );
     const robots = toDataUrl(relink(read('app/robots.ts'), '@/lib/site', site) + tag);
     const registry = await import(guides);
+    const collectionRegistry = await import(collections);
     const entries = (await import(sitemap)).default();
     const rules = (await import(robots)).default();
-    return { registry, entries, rules };
+    return { registry, collectionRegistry, entries, rules };
   } finally {
     apply(saved);
   }
@@ -67,6 +77,7 @@ async function render(scenario, env) {
 const production = await render('production', { NEXT_PUBLIC_SITE_URL: PRODUCTION_ORIGIN, VERCEL_ENV: 'production' });
 const { entries, rules } = production;
 const guides = [...production.registry.guides];
+const collections = [...production.collectionRegistry.collections];
 
 // The registry and the filesystem agree, in both directions.
 const directories = fs
@@ -104,8 +115,12 @@ for (const guide of guides) {
 const paths = entries.map((entry) => new URL(entry.url).pathname).sort();
 assert.deepEqual(
   paths,
-  [...STATIC_PATHS, ...guides.map((guide) => `/guides/${guide.slug}`)].sort(),
-  'the sitemap lists exactly the static pages and every registered guide',
+  [
+    ...STATIC_PATHS,
+    ...guides.map((guide) => `/guides/${guide.slug}`),
+    ...collections.map((collection) => `/essays/${collection.slug}`),
+  ].sort(),
+  'the sitemap lists exactly the static pages, every registered guide and every registered collection',
 );
 for (const entry of entries) {
   const { pathname } = new URL(entry.url);
@@ -124,6 +139,119 @@ assert.equal(byPath.get('/guides').lastModified, guides.map((guide) => guide.mod
 for (const pathname of ['/', '/privacy', '/terms']) {
   assert.equal(byPath.get(pathname).lastModified, undefined, `${pathname} has no invented date`);
 }
+// A collection's content moves whenever a listing is approved and nothing
+// records that date, so none of them may claim one either.
+for (const collection of collections) {
+  assert.equal(
+    byPath.get(`/essays/${collection.slug}`).lastModified,
+    undefined,
+    `/essays/${collection.slug} has no invented date`,
+  );
+}
+assert.equal(byPath.get('/essays').lastModified, undefined, '/essays has no invented date');
+
+// The collection registry is well formed, and one dynamic route renders all of
+// them, so the check is that the route exists and that every entry is complete
+// rather than one directory per slug.
+assert.ok(
+  fs.existsSync(path.join(root, 'app/essays/[collection]/page.tsx')),
+  'one dynamic route renders every collection',
+);
+assert.ok(fs.existsSync(path.join(root, 'app/essays/page.tsx')), 'the collection hub exists');
+const vercelIgnore = read('.vercelignore');
+assert.match(
+  vercelIgnore,
+  /^!app\/essays\/$/m,
+  'Vercel must not drop the app/essays route from the deployment output',
+);
+const collectionHub = read('app/essays/page.tsx');
+assert.match(collectionHub, /listings\.length\} listings for sale/, 'the hub labels its listing count accurately');
+assert.doesNotMatch(collectionHub, /listings\.length\} essays for sale/, 'the hub must not label listings as essays');
+assert.equal(new Set(collections.map((c) => c.slug)).size, collections.length, 'collection slugs are unique');
+for (const collection of collections) {
+  assert.match(collection.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/, `${collection.slug} is a clean slug`);
+  for (const key of ['name', 'dek', 'title', 'description']) {
+    assert.ok(collection[key].length > 0, `${collection.slug} has a ${key}`);
+  }
+  assert.ok(collection.lead.length > 80, `${collection.slug} has a lead paragraph`);
+  assert.ok(collection.notes.length >= 1, `${collection.slug} has closing notes`);
+  // AGENTS.md: no em dashes in site copy.
+  const copy = [collection.name, collection.dek, collection.title, collection.description, collection.lead, ...collection.notes].join(' ');
+  assert.doesNotMatch(copy, /[\u2014\u2013]/, `${collection.slug} copy uses no em or en dashes`);
+  assert.ok(
+    collection.rule.kind === 'prompt' || collection.rule.kind === 'major',
+    `${collection.slug} groups by prompt or major, never by seller or school`,
+  );
+}
+// The pages and the hub read their URLs from the registry, exactly as the
+// guides do, so a canonical cannot drift from a sitemap entry.
+const collectionRoute = read('app/essays/[collection]/page.tsx');
+assert.ok(collectionRoute.includes('collectionUrl(collection.slug)'), 'the collection canonical comes from the registry');
+assert.ok(collectionRoute.includes('alternates: { canonical: url }'), 'the collection canonical is that URL');
+assert.doesNotMatch(collectionRoute, /https:\/\/admitfolio\.com/, 'the collection route has no literal site URL');
+
+// A card link has to be a real href a crawler can follow, and it has to point at
+// the collection rather than the homepage. Pointing it at /?listing= is what
+// made a click paint the whole homepage before the sheet arrived.
+const collectionCard = read('components/CollectionListingCard.tsx');
+assert.match(collectionCard, /<a\b/, 'a listing card must be an anchor');
+assert.match(collectionCard, /href=\{`\$\{basePath\}\?listing=/, 'a card must link into its own collection');
+assert.doesNotMatch(collectionCard, /href=\{`\/\?listing=/, 'a card must not send a visitor to the homepage');
+
+// "Browse more essays from this seller" is a same-seller grouping. lib/anonymity
+// exists to stop that being published, so it must never be in the HTML a crawler
+// reads: the sheet renders on the server for a ?listing= deep link, and the
+// block is gated on a flag that is false until the client has mounted.
+const sheet = read('components/ListingDetail.tsx');
+const browser = read('components/CollectionBrowser.tsx');
+assert.match(sheet, /showSiblings \&\& otherListings\.length > 0/, 'the sibling block must be gated');
+assert.match(browser, /showSiblings=\{false\}/, 'the collection sheet must never show siblings');
+// Handing listings to a client component serialises every field into the RSC
+// payload inside the HTML, so the ids have to be dropped at that boundary or
+// the grouping is published in an indexable document.
+assert.match(
+  collectionRoute,
+  /listings\.map\(\(\{ otherListingIds: _siblings, \.\.\.listing \}\) => listing\)/,
+  'the collection route must strip sibling ids before they reach the client',
+);
+assert.match(collectionRoute, /<CollectionBrowser\s+listings=\{browsable\}/, 'and pass the stripped list, not the raw one');
+assert.match(browser, /Omit<PublicListing, 'otherListingIds'>/, 'the browser must not accept sibling ids at all');
+
+// A listing that was taken down keeps its indexed link, so the page has to say
+// what happened rather than silently ignoring the query.
+// The stats band is real indexable text and answers the two questions a buyer
+// has on this page, so a layout change must not quietly drop half of it.
+for (const [what, pattern] of [
+  ['listing count', /summary\.listings/],
+  ['essay count', /summary\.essays/],
+  ['package count', /summary\.packages/],
+  ['price range', /summary\.priceLow/],
+  ['essay types', /summary\.prompts\.map/],
+  ['where writers got in', /summary\.schools\.map/],
+]) {
+  assert.match(collectionRoute, pattern, `the stats band must keep its ${what}`);
+}
+// It sits between the intro and the grid, in one column. Beside the intro,
+// whichever of the two was shorter left a hole, and the intro length varies per
+// collection while the band's does not.
+assert.ok(
+  collectionRoute.indexOf('styles.band') > collectionRoute.indexOf('styles.headerText')
+    && collectionRoute.indexOf('styles.band') < collectionRoute.indexOf('styles.cards'),
+  'the band must sit between the intro and the card grid',
+);
+
+assert.match(collectionRoute, /missingListing/, 'a collection must handle a listing id it does not hold');
+assert.match(collectionRoute, /no longer for sale/, 'and say so in words');
+
+// Closing the sheet must pop the entry opening it pushed. Pushing a third entry
+// is what left a visitor from a collection page stranded on the homepage.
+const homepage = read('app/page.tsx');
+assert.match(homepage, /detailPushedRef\.current = false;\s*\n\s*\/\/[\s\S]{0,200}window\.history\.back\(\);/, 'closeDetail must pop its own history entry');
+assert.doesNotMatch(
+  homepage,
+  /const closeDetail = useCallback\(\(\) => \{[\s\S]*?url\.searchParams\.delete\('listing'\);\s*\n\s*window\.history\.pushState/,
+  'closeDetail must never push on close',
+);
 
 // Each article's canonical is the sitemap URL by construction: both come from
 // the same registry entry through the same function, and nothing is hardcoded.

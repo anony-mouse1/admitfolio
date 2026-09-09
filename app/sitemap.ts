@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { COLLECTIONS_PATH, collectionPath, collections } from '@/lib/collections';
 import { GUIDES_PATH, guidePath, guides } from '@/lib/guides';
 import { crawlOrigin } from '@/lib/site';
 
@@ -15,6 +16,11 @@ import { crawlOrigin } from '@/lib/site';
 // privacy and terms carry no date rather than a build timestamp that would
 // tell Google every page changed on every deploy. No priority or
 // changeFrequency: Google ignores both, and there is nothing true to put there.
+//
+// The collection pages come from lib/collections.ts, the same registry the hub
+// and the pages themselves read, so this cannot list a collection that does not
+// exist or miss one that does. They carry no lastModified either: their content
+// changes whenever a listing is approved, and there is no date recording that.
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = crawlOrigin();
@@ -23,6 +29,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${origin}/` },
     { url: `${origin}${GUIDES_PATH}`, lastModified: newestGuideChange },
     ...guides.map((guide) => ({ url: `${origin}${guidePath(guide.slug)}`, lastModified: guide.modified })),
+    { url: `${origin}${COLLECTIONS_PATH}` },
+    ...collections.map((collection) => ({ url: `${origin}${collectionPath(collection.slug)}` })),
     { url: `${origin}/privacy` },
     { url: `${origin}/terms` },
   ];
