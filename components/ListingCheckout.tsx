@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import LogoBadge from '@/components/LogoBadge';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
 import { priceLabel, type CheckoutItem } from '@/lib/publicListing';
+import { schoolColor, schoolInfo } from '@/lib/schools';
 
 // The checkout overlay, lifted out of app/page.tsx so the collection pages can
 // open it without sending the buyer to the homepage first.
@@ -14,6 +16,17 @@ import { priceLabel, type CheckoutItem } from '@/lib/publicListing';
 // listing is open and what its URL says, because those are the two things that
 // genuinely differ. Checkout Started stays with the caller, which is the only
 // place that knows whether this is a fresh click or a restore from the URL.
+//
+// ONE SCREEN. This used to be "Step 1 of 2 · Delivery" and "Step 2 of 2 ·
+// Secure checkout", with an order panel roughly 750px tall above the field. On
+// a 390px phone that put the submit button at y 847 in an 844px viewport, off
+// the bottom of the screen, behind a restatement of the detail sheet the buyer
+// had just read. Measured, not inferred. Since 7 Sep that step has taken 37
+// unlock clicks down to 2 email submissions.
+//
+// So the order panel is one row, and the payment card is present from first
+// paint with its header. Stripe mounts inside the card that is already there,
+// which is why nothing above it moves when the address validates.
 
 // components/EmbeddedListingCheckout calls loadStripe at module scope, so a
 // static import pulls Stripe.js into every page that can reach checkout. That
@@ -35,19 +48,48 @@ export default function ListingCheckout({
 }) {
   const [error, setError] = useState('');
   const [deliveryEmail, setDeliveryEmail] = useState('');
-  const [emailConfirmed, setEmailConfirmed] = useState(false);
+  // The normalised address the Stripe session is built for. Empty until one
+  // validates. This is what decides whether Stripe is mounted, and it is the
+  // only thing that keys the mount, so the number of /api/checkout calls is the
+  // number of DISTINCT valid addresses committed, never the number of blurs.
+  // Refocusing, tabbing away, autocorrect and autofill all re-commit the same
+  // normalised string and so cannot open a second session.
+  const [confirmedEmail, setConfirmedEmail] = useState('');
+  // Checkout Email Submitted has to stay comparable with the numbers measured
+  // under the two-step flow, so it reports once per distinct address rather
+  // than once per commit. Editing an address and going back to an earlier one
+  // does not report it twice.
+  const reportedEmails = useRef<Set<string>>(new Set());
 
-  // A new listing, or a reopen, always starts at step 1 with an empty field.
+  // A new listing, or a reopen, always starts empty.
   // app/page.tsx used to do this inline in openBuy.
   useEffect(() => {
     if (!open) return;
     setError('');
     setDeliveryEmail('');
-    setEmailConfirmed(false);
+    setConfirmedEmail('');
+    reportedEmails.current.clear();
   }, [open, item.listingId]);
 
-  function confirmDeliveryEmail() {
-    const email = deliveryEmail.trim().toLowerCase();
+  // Commit, not "submit". There is no button to press: this runs when the field
+  // loses focus or the buyer presses Enter. Never on keystroke, because that
+  // would both report a half-typed address and open a Stripe session per pause.
+  //
+  // Reaching the Stripe form requires moving focus out of this input, which
+  // fires blur, so the mounted session can never belong to an address the field
+  // has since been edited past without the buyer seeing the error below.
+  // The value comes from the event, not from state. Closing over deliveryEmail
+  // meant a blur arriving in the same tick as the value change, which is what
+  // autofill and password managers do, read the previous value and committed
+  // nothing.
+  const commitDeliveryEmail = useCallback((raw: string) => {
+    const email = raw.trim().toLowerCase();
+    // An empty field is someone who has not started, not someone who got it
+    // wrong. Nagging on the blur of an untouched input is hostile.
+    if (!email) {
+      setError('');
+      return;
+    }
     if (!emailRe.test(email)) {
       setError('Enter a valid delivery email.');
       return;
@@ -57,12 +99,20 @@ export default function ListingCheckout({
     // Same property shape as Checkout Started so the stages line up in Vercel.
     // Never the address itself. item is always complete while the modal is
     // open; the fallbacks only satisfy its Partial type.
-    trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
-      school: item.school ?? '',
-      value: item.price ?? 0,
-    });
-    setEmailConfirmed(true);
-  }
+    if (!reportedEmails.current.has(email)) {
+      reportedEmails.current.add(email);
+      trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
+        school: item.school ?? '',
+        value: item.price ?? 0,
+      });
+    }
+    setConfirmedEmail(email);
+  }, [item.school, item.price]);
+
+  const info = schoolInfo(item.school || '');
+  const label = info ? info.short : (item.school || 'This listing');
+  const essayCount = item.essayCount || 1;
+  const mounted = Boolean(open && item.listingId && confirmedEmail);
 
   return (
   <div className={`modal-overlay buy-overlay${open ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -72,93 +122,89 @@ export default function ListingCheckout({
         <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
       </button>
       <section className="buy-order">
-        <div className="buy-order-logo"><span>admitfolio</span><i /></div>
+        {/* The dialog still needs a name. It used to be an h3 the size of a
+            billboard; the line itself is what the collapse removed, not the
+            label a screen reader announces. */}
+        <h3 id="buyTitle" className="sr-only">Unlock this listing</h3>
         <button className="buy-back" type="button" onClick={onClose}>← Back to listing</button>
-        <div className="modal-eyebrow">Checkout · No account needed</div>
-        <h3 id="buyTitle">Unlock this listing</h3>
-        <p className="buy-intro">Read the full listing immediately after checkout.</p>
-        <div className="buy-summary">
-          <div className="buy-summary-essay">
-            <div className="buy-summary-school">{item.school || 'This listing'}</div>
-            <div className="buy-summary-hook">
-              {item.summary || `${item.essayCount || 1} essay${(item.essayCount || 1) === 1 ? '' : 's'} from a verified admit.`}
+        <div className="buy-order-row">
+          <LogoBadge
+            domain={info ? info.domain : undefined}
+            letter={(label[0] || 'A').toUpperCase()}
+            color={schoolColor(item.school || '')}
+            school={item.school || ''}
+            size={40}
+            fontSize={17}
+          />
+          <div className="buy-order-main">
+            <div className="buy-order-school">{label}</div>
+            <div className="buy-order-meta">
+              {essayCount} essay{essayCount === 1 ? '' : 's'} · one price for the {essayCount === 1 ? 'essay' : 'set'}
             </div>
+            {/* Same publicListingTitle string the card and the sheet show, at
+                the same 120 character cap. Two lines, clamped, because this is
+                a reminder of what they picked rather than the pitch again. */}
+            {item.summary && <div className="buy-order-hook">{item.summary}</div>}
           </div>
-          <div className="buy-summary-price">{priceLabel(item.price)}</div>
-        </div>
-        <div className="buy-total"><span>Total</span><i /><strong>{priceLabel(item.price)}</strong></div>
-        <div className="buy-delivery">
-          <div><b>✓</b><span>Instant private access after payment</span></div>
-          <div><b>✓</b><span>Secure reading link sent to your email</span></div>
-          <div><b>✓</b><span>For inspiration only, never for copying</span></div>
+          <div className="buy-order-price">{priceLabel(item.price)}</div>
         </div>
       </section>
 
       <section className="buy-payment">
-        {!emailConfirmed ? (
-          <>
-            <div className="modal-eyebrow">Step 1 of 2 · Delivery</div>
-            <h4>Where should we send your essays?</h4>
-            <p>Confirm the email for your private reading link. Your card or Link account can use a different email.</p>
-            <div className="buy-email-field">
-              <label htmlFor="deliveryEmail">Delivery email</label>
-              <input
-                id="deliveryEmail"
-                type="email"
-                maxLength={254}
-                autoComplete="email"
-                spellCheck={false}
-                value={deliveryEmail}
-                onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
-                onKeyDown={(event) => { if (event.key === 'Enter') confirmDeliveryEmail(); }}
-                placeholder="you@email.com"
+        <div className="buy-email-field">
+          <label htmlFor="deliveryEmail">Delivery email</label>
+          <input
+            id="deliveryEmail"
+            type="email"
+            maxLength={254}
+            autoComplete="email"
+            spellCheck={false}
+            value={deliveryEmail}
+            onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
+            onBlur={(event) => commitDeliveryEmail(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commitDeliveryEmail(event.currentTarget.value); } }}
+            placeholder="you@email.com"
+          />
+          <small>Where your reading link goes. Your card can use a different address.</small>
+        </div>
+        <div className={`field-error${error ? ' show' : ''}`}>{error || ''}</div>
+
+        <div className="buy-stripe-card">
+          <div className="buy-stripe-head">
+            <div className="buy-stripe-head-main">
+              <span className="buy-stripe-shield" aria-hidden="true">✓</span>
+              <span>
+                <strong>Secure payment</strong>
+                {/* This line is the whole promise that no second screen is
+                    coming, so it says what the empty card is waiting for rather
+                    than a generic reassurance. It swaps rather than stacking:
+                    a second line would cost about 16px above the fold. */}
+                <small>{mounted ? 'Encrypted from end to end' : 'Card form loads here once you add your email'}</small>
+              </span>
+            </div>
+            <span className="buy-stripe-brand">Powered by Stripe</span>
+          </div>
+          <div className="buy-stripe-body">
+            {mounted ? (
+              <EmbeddedListingCheckout
+                key={`${item.listingId}:${confirmedEmail}`}
+                listingId={item.listingId as string}
+                deliveryEmail={confirmedEmail}
+                school={item.school ?? ''}
+                price={item.price ?? 0}
+                onError={setError}
               />
-              <small>We will send the receipt and reading link to this exact address.</small>
-            </div>
-            <div className={`field-error${error ? ' show' : ''}`}>{error || ''}</div>
-            <button className="buy-email-continue" type="button" onClick={confirmDeliveryEmail}>
-              Continue to secure payment
-            </button>
-            <div className="buy-secure">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-              Card details are still handled securely by Stripe
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="modal-eyebrow">Step 2 of 2 · Secure checkout</div>
-            <h4>Pay without leaving Admitfolio</h4>
-            <p>Stripe shows Link, Apple Pay, or card when each option is available on your device.</p>
-            <div className="buy-email-confirmed">
-              <span>Delivery to <b>{deliveryEmail}</b></span>
-              <button type="button" onClick={() => { setEmailConfirmed(false); setError(''); }}>Change</button>
-            </div>
-            <div className={`field-error${error ? ' show' : ''}`}>{error || ''}</div>
-            <div className="buy-stripe-card">
-              <div className="buy-stripe-head">
-                <div className="buy-stripe-head-main">
-                  <span className="buy-stripe-shield" aria-hidden="true">✓</span>
-                  <span><strong>Secure payment</strong><small>Encrypted from end to end</small></span>
-                </div>
-                <span className="buy-stripe-brand">Powered by Stripe</span>
+            ) : (
+              // Decorative. The header small above carries the same message to
+              // a screen reader, so announcing it twice would be noise.
+              <div className="buy-stripe-idle" aria-hidden="true">
+                <div className="buy-ghost-row"><i /><i /><i /></div>
+                <div className="buy-ghost" />
+                <div className="buy-ghost buy-ghost-short" />
               </div>
-              {open && item.listingId && (
-                <EmbeddedListingCheckout
-                  key={`${item.listingId}:${deliveryEmail}`}
-                  listingId={item.listingId}
-                  deliveryEmail={deliveryEmail}
-                  school={item.school ?? ''}
-                  price={item.price ?? 0}
-                  onError={setError}
-                />
-              )}
-            </div>
-            <div className="buy-secure">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-              Payments handled by Stripe · Card details never touch our servers
-            </div>
-          </>
-        )}
+            )}
+          </div>
+        </div>
       </section>
     </div>
   </div>

@@ -15,6 +15,14 @@ const sheet = read('components/ListingDetail.tsx');
 // The checkout dialog moved too, for the same reason. app/page.tsx keeps only
 // which listing is open and what the URL says.
 const checkout = read('components/ListingCheckout.tsx');
+// Absence assertions must be about what the component RENDERS, not about prose.
+// The file explains the two step flow it replaced, and quoting "Step 1 of 2" in
+// a comment was enough to fail a doesNotMatch against the raw source.
+const stripComments = (source) => source
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^[ \t]*\/\/.*$/gm, '');
+const checkoutRendered = stripComments(checkout);
 const browser = read('components/CollectionBrowser.tsx');
 const component = read('components/EmbeddedListingCheckout.tsx');
 const commerce = read('lib/commerce.ts');
@@ -23,10 +31,79 @@ const styles = read('app/globals.css');
 assert.match(route, /clientSecret:\s*session\.client_secret/);
 assert.doesNotMatch(route, /url:\s*session\.url/);
 assert.match(checkout, /<EmbeddedListingCheckout/);
-assert.match(checkout, /Where should we send your essays\?/);
-assert.match(checkout, /deliveryEmail=\{deliveryEmail\}/);
 assert.match(checkout, /buy-stripe-card/);
-assert.match(checkout, /Link, Apple Pay, or card/);
+
+// ---- One screen. The two step flow is what 35 of 37 unlock clicks died on. ----
+// The order panel used to be a ~750px restatement of the detail sheet, which put
+// the submit button at y 847 in an 844px viewport on a 390px phone.
+assert.doesNotMatch(checkoutRendered, /Step 1 of 2/, 'the delivery step must not come back');
+assert.doesNotMatch(checkoutRendered, /Step 2 of 2/, 'nor the payment step');
+assert.doesNotMatch(checkoutRendered, /buy-email-continue/, 'there is no Continue button to gate on');
+assert.doesNotMatch(checkoutRendered, /Where should we send your essays\?/, 'the step 1 heading is gone');
+assert.doesNotMatch(checkoutRendered, /buy-summary|buy-total|buy-delivery|buy-intro/, 'the tall order stack is gone');
+assert.match(checkout, /buy-order-row/, 'the order panel is one row');
+
+// The payment card and its header render from first paint, OUTSIDE the branch
+// that swaps in Stripe. That is what makes the mount an in-place fill rather
+// than a panel swap, so nothing above the card can move when it mounts.
+const cardIndex = checkoutRendered.indexOf('buy-stripe-card');
+const headIndex = checkoutRendered.indexOf('buy-stripe-head');
+const branchIndex = checkoutRendered.indexOf('{mounted ? (');
+assert.ok(cardIndex > -1 && headIndex > cardIndex, 'the card carries its header');
+assert.ok(branchIndex > headIndex, 'the header is rendered before the mount branch, not inside it');
+assert.match(
+  checkout,
+  /Card form loads here once you add your email/,
+  'the header subtitle says what the empty card is waiting for',
+);
+assert.match(
+  checkout,
+  /mounted \? 'Encrypted from end to end' : 'Card form loads here/,
+  'and it swaps rather than stacking a second line',
+);
+assert.match(checkout, /buy-stripe-idle/, 'the empty card shows a placeholder rather than collapsing');
+
+// ---- Session creation is keyed on the CONFIRMED address, never the field. ----
+// /api/checkout throttles above 8 per minute per IP (app/api/checkout/route.ts),
+// and our buyers sit behind school NAT. Keying the mount on the raw input would
+// open a session per keystroke pause.
+assert.match(
+  checkout,
+  /key=\{`\$\{item\.listingId\}:\$\{confirmedEmail\}`\}/,
+  'Stripe is keyed on the confirmed address so re-blurring one address cannot open a second session',
+);
+assert.match(checkout, /deliveryEmail=\{confirmedEmail\}/, 'and is handed the confirmed address');
+assert.match(
+  checkout,
+  /const mounted = Boolean\(open && item\.listingId && confirmedEmail\)/,
+  'nothing mounts until an address validates',
+);
+
+// ---- The event has to stay comparable with the two step numbers. ----
+assert.match(checkout, /onBlur=\{\(event\) => commitDeliveryEmail\(event\.target\.value\)\}/, 'commit runs on blur');
+// The value must come off the event. Reading it from state meant a blur in the
+// same tick as the change, which is what autofill does, committed nothing.
+assert.match(checkout, /commitDeliveryEmail = useCallback\(\(raw: string\)/, 'and reads the value from the event, not from a closure');
+assert.match(
+  checkout,
+  /event\.key === 'Enter'[\s\S]{0,90}commitDeliveryEmail\(event\.currentTarget\.value\)/,
+  'and on Enter, also from the event',
+);
+assert.doesNotMatch(
+  checkoutRendered,
+  /onChange=\{\(event\) => \{[^}]*trackConversion/,
+  'and never on keystroke',
+);
+assert.match(
+  checkout,
+  /reportedEmails\.current\.has\(email\)[\s\S]{0,200}trackConversion\(ANALYTICS_EVENTS\.checkoutEmailSubmitted/,
+  'Checkout Email Submitted is guarded so one address reports at most once',
+);
+assert.match(
+  checkout,
+  /checkoutEmailSubmitted,\s*\{\s*school:[\s\S]{0,60}value:/,
+  'with the same two properties the earlier funnel numbers were measured on',
+);
 assert.match(page, /url\.searchParams\.set\('checkout', item\.listingId\);[\s\S]*pushState\(\{ checkout: item\.listingId \}/);
 // A collection page must write ?checkout= against its own path, never '/'.
 // Writing it against the homepage is what threw a buyer out of the page they
@@ -55,6 +132,8 @@ assert.match(component, /EmbeddedCheckoutProvider/);
 assert.match(component, /JSON\.stringify\(\{ listingId, deliveryEmail \}\)/);
 assert.match(component, /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY/);
 assert.match(commerce, /ui_mode:\s*'embedded_page'/);
+// The one screen flow still sends the buyer confirmed address at session
+// create, so a Link or saved card email cannot become the delivery address.
 assert.match(commerce, /customer_email:\s*deliveryEmail/);
 assert.match(commerce, /session\.customer_email \?\? session\.customer_details\?\.email/);
 assert.doesNotMatch(commerce, /^\s*payment_method_types\s*:/m);
