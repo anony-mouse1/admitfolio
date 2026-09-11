@@ -109,6 +109,38 @@ export default function ListingCheckout({
     setConfirmedEmail(email);
   }, [item.school, item.price]);
 
+  const proofPanel = (
+    <>
+      <h4 className="buy-proof-h">Before you pay, how this listing got here</h4>
+      <ol className="buy-proof-list">
+        <li>
+          <div className="buy-proof-copy">
+            <strong>The seller proved a college email</strong>
+            <span>Accounts are made with a .edu address and confirmed by a code sent to it.</span>
+          </div>
+        </li>
+        <li>
+          <div className="buy-proof-copy">
+            <strong>A review panel read the essays</strong>
+            <span>Every submission is screened before anyone sees it. Anything the panel is unsure about is held back.</span>
+          </div>
+        </li>
+        <li>
+          <div className="buy-proof-copy">
+            <strong>A person made the final call</strong>
+            <span>No listing goes live on an automated decision alone. Someone approved this one by hand.</span>
+          </div>
+        </li>
+        <li>
+          <div className="buy-proof-copy">
+            <strong>Your copy is yours</strong>
+            <span>Every page carries a code tied to your purchase, so a leaked copy traces back.</span>
+          </div>
+        </li>
+      </ol>
+    </>
+  );
+
   const info = schoolInfo(item.school || '');
   const label = info ? info.short : (item.school || 'This listing');
   const essayCount = item.essayCount || 1;
@@ -141,13 +173,18 @@ export default function ListingCheckout({
             <div className="buy-order-meta">
               {essayCount} essay{essayCount === 1 ? '' : 's'} · one price for the {essayCount === 1 ? 'essay' : 'set'}
             </div>
-            {/* Same publicListingTitle string the card and the sheet show, at
-                the same 120 character cap. Two lines, clamped, because this is
-                a reminder of what they picked rather than the pitch again. */}
-            {item.summary && <div className="buy-order-hook">{item.summary}</div>}
           </div>
           <div className="buy-order-price">{priceLabel(item.price)}</div>
         </div>
+        {/* Same publicListingTitle string the card and the sheet show, at the
+            same 120 character cap. Full width under the row rather than beside
+            the badge: sharing that line box with the close button gutter made
+            it wrap early and cost about 40px above the fold. */}
+        {item.summary && <div className="buy-order-hook">{item.summary}</div>}
+        {/* Desktop only. On a phone this panel lives inside the payment card,
+            in the pixels the placeholder would otherwise waste. Two layouts,
+            not one responsive rule. */}
+        <div className="buy-proof buy-proof-desktop">{proofPanel}</div>
       </section>
 
       <section className="buy-payment">
@@ -195,16 +232,24 @@ export default function ListingCheckout({
                 onError={setError}
               />
             ) : (
-              // Decorative. The header small above carries the same message to
-              // a screen reader, so announcing it twice would be noise.
-              <div className="buy-stripe-idle" aria-hidden="true">
-                <div className="buy-ghost-row"><i /><i /><i /></div>
-                <div className="buy-ghost" />
-                <div className="buy-ghost buy-ghost-short" />
-              </div>
+              <>
+                <div className="buy-proof buy-proof-mobile">{proofPanel}</div>
+                {/* Decorative. The header small above carries the same message
+                    to a screen reader, so announcing it twice would be noise. */}
+                <div className="buy-stripe-idle" aria-hidden="true">
+                  <div className="buy-ghost-row"><i /><i /><i /></div>
+                  <div className="buy-ghost" />
+                  <div className="buy-ghost buy-ghost-short" />
+                </div>
+              </>
             )}
           </div>
         </div>
+
+        <ul className="buy-ticks">
+          <li>Your reading link arrives by email in under a minute and works for a year.</li>
+          <li>For inspiration only, never for copying.</li>
+        </ul>
       </section>
     </div>
   </div>

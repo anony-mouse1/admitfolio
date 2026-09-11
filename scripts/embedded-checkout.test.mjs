@@ -132,6 +132,51 @@ assert.match(component, /EmbeddedCheckoutProvider/);
 assert.match(component, /JSON\.stringify\(\{ listingId, deliveryEmail \}\)/);
 assert.match(component, /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY/);
 assert.match(commerce, /ui_mode:\s*'embedded_page'/);
+// ---- The content layer. Two layouts, not one responsive rule. ----
+// The panel is rendered twice and shown in exactly one place: the left column
+// on desktop, the payment card body on a phone.
+assert.match(checkoutRendered, /buy-proof-desktop/, 'the panel renders in the left column');
+assert.match(checkoutRendered, /buy-proof-mobile/, 'and inside the payment card body');
+assert.match(styles, /@media \(min-width: 851px\)[\s\S]*?\.buy-proof-mobile \{ display: none; \}/,
+  'the card copy is hidden on desktop');
+assert.match(styles, /@media \(max-width: 850px\)[\s\S]*?\.buy-proof-desktop \{ display: none; \}/,
+  'and the column copy is hidden on a phone');
+
+// The mobile panel sits in the idle branch, so it is what Stripe replaces.
+// Rendering it outside that branch would leave it under the mounted form.
+const branchStart = checkoutRendered.indexOf('{mounted ? (');
+const idleStart = checkoutRendered.indexOf(') : (', branchStart);
+assert.ok(branchStart > -1 && idleStart > branchStart, 'the mount branch is intact');
+assert.ok(
+  checkoutRendered.indexOf('buy-proof-mobile') > idleStart,
+  'the panel is in the idle branch, so the Stripe form replaces it',
+);
+
+// Claims. Each one was checked against the live catalogue. Nothing here says an
+// acceptance letter was checked, because 195 of the 201 on file never were.
+assert.match(checkoutRendered, /The seller proved a college email/);
+assert.match(checkoutRendered, /A review panel read the essays/);
+assert.match(checkoutRendered, /A person made the final call/);
+assert.match(checkoutRendered, /Your copy is yours/);
+assert.doesNotMatch(
+  checkoutRendered,
+  /acceptance letter|letter (was |we )?(checked|verified)/i,
+  'no acceptance letter claim, the data does not support one',
+);
+assert.match(checkoutRendered, /buy-ticks/, 'two tick lines sit under the card');
+assert.match(checkoutRendered, /For inspiration only, never for copying/);
+
+// The hook is full width under the row, not a third line inside it. Beside the
+// badge it shared a line box with the close button gutter and wrapped early.
+assert.ok(
+  checkoutRendered.indexOf('buy-order-hook') > checkoutRendered.indexOf('buy-order-price'),
+  'the hook renders after the price, outside the badge row',
+);
+// The fixed close pill is top-left, so the panel's top padding is what clears
+// it. It must stay clear of the pill's 54px bottom edge.
+assert.match(styles, /\.buy-overlay \.buy-order \{ padding-top: calc\(62px \+ env\(safe-area-inset-top\)\); \}/,
+  'the order panel clears the fixed back pill without paying for a wordmark that is gone');
+
 // The one screen flow still sends the buyer confirmed address at session
 // create, so a Link or saved card email cannot become the delivery address.
 assert.match(commerce, /customer_email:\s*deliveryEmail/);
