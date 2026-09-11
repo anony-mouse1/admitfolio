@@ -25,8 +25,9 @@ import { schoolColor, schoolInfo } from '@/lib/schools';
 // unlock clicks down to 2 email submissions.
 //
 // So the order panel is one row, and the payment card is present from first
-// paint with its header. Stripe mounts inside the card that is already there,
-// which is why nothing above it moves when the address validates.
+// paint with its header and its own Continue control. Stripe mounts inside the
+// card that is already there, which is why nothing above it moves when the
+// buyer continues.
 
 // components/EmbeddedListingCheckout calls loadStripe at module scope, so a
 // static import pulls Stripe.js into every page that can reach checkout. That
@@ -48,17 +49,24 @@ export default function ListingCheckout({
 }) {
   const [error, setError] = useState('');
   const [deliveryEmail, setDeliveryEmail] = useState('');
-  // The normalised address the Stripe session is built for. Empty until one
-  // validates. This is what decides whether Stripe is mounted, and it is the
-  // only thing that keys the mount, so the number of /api/checkout calls is the
-  // number of DISTINCT valid addresses committed, never the number of blurs.
-  // Refocusing, tabbing away, autocorrect and autofill all re-commit the same
-  // normalised string and so cannot open a second session.
+  // The normalised address that has been committed on blur. It drives the
+  // analytics event and enables the button below. It does NOT mount Stripe.
   const [confirmedEmail, setConfirmedEmail] = useState('');
+  // The address Stripe is actually mounted for. Only a deliberate click sets
+  // this.
+  //
+  // Mounting on blur created a real Checkout Session every time the field lost
+  // focus with a valid address, and Stripe Link texts a verification code to
+  // anyone whose number is on a Link account. A returning buyer was getting an
+  // SMS for tabbing past the field, before deciding to buy. The live logs show
+  // pairs of sessions seconds apart from typo corrections, which is also what
+  // made the 8 per minute per IP throttle reachable in testing.
+  const [mountedEmail, setMountedEmail] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   // Checkout Email Submitted has to stay comparable with the numbers measured
   // under the two-step flow, so it reports once per distinct address rather
   // than once per commit. Editing an address and going back to an earlier one
-  // does not report it twice.
+  // does not report it twice. This is unchanged by the move to a click.
   const reportedEmails = useRef<Set<string>>(new Set());
 
   // A new listing, or a reopen, always starts empty.
@@ -68,31 +76,29 @@ export default function ListingCheckout({
     setError('');
     setDeliveryEmail('');
     setConfirmedEmail('');
+    setMountedEmail('');
     reportedEmails.current.clear();
   }, [open, item.listingId]);
 
-  // Commit, not "submit". There is no button to press: this runs when the field
-  // loses focus or the buyer presses Enter. Never on keystroke, because that
-  // would both report a half-typed address and open a Stripe session per pause.
+  // Commit, not "submit". Runs when the field loses focus or the buyer presses
+  // Enter. Never on keystroke, because that would report a half-typed address.
+  // Reports the event and nothing else: it creates no Stripe session.
   //
-  // Reaching the Stripe form requires moving focus out of this input, which
-  // fires blur, so the mounted session can never belong to an address the field
-  // has since been edited past without the buyer seeing the error below.
   // The value comes from the event, not from state. Closing over deliveryEmail
   // meant a blur arriving in the same tick as the value change, which is what
   // autofill and password managers do, read the previous value and committed
   // nothing.
-  const commitDeliveryEmail = useCallback((raw: string) => {
+  const commitDeliveryEmail = useCallback((raw: string): string => {
     const email = raw.trim().toLowerCase();
     // An empty field is someone who has not started, not someone who got it
     // wrong. Nagging on the blur of an untouched input is hostile.
     if (!email) {
       setError('');
-      return;
+      return '';
     }
     if (!emailRe.test(email)) {
       setError('Enter a valid delivery email.');
-      return;
+      return '';
     }
     setDeliveryEmail(email);
     setError('');
@@ -107,7 +113,25 @@ export default function ListingCheckout({
       });
     }
     setConfirmedEmail(email);
+    // An address that differs from the mounted one retires that mount, so the
+    // buyer can never pay on a session built for an address the field has since
+    // been edited past. They click again, which is one deliberate act per
+    // session by construction.
+    setMountedEmail((current) => (current && current !== email ? '' : current));
+    return email;
   }, [item.school, item.price]);
+
+  // The only thing that creates a Stripe Checkout Session. Reads the live input
+  // rather than state, so "type then click" works without depending on blur
+  // landing first.
+  const startPayment = useCallback(() => {
+    const email = commitDeliveryEmail(inputRef.current?.value ?? '');
+    if (!email) {
+      inputRef.current?.focus();
+      return;
+    }
+    setMountedEmail(email);
+  }, [commitDeliveryEmail]);
 
   const proofPanel = (
     <>
@@ -144,7 +168,7 @@ export default function ListingCheckout({
   const info = schoolInfo(item.school || '');
   const label = info ? info.short : (item.school || 'This listing');
   const essayCount = item.essayCount || 1;
-  const mounted = Boolean(open && item.listingId && confirmedEmail);
+  const mounted = Boolean(open && item.listingId && mountedEmail);
 
   return (
   <div className={`modal-overlay buy-overlay${open ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -181,9 +205,9 @@ export default function ListingCheckout({
             the badge: sharing that line box with the close button gutter made
             it wrap early and cost about 40px above the fold. */}
         {item.summary && <div className="buy-order-hook">{item.summary}</div>}
-        {/* Desktop only. On a phone this panel lives inside the payment card,
-            in the pixels the placeholder would otherwise waste. Two layouts,
-            not one responsive rule. */}
+        {/* Desktop only. On a phone the same panel renders below the payment
+            card instead, so it survives the Stripe mount. Two layouts, not one
+            responsive rule. */}
         <div className="buy-proof buy-proof-desktop">{proofPanel}</div>
       </section>
 
@@ -196,6 +220,7 @@ export default function ListingCheckout({
             maxLength={254}
             autoComplete="email"
             spellCheck={false}
+            ref={inputRef}
             value={deliveryEmail}
             onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
             onBlur={(event) => commitDeliveryEmail(event.target.value)}
@@ -216,7 +241,7 @@ export default function ListingCheckout({
                     coming, so it says what the empty card is waiting for rather
                     than a generic reassurance. It swaps rather than stacking:
                     a second line would cost about 16px above the fold. */}
-                <small>{mounted ? 'Encrypted from end to end' : 'Card form loads here once you add your email'}</small>
+                <small>{mounted ? 'Encrypted from end to end' : 'Card form opens here, you stay on this screen'}</small>
               </span>
             </div>
             <span className="buy-stripe-brand">Powered by Stripe</span>
@@ -224,21 +249,31 @@ export default function ListingCheckout({
           <div className="buy-stripe-body">
             {mounted ? (
               <EmbeddedListingCheckout
-                key={`${item.listingId}:${confirmedEmail}`}
+                key={`${item.listingId}:${mountedEmail}`}
                 listingId={item.listingId as string}
-                deliveryEmail={confirmedEmail}
+                deliveryEmail={mountedEmail}
                 school={item.school ?? ''}
                 price={item.price ?? 0}
                 onError={setError}
               />
             ) : (
-              // Decorative. The header small above carries the same message to
-              // a screen reader, so announcing it twice would be noise.
-              <div className="buy-stripe-idle" aria-hidden="true">
-                <div className="buy-ghost-row"><i /><i /><i /></div>
-                <div className="buy-ghost" />
-                <div className="buy-ghost buy-ghost-short" />
-              </div>
+              <>
+                {/* Sits directly under the card's own header, so it reads as
+                    continuing inside a card the buyer can already see rather
+                    than moving to a new screen. Never disabled: clicking with
+                    an empty or malformed field focuses it and says why, which
+                    is more use than a control that cannot be pressed. */}
+                <button className="buy-start-payment" type="button" onClick={startPayment}>
+                  Continue to payment
+                </button>
+                {/* Decorative. The header small above carries the same message
+                    to a screen reader, so announcing it twice would be noise. */}
+                <div className="buy-stripe-idle" aria-hidden="true">
+                  <div className="buy-ghost-row"><i /><i /><i /></div>
+                  <div className="buy-ghost" />
+                  <div className="buy-ghost buy-ghost-short" />
+                </div>
+              </>
             )}
           </div>
         </div>

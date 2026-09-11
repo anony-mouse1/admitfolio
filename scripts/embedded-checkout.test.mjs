@@ -54,34 +54,70 @@ assert.ok(cardIndex > -1 && headIndex > cardIndex, 'the card carries its header'
 assert.ok(branchIndex > headIndex, 'the header is rendered before the mount branch, not inside it');
 assert.match(
   checkout,
-  /Card form loads here once you add your email/,
-  'the header subtitle says what the empty card is waiting for',
+  /Card form opens here, you stay on this screen/,
+  'the header subtitle promises the form opens in place',
 );
 assert.match(
   checkout,
-  /mounted \? 'Encrypted from end to end' : 'Card form loads here/,
+  /mounted \? 'Encrypted from end to end' : 'Card form opens here/,
   'and it swaps rather than stacking a second line',
 );
 assert.match(checkout, /buy-stripe-idle/, 'the empty card shows a placeholder rather than collapsing');
 
-// ---- Session creation is keyed on the CONFIRMED address, never the field. ----
-// /api/checkout throttles above 8 per minute per IP (app/api/checkout/route.ts),
-// and our buyers sit behind school NAT. Keying the mount on the raw input would
-// open a session per keystroke pause.
+// ---- A Stripe session is created ONLY by a deliberate click. ----
+// Mounting on blur created a real Checkout Session every time the field lost
+// focus with a valid address, and Stripe Link texts a verification code to
+// anyone whose number is on a Link account: a returning buyer got an SMS for
+// tabbing past the field, before deciding to buy.
 assert.match(
-  checkout,
-  /key=\{`\$\{item\.listingId\}:\$\{confirmedEmail\}`\}/,
-  'Stripe is keyed on the confirmed address so re-blurring one address cannot open a second session',
+  checkoutRendered,
+  /onClick=\{startPayment\}/,
+  'a click is what starts payment',
 );
-assert.match(checkout, /deliveryEmail=\{confirmedEmail\}/, 'and is handed the confirmed address');
+assert.match(
+  checkoutRendered,
+  /const startPayment = useCallback\(\(\) => \{[\s\S]{0,320}setMountedEmail\(email\)/,
+  'and startPayment is the only place that sets the mounted address',
+);
+assert.equal(
+  (checkoutRendered.match(/setMountedEmail\(/g) || []).length,
+  3,
+  'exactly three writers of mountedEmail: the reset, the retire-on-change, and the click',
+);
+assert.doesNotMatch(
+  checkoutRendered,
+  /onBlur=\{[^}]*startPayment/,
+  'blur must never start payment',
+);
 assert.match(
   checkout,
-  /const mounted = Boolean\(open && item\.listingId && confirmedEmail\)/,
-  'nothing mounts until an address validates',
+  /key=\{`\$\{item\.listingId\}:\$\{mountedEmail\}`\}/,
+  'Stripe is keyed on the address it was mounted for',
+);
+assert.match(checkout, /deliveryEmail=\{mountedEmail\}/, 'and is handed that address');
+assert.match(
+  checkout,
+  /const mounted = Boolean\(open && item\.listingId && mountedEmail\)/,
+  'nothing mounts until the buyer asks for it',
+);
+// Editing past the mounted address retires the mount, so a buyer can never pay
+// on a session built for an address the field has since moved on from.
+assert.match(
+  checkoutRendered,
+  /setMountedEmail\(\(current\) => \(current && current !== email \? '' : current\)\)/,
+  'a changed address retires the mounted session',
+);
+// The control lives inside the card, under its own header, not as a full width
+// gate above it. The gate is what this design removed.
+assert.match(styles, /\.buy-start-payment \{/, 'the control is styled as a compact in-card button');
+assert.ok(
+  checkoutRendered.indexOf('buy-start-payment') > checkoutRendered.indexOf('buy-stripe-head'),
+  'and it renders after the card header, inside the card',
 );
 
 // ---- The event has to stay comparable with the two step numbers. ----
-assert.match(checkout, /onBlur=\{\(event\) => commitDeliveryEmail\(event\.target\.value\)\}/, 'commit runs on blur');
+assert.match(checkout, /onBlur=\{\(event\) => commitDeliveryEmail\(event\.target\.value\)\}/,
+  'Checkout Email Submitted still reports on blur, unchanged, so the funnel numbers stay comparable');
 // The value must come off the event. Reading it from state meant a blur in the
 // same tick as the change, which is what autofill does, committed nothing.
 assert.match(checkout, /commitDeliveryEmail = useCallback\(\(raw: string\)/, 'and reads the value from the event, not from a closure');

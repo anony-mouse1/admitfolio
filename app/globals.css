@@ -1140,6 +1140,20 @@ footer { background: #1b1a17; color: #cfccc4; }
   margin-bottom: 14px; padding-bottom: 15px; border-bottom: 1px solid var(--line);
 }
 .buy-stripe-body { position: relative; }
+/* Compact on purpose. The full width gradient control was the step 1 of 2 gate
+   this design removed; this one continues inside a card that is already on
+   screen, so it should not read as the same weight. */
+.buy-start-payment {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 44px; margin-bottom: 14px; padding: 0 20px;
+  border: 1px solid var(--accent); border-radius: 999px;
+  color: #fff; background: var(--accent);
+  font-family: var(--sans); font-size: 14px; font-weight: 750; cursor: pointer;
+  box-shadow: 0 8px 18px rgba(125,29,45,.18);
+  transition: background .18s ease;
+}
+.buy-start-payment:hover { background: #691826; }
+.buy-start-payment::after { content: '→'; font-size: 15px; font-weight: 500; }
 /* Deliberately shorter than the mounted form. Stripe's wrap is min-height 500px
    below 560px wide, and matching that here would push everything under the card
    off the landing screen to reserve space for something not on screen yet. The
