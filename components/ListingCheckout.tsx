@@ -38,6 +38,22 @@ const EmbeddedListingCheckout = dynamic(() => import('@/components/EmbeddedListi
 
 const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+// Enter means "proceed" on a hardware keyboard. On a touch device it is the
+// soft keyboard's Go key, which people press to dismiss the keyboard, and
+// mounting there fires Stripe Link's verification SMS for an action that never
+// meant "pay". 64% of traffic is mobile, so that is the same surprise this
+// design just removed from blur.
+//
+// Pointer capability, not viewport width: an iPad in landscape at 1024px has a
+// soft keyboard, and a desktop with a narrow window does not. Evaluated at the
+// keypress rather than cached, so a window moved between screens cannot leave a
+// stale answer. Unknown means no, because the cost of guessing wrong is a text
+// message to someone who did not ask for one.
+function enterMeansProceed(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+}
+
 export default function ListingCheckout({
   open,
   item,
@@ -237,7 +253,15 @@ export default function ListingCheckout({
               value={deliveryEmail}
               onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
               onBlur={(event) => commitDeliveryEmail(event.target.value)}
-              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); startPayment(); } }}
+              onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              // On a soft keyboard, let Go do what the buyer pressed it for.
+              // The blur that follows still reports Checkout Email Submitted,
+              // it just does not open a Stripe session.
+              if (!enterMeansProceed()) return;
+              event.preventDefault();
+              startPayment();
+            }}
               placeholder="you@email.com"
             />
             {/* Decorative. The control's aria-disabled below carries the same

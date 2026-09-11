@@ -159,13 +159,30 @@ assert.match(
 // is what gave Enter its own way into Stripe.
 assert.match(
   checkoutRendered,
-  /event\.key === 'Enter'[\s\S]{0,80}startPayment\(\)/,
+  /event\.key !== 'Enter'[\s\S]{0,240}startPayment\(\)/,
   'Enter triggers the same control as the click',
 );
 assert.doesNotMatch(
   checkoutRendered,
   /event\.key === 'Enter'[\s\S]{0,80}commitDeliveryEmail/,
   'and no longer has a path of its own',
+);
+// On a touch device Enter is the soft keyboard's Go key, pressed to dismiss the
+// keyboard rather than to pay, and mounting there fires the Link SMS.
+assert.match(
+  checkoutRendered,
+  /if \(!enterMeansProceed\(\)\) return;[\s\S]{0,90}startPayment\(\)/,
+  'and it is gated so a soft keyboard Go cannot mount Stripe',
+);
+assert.match(
+  checkoutRendered,
+  /matchMedia\('\(hover: hover\) and \(pointer: fine\)'\)/,
+  'gated on pointer capability, because an iPad in landscape is wide and a narrow desktop window is not touch',
+);
+assert.match(
+  checkoutRendered,
+  /typeof window\.matchMedia !== 'function'\) return false;/,
+  'and an unknown device is treated as touch, since the cost of guessing wrong is an unasked-for text message',
 );
 
 // ---- The event has to stay comparable with the two step numbers. ----
