@@ -100,6 +100,20 @@ assert.match(
   /const mounted = Boolean\(open && item\.listingId && mountedEmail\)/,
   'nothing mounts until the buyer asks for it',
 );
+// An empty field gets the same message a malformed one does, but only from the
+// click. commitDeliveryEmail must stay silent on blur, or an untouched input
+// nags the moment focus leaves it.
+assert.match(
+  checkoutRendered,
+  /if \(!raw\.trim\(\)\) setError\('Enter a valid delivery email\.'\);/,
+  'clicking Continue with an empty field says why instead of only moving the cursor',
+);
+assert.match(
+  checkoutRendered,
+  /if \(!email\) \{\s*setError\(''\);\s*return '';/,
+  'and blur on an empty field stays silent',
+);
+
 // Editing past the mounted address retires the mount, so a buyer can never pay
 // on a session built for an address the field has since moved on from.
 assert.match(

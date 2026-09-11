@@ -125,8 +125,14 @@ export default function ListingCheckout({
   // rather than state, so "type then click" works without depending on blur
   // landing first.
   const startPayment = useCallback(() => {
-    const email = commitDeliveryEmail(inputRef.current?.value ?? '');
+    const raw = inputRef.current?.value ?? '';
+    const email = commitDeliveryEmail(raw);
     if (!email) {
+      // commitDeliveryEmail stays silent on an empty field because it also runs
+      // on blur, and nagging an untouched input is hostile. A click is a
+      // deliberate ask, so an empty field gets the same message a malformed one
+      // does. Silence plus a moved cursor reads as a dead button.
+      if (!raw.trim()) setError('Enter a valid delivery email.');
       inputRef.current?.focus();
       return;
     }
