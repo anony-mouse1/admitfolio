@@ -1163,6 +1163,7 @@ footer { background: #1b1a17; color: #cfccc4; }
   color: #635d57; background: #faf7f4; font-size: 10px; font-weight: 800; white-space: nowrap;
 }
 .embedded-checkout-wrap { min-height: 430px; }
+.embedded-checkout-host { min-height: 1px; }
 .embedded-checkout-loading {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   min-height: 220px; color: var(--muted); font-size: 13px; font-weight: 650;
@@ -1186,10 +1187,17 @@ footer { background: #1b1a17; color: #cfccc4; }
   .buy-payment { padding: 26px 34px 30px; }
   .buy-proof-mobile { display: none; }
   .buy-proof-desktop { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+  /* The column has the room, so this reads as content rather than fine print. */
+  .buy-proof-desktop .buy-proof-h { margin-bottom: 14px; font-size: 11.5px; }
+  .buy-proof-desktop .buy-proof-list { gap: 15px; }
+  .buy-proof-desktop .buy-proof-list li { grid-template-columns: 28px minmax(0, 1fr); gap: 13px; }
+  .buy-proof-desktop .buy-proof-list li::before { width: 28px; height: 28px; font-size: 13px; border-radius: 9px; }
+  .buy-proof-desktop .buy-proof-list strong { font-size: 14px; }
+  .buy-proof-desktop .buy-proof-list span { margin-top: 3px; font-size: 13px; line-height: 1.5; }
 }
 @media (max-width: 850px) {
   .buy-proof-desktop { display: none; }
-  .buy-proof-mobile { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .buy-proof-mobile { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
   .modal.buy-modal {
     width: 100%; max-width: 680px; grid-template-columns: 1fr; overflow-y: auto;
     border-radius: 24px; background: #fff;
@@ -1235,8 +1243,13 @@ footer { background: #1b1a17; color: #cfccc4; }
   animation: none;
 }
 @media (min-width: 851px) {
+  /* Both columns must scroll themselves. .buy-modal is overflow:hidden and
+     height:100dvh, so a column that is max-height constrained with visible
+     overflow gets clipped and the bottom of the Stripe form becomes
+     unreachable. There is no scrollbar to find because nothing in the chain
+     owns the overflow. */
   .modal-overlay.buy-overlay .buy-order,
-  .modal-overlay.buy-overlay .buy-payment { max-height: 100dvh; }
+  .modal-overlay.buy-overlay .buy-payment { max-height: 100dvh; overflow-y: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-overlay.buy-overlay { animation: none; }

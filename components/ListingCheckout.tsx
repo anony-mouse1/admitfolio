@@ -232,19 +232,22 @@ export default function ListingCheckout({
                 onError={setError}
               />
             ) : (
-              <>
-                <div className="buy-proof buy-proof-mobile">{proofPanel}</div>
-                {/* Decorative. The header small above carries the same message
-                    to a screen reader, so announcing it twice would be noise. */}
-                <div className="buy-stripe-idle" aria-hidden="true">
-                  <div className="buy-ghost-row"><i /><i /><i /></div>
-                  <div className="buy-ghost" />
-                  <div className="buy-ghost buy-ghost-short" />
-                </div>
-              </>
+              // Decorative. The header small above carries the same message to
+              // a screen reader, so announcing it twice would be noise.
+              <div className="buy-stripe-idle" aria-hidden="true">
+                <div className="buy-ghost-row"><i /><i /><i /></div>
+                <div className="buy-ghost" />
+                <div className="buy-ghost buy-ghost-short" />
+              </div>
             )}
           </div>
         </div>
+
+        {/* Phone only, and deliberately outside the card so it survives the
+            Stripe mount. Someone who commits an address and then hesitates at
+            the card form is exactly who this is for. Desktop keeps its copy in
+            the left column. */}
+        <div className="buy-proof buy-proof-mobile">{proofPanel}</div>
 
         <ul className="buy-ticks">
           <li>Your reading link arrives by email in under a minute and works for a year.</li>

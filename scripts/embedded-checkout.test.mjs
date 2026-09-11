@@ -25,6 +25,7 @@ const stripComments = (source) => source
 const checkoutRendered = stripComments(checkout);
 const browser = read('components/CollectionBrowser.tsx');
 const component = read('components/EmbeddedListingCheckout.tsx');
+const componentRendered = stripComments(component);
 const commerce = read('lib/commerce.ts');
 const styles = read('app/globals.css');
 
@@ -139,17 +140,59 @@ assert.match(checkoutRendered, /buy-proof-desktop/, 'the panel renders in the le
 assert.match(checkoutRendered, /buy-proof-mobile/, 'and inside the payment card body');
 assert.match(styles, /@media \(min-width: 851px\)[\s\S]*?\.buy-proof-mobile \{ display: none; \}/,
   'the card copy is hidden on desktop');
+// .buy-modal is overflow:hidden and height:100dvh, so each desktop column has
+// to own its own overflow or the bottom of the Stripe form is unreachable with
+// no scrollbar anywhere in the chain.
+assert.match(
+  styles,
+  /\.modal-overlay\.buy-overlay \.buy-payment \{ max-height: 100dvh; overflow-y: auto; \}/,
+  'the desktop payment column scrolls itself',
+);
 assert.match(styles, /@media \(max-width: 850px\)[\s\S]*?\.buy-proof-desktop \{ display: none; \}/,
   'and the column copy is hidden on a phone');
 
-// The mobile panel sits in the idle branch, so it is what Stripe replaces.
-// Rendering it outside that branch would leave it under the mounted form.
+// The phone panel sits OUTSIDE the card, after it, so it survives the Stripe
+// mount. Someone who commits an address and then hesitates at the card form is
+// exactly who it is for, and the first build made it vanish at that moment.
 const branchStart = checkoutRendered.indexOf('{mounted ? (');
-const idleStart = checkoutRendered.indexOf(') : (', branchStart);
-assert.ok(branchStart > -1 && idleStart > branchStart, 'the mount branch is intact');
+const cardEnd = checkoutRendered.indexOf('buy-ticks');
+assert.ok(branchStart > -1 && cardEnd > branchStart, 'the mount branch is intact');
 assert.ok(
-  checkoutRendered.indexOf('buy-proof-mobile') > idleStart,
-  'the panel is in the idle branch, so the Stripe form replaces it',
+  checkoutRendered.indexOf('buy-proof-mobile') > branchStart
+    && checkoutRendered.indexOf('buy-proof-mobile') < cardEnd,
+  'the phone panel renders after the card and before the ticks, so the mount cannot remove it',
+);
+assert.doesNotMatch(
+  checkoutRendered.slice(branchStart, checkoutRendered.indexOf('</div>', checkoutRendered.indexOf('buy-stripe-idle'))),
+  /buy-proof-mobile/,
+  'and it is not inside the branch Stripe replaces',
+);
+
+// ---- One Embedded Checkout object per page. ----
+// Stripe.js allows exactly one and destroy() returns void, so a remount in the
+// same React commit throws IntegrationError inside the library's own promise
+// chain, which has no catch. The card then hangs on "Loading secure checkout"
+// with nothing shown. Owning the lifecycle is what makes every remount path
+// safe, so the provider components must stay gone.
+assert.doesNotMatch(componentRendered, /EmbeddedCheckoutProvider/, 'the provider cannot manage this lifecycle');
+assert.match(component, /createEmbeddedCheckoutPage/, 'we create the instance ourselves');
+assert.match(component, /function runExclusive/, 'and serialise every create and destroy');
+assert.match(component, /async function releaseSlot/, 'releasing the singleton before the next create');
+assert.match(
+  component,
+  /releaseSlot\(\)[\s\S]{0,400}createEmbeddedCheckoutPage/,
+  'the teardown is awaited before the create, not fired alongside it',
+);
+assert.match(
+  component,
+  /runExclusive\(releaseSlot\)/,
+  'and unmount releases the slot through the same queue',
+);
+assert.match(component, /setLoading\(false\);?\s*\n?\s*\}?\);?/, 'a failed mount clears the loading state');
+assert.match(
+  component,
+  /\}\)\.catch\(\(mountError: unknown\) => \{/,
+  'the mount has a catch, so a throw can never leave the card spinning',
 );
 
 // Claims. Each one was checked against the live catalogue. Nothing here says an
