@@ -121,12 +121,51 @@ assert.match(
   /setMountedEmail\(\(current\) => \(current && current !== email \? '' : current\)\)/,
   'a changed address retires the mounted session',
 );
-// The control lives inside the card, under its own header, not as a full width
-// gate above it. The gate is what this design removed.
-assert.match(styles, /\.buy-start-payment \{/, 'the control is styled as a compact in-card button');
-assert.ok(
-  checkoutRendered.indexOf('buy-start-payment') > checkoutRendered.indexOf('buy-stripe-head'),
-  'and it renders after the card header, inside the card',
+// The control sits directly under the field, where the eye already is after
+// typing, not inside the payment card where finding it meant looking away.
+assert.match(styles, /\.buy-start-payment \{/, 'the control is styled as a compact button');
+const fieldAt = checkoutRendered.indexOf('buy-email-field');
+const controlAt = checkoutRendered.indexOf('buy-start-payment');
+const cardAt = checkoutRendered.indexOf('buy-stripe-card');
+assert.ok(fieldAt > -1 && controlAt > fieldAt, 'the control renders after the email field');
+assert.ok(controlAt < cardAt, 'and before the payment card, not inside it');
+
+// One derived validity, read by both the tick and the control, so the signal
+// and the button can never disagree.
+assert.match(
+  checkoutRendered,
+  /const emailIsValid = emailRe\.test\(deliveryEmail\.trim\(\)\.toLowerCase\(\)\)/,
+  'validity is derived from the live field',
+);
+assert.match(checkoutRendered, /emailIsValid && <span className="buy-email-tick"/, 'the tick reads it');
+assert.match(checkoutRendered, /aria-disabled=\{!emailIsValid\}/, 'and so does the control state');
+// aria-disabled, not disabled: a disabled button cannot be clicked, so the
+// empty-field message would be unreachable.
+assert.doesNotMatch(
+  checkoutRendered,
+  /<button[^>]*className="buy-start-payment"[\s\S]{0,160}\sdisabled/,
+  'the control is never hard disabled, or it could not explain itself',
+);
+// Assert the declaration that does the work, not merely that some rule with
+// this selector exists: renaming the real rule slipped past the looser version
+// because the :hover rule still matched.
+assert.match(
+  styles,
+  /\.buy-start-payment\[aria-disabled='true'\] \{[^}]*opacity: \.5;/,
+  'and it actually looks unavailable in that state',
+);
+
+// Enter routes through the control. It used to call commitDeliveryEmail, which
+// is what gave Enter its own way into Stripe.
+assert.match(
+  checkoutRendered,
+  /event\.key === 'Enter'[\s\S]{0,80}startPayment\(\)/,
+  'Enter triggers the same control as the click',
+);
+assert.doesNotMatch(
+  checkoutRendered,
+  /event\.key === 'Enter'[\s\S]{0,80}commitDeliveryEmail/,
+  'and no longer has a path of its own',
 );
 
 // ---- The event has to stay comparable with the two step numbers. ----
@@ -135,11 +174,6 @@ assert.match(checkout, /onBlur=\{\(event\) => commitDeliveryEmail\(event\.target
 // The value must come off the event. Reading it from state meant a blur in the
 // same tick as the change, which is what autofill does, committed nothing.
 assert.match(checkout, /commitDeliveryEmail = useCallback\(\(raw: string\)/, 'and reads the value from the event, not from a closure');
-assert.match(
-  checkout,
-  /event\.key === 'Enter'[\s\S]{0,90}commitDeliveryEmail\(event\.currentTarget\.value\)/,
-  'and on Enter, also from the event',
-);
 assert.doesNotMatch(
   checkoutRendered,
   /onChange=\{\(event\) => \{[^}]*trackConversion/,

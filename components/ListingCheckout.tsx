@@ -171,6 +171,12 @@ export default function ListingCheckout({
     </>
   );
 
+  // One source of truth for validity, derived on every render from the live
+  // field. The tick and the control's state both read this, so the signal and
+  // the button can never disagree. Computing validity is not the same as acting
+  // on it: nothing here reports an event or mounts anything.
+  const emailIsValid = emailRe.test(deliveryEmail.trim().toLowerCase());
+
   const info = schoolInfo(item.school || '');
   const label = info ? info.short : (item.school || 'This listing');
   const essayCount = item.essayCount || 1;
@@ -220,22 +226,45 @@ export default function ListingCheckout({
       <section className="buy-payment">
         <div className="buy-email-field">
           <label htmlFor="deliveryEmail">Delivery email</label>
-          <input
-            id="deliveryEmail"
-            type="email"
-            maxLength={254}
-            autoComplete="email"
-            spellCheck={false}
-            ref={inputRef}
-            value={deliveryEmail}
-            onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
-            onBlur={(event) => commitDeliveryEmail(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commitDeliveryEmail(event.currentTarget.value); } }}
-            placeholder="you@email.com"
-          />
+          <div className={`buy-email-input${emailIsValid ? ' ok' : ''}`}>
+            <input
+              id="deliveryEmail"
+              type="email"
+              maxLength={254}
+              autoComplete="email"
+              spellCheck={false}
+              ref={inputRef}
+              value={deliveryEmail}
+              onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
+              onBlur={(event) => commitDeliveryEmail(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); startPayment(); } }}
+              placeholder="you@email.com"
+            />
+            {/* Decorative. The control's aria-disabled below carries the same
+                state to a screen reader, and a tick that announced itself on
+                every keystroke would be noise. */}
+            {emailIsValid && <span className="buy-email-tick" aria-hidden="true">✓</span>}
+          </div>
           <small>Where your reading link goes. Your card can use a different address.</small>
         </div>
         <div className={`field-error${error ? ' show' : ''}`}>{error || ''}</div>
+
+        {/* Directly under the field, where the buyer's eye already is after
+            typing. It used to sit inside the payment card, which meant looking
+            away to a mostly empty panel to find the next step.
+            aria-disabled rather than disabled: the state tracks the same
+            validity the tick does, but the control still takes the click so an
+            empty or malformed field is told why instead of going dead. */}
+        {!mounted && (
+          <button
+            className="buy-start-payment"
+            type="button"
+            aria-disabled={!emailIsValid}
+            onClick={startPayment}
+          >
+            Continue to payment
+          </button>
+        )}
 
         <div className="buy-stripe-card">
           <div className="buy-stripe-head">
@@ -263,23 +292,13 @@ export default function ListingCheckout({
                 onError={setError}
               />
             ) : (
-              <>
-                {/* Sits directly under the card's own header, so it reads as
-                    continuing inside a card the buyer can already see rather
-                    than moving to a new screen. Never disabled: clicking with
-                    an empty or malformed field focuses it and says why, which
-                    is more use than a control that cannot be pressed. */}
-                <button className="buy-start-payment" type="button" onClick={startPayment}>
-                  Continue to payment
-                </button>
-                {/* Decorative. The header small above carries the same message
-                    to a screen reader, so announcing it twice would be noise. */}
-                <div className="buy-stripe-idle" aria-hidden="true">
-                  <div className="buy-ghost-row"><i /><i /><i /></div>
-                  <div className="buy-ghost" />
-                  <div className="buy-ghost buy-ghost-short" />
-                </div>
-              </>
+              // Decorative. The header small above carries the same message to
+              // a screen reader, so announcing it twice would be noise.
+              <div className="buy-stripe-idle" aria-hidden="true">
+                <div className="buy-ghost-row"><i /><i /><i /></div>
+                <div className="buy-ghost" />
+                <div className="buy-ghost buy-ghost-short" />
+              </div>
             )}
           </div>
         </div>
