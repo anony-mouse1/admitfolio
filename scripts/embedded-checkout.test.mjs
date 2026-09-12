@@ -41,8 +41,53 @@ for (const [name, source] of [['app/page.tsx', page], ['components/CollectionBro
   assert.match(source, /ANALYTICS_EVENTS\.listingViewed/, `${name} must record Listing Viewed`);
   assert.match(source, /trackedViews|trackedListingViews/, `${name} must record it once per listing`);
 }
-assert.match(page, /get\('checkout'\)[\s\S]*checkoutItemForListing\(listing\), false, false\)/);
-assert.match(page, /const closeBuy = useCallback\(\(\) => \{[\s\S]*setBuyOpen\(false\);[\s\S]*url\.searchParams\.set\('listing', curItem\.listingId\);[\s\S]*url\.hash = 'browse';/);
+// Restoring checkout from the URL must not re-fire Checkout Started and must
+// not re-push the entry the visitor is already standing on. The origin argument
+// carries both: only 'url' takes the branch that does neither.
+assert.match(page, /get\('checkout'\)[\s\S]*checkoutItemForListing\(listing\), 'url'\)/);
+assert.match(
+  page,
+  /const openBuy = useCallback\(\(item: CheckoutItem, origin: BuyOrigin \| 'url'\) => \{\s*if \(origin === 'url'\)/,
+  'the URL restore must be the branch that skips the push and the event',
+);
+
+// Closing checkout pops the entry opening it pushed. Pushing instead is what
+// sent Back forward into the payment screen: the stack read browse, listing,
+// checkout, listing, so the entry behind the visitor was the checkout they had
+// just closed. All four in-page affordances share this one path.
+assert.match(
+  page,
+  /const closeBuy = useCallback\(\(\) => \{\s*if \(buyPushedRef\.current\) \{[\s\S]{0,400}?window\.history\.back\(\);/,
+  'closeBuy must pop the entry openBuy pushed',
+);
+const closeBuyBody = /const closeBuy = useCallback\(\(\) => \{[\s\S]*?\n  \}, \[curItem\.listingId\]\);/.exec(page);
+assert.ok(closeBuyBody, 'closeBuy must still be a useCallback keyed on the open listing');
+assert.doesNotMatch(closeBuyBody[0], /pushState/, 'closeBuy must never push a history entry');
+// The fallback, for a pasted or reloaded ?checkout= link with nothing of ours
+// behind it. It replaces rather than pushes, so Back still leaves the site.
+assert.match(
+  page,
+  /const closeBuy = useCallback\(\(\) => \{[\s\S]*setBuyOpen\(false\);[\s\S]*url\.searchParams\.set\('listing', curItem\.listingId\);[\s\S]*url\.hash = 'browse';\s*window\.history\.replaceState\(/,
+);
+
+// The control has to name where it actually goes. From a card the sheet never
+// opened, so closing returns to the catalogue, not to a listing.
+assert.match(page, /openBuy\(\{[\s\S]{0,400}?\}, 'browse'\)/, 'a card unlock must return to the catalogue');
+assert.match(page, /openBuy\(\{[\s\S]{0,400}?\}, 'listing'\)/, 'a sheet unlock must return to the listing');
+assert.match(page, /<ListingCheckout[^>]*returnTo=\{buyReturn\}/, 'and the dialog must be told which');
+assert.match(
+  checkout,
+  /const backLabel = returnTo === 'listing' \? 'Back to listing' : 'Back to essays'/,
+  'both labels live in the dialog, not in either caller',
+);
+assert.match(checkout, /aria-label=\{backLabel\}/, 'the x and the mobile pill must name the same destination');
+assert.doesNotMatch(checkout, /Back to listing<\/button>/, 'no hard-coded destination survives on the back control');
+
+// Collection pages reach checkout only from the open sheet, so the ref starts
+// false on both entry paths. Boolean(!initialCheckoutId) read as the opposite
+// of its own name: true when nothing had been pushed.
+assert.match(browser, /const checkoutPushedRef = useRef\(false\)/, 'nothing is pushed before openCheckout runs');
+assert.doesNotMatch(browser, /useRef\(Boolean\(!initialCheckoutId\)\)/);
 assert.match(page, /obscured=\{buyOpen\}/);
 assert.match(browser, /obscured=\{checkoutOpen\}/, 'the collection sheet must dim under checkout too');
 assert.match(sheet, /aria-hidden=\{obscured \|\| undefined\}/);
