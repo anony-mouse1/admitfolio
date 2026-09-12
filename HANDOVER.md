@@ -1,139 +1,127 @@
-# Handover: server-rendered essay collection pages
+# Handover: the checkout Back button
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `ritvik/collection-pages`, on `origin/main` at `2ceeb7e` (#85).
-Open as PR #87 against `main`, not merged. Nothing else is in flight.
+Branch: `ritvik/checkout-back-button`, on `origin/main` at `4a9026d` (#87 merged).
+One commit, `8ecfcf5`. Not pushed, no PR. Ritvik wants to look first.
+
+`ritvik/checkout-one-screen` is a separate branch with an open PR and is
+deliberately not involved. Nothing from it is in here.
 
 ## Why
 
-Google has never seen a listing. The public site is one client-rendered page, so
-a crawler without JavaScript gets `Loading essays…` and no catalogue at all,
-against 192 live listings. Seven server-rendered pages put those listings in the
-HTML. This is recommendation 1 of the buyer acquisition audit.
+Browse, open a listing, unlock, close checkout by any means, press Back, and
+Back took you forward into the payment screen.
+
+`closeBuy` pushed a `?listing=` entry where `closeDetail` pops. The stack read
+browse, listing, checkout, listing, with the visitor on the last of those, so
+the entry behind them was the checkout they had just closed.
 
 ## What changed
 
-Twenty-eight files. Most of them are one extraction and the tests that were
-anchored to the old locations.
+**`closeBuy` gets the `closeDetail` treatment.** A `buyPushedRef`,
+`history.back()` when opening pushed an entry, `replaceState` when the visitor
+arrived on a pasted or reloaded `?checkout=` link with nothing of ours behind
+them. The back control, the x, the mobile close pill and Escape are all one
+path, so one fix covers the four.
 
-**The catalogue query moved.** `lib/publicCatalog.ts` holds what was the body of
-`app/api/listings/route.ts`, so the pages and the JSON API serve the same
-listings from the same code. The launch gate moved with it and sits immediately
-before the query, so every reader inherits it. The API response is unchanged,
-verified byte for byte against production twice.
+**Both entry points are honoured rather than flattened.** From the detail sheet
+the stack is browse, listing, checkout, so one Back reopens the listing. From a
+card the sheet never opened, so it is browse, checkout and one Back is the
+catalogue. The old code forced the sheet open on both, which is what made the
+extra push look necessary.
 
-**The browse card moved.** `lib/publicListing.ts` holds the type and the pure
-helpers, `components/ListingCardBody.tsx` the markup. The homepage wraps it in
-the clickable div it always had; the collection pages wrap it in an anchor. One
-body, so the two cannot drift. `components/ListingDetail.tsx` and
-`components/ListingCheckout.tsx` came out of `app/page.tsx` the same way, which
-is what lets a collection page open a listing and take a payment without
-sending the buyer to the homepage. `app/page.tsx` is 500 lines smaller.
+**`ListingCheckout` takes `returnTo`** and owns both strings, so the back
+control and the mobile pill's `aria-label` name the same destination and
+neither caller holds copy. The collection mount passes `"listing"` explicitly:
+checkout is only reachable from the open sheet there, never from a card.
 
-**Seven new pages.** `/essays` plus six collections, listed in the table in the
-PR. `lib/collections.ts` is the one registry the hub, the pages, the metadata
-and the sitemap read. Membership is by prompt or by major, never by seller and
-never by school.
+**`openBuy`'s two booleans become one `origin` argument.** They were only ever
+passed together. The third value, `'url'`, is the restore path that must
+neither re-fire Checkout Started nor re-push the entry the visitor is already
+standing on. A restore can also be a Forward back onto an entry `openBuy`
+pushed earlier, so it reads that entry's own `{ checkout: id }` history state
+to tell a pushed entry from a pasted link.
 
-**The homepage.** A collections band of six cards above Featured essays, which
-drops to three; Featured's selection logic is untouched. A canonical tag, because
-the card links make `?listing=` crawlable and every one of those serves the
-homepage. `metadataBase` and an OpenGraph card, neither of which existed.
-
-## Decisions already made, do not reopen
-
-- **Collections is in the shared nav but not the homepage's.** The homepage has
-  the band, which is a better entry point; guides and collection pages have no
-  band, so the nav is their only route. Removed from all three homepage
-  surfaces (nav bar, tablet menu, mobile menu), left in `GuideShell` and in both
-  footers.
-- **The card href points at the collection, not the homepage.** Following it
-  lands on the collection with the sheet open, so a crawler, a middle click and
-  a shared link all arrive somewhere that makes sense.
-- **Checkout runs on the collection page.** `components/ListingCheckout` is one
-  implementation with two mounts, not a second copy of the payment path.
-- **`otherListingIds` is stripped before the listings reach the client.**
-  Handing them to a client component serialises every field into the RSC payload
-  inside the HTML, and that field is an exact same-seller grouping. The sheet's
-  sibling block therefore never renders on a collection page.
-- **Biology is 30, not 31.** The 31st was a listing whose majors read "Chemical
-  and Biomolecular Engineering, Bioengineering, Biomedical Engineering", caught
-  by a looser pattern on the substring `biomolecular`.
-- **The stats band is full width, below the grid on mobile.** Beside the intro,
-  whichever was shorter left a hole, and the intro length varies per collection.
-- **Duke Kunshan stays resolving to Duke.** Pinned in
-  `scripts/listing-school.test.mjs`. Splitting it lowers what a live listing
-  claims, which is Fatimah's call.
+**`CollectionBrowser`'s `checkoutPushedRef`** was `useRef(Boolean(!initialCheckoutId))`,
+true when nothing had been pushed, the opposite of its name. Now `false`, which
+is correct on both entry paths. No behaviour change; the collection pages
+already popped correctly and were verified to still do so.
 
 ## Verification completed
 
-- `npx tsc --noEmit` clean. All 27 `test:*` scripts pass. `npx next build`
-  succeeds. Never `npm run build`; it applies migrations.
-- Headless Chrome over CDP at 1440, 820 and 390, on ten surfaces, in served HTML
-  and after hydration. Every collection serves its full card count as crawlable
-  anchors, a click never navigates, Back returns to the collection at the scroll
-  position it left, checkout opens and closes on the collection's own URL, and
-  `otherListingIds` appears in none of the six pages.
-- Six test scripts re-anchored, none weakened, about twenty assertions added,
-  each checked by breaking the thing it guards.
-- No database write, migration, backfill or script. The only reads were the
-  unauthenticated public `GET /api/listings` and the app's own.
+`scripts/verify-checkout-history.mjs`, new, run by hand like the other
+`verify-*.mjs` scripts. It is not in `package.json` and must not go in
+`test:*`: it needs a dev server and a browser, and `test:*` is pure.
+
+```
+npx next dev -p 3000
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --remote-debugging-port=9223 --user-data-dir=/tmp/chrome-admitfolio about:blank
+node scripts/verify-checkout-history.mjs
+```
+
+`pushState`, `replaceState`, `back` and `forward` are wrapped in
+`Page.addScriptToEvaluateOnNewDocument`, so every write is attributed to the
+function that made it, and a mirrored stack makes the effect of a Back
+predictable. Twelve scenarios pass, nine of them the flows in the report: the
+four affordances and browser Back from a card unlock, browser Back and
+self-close from the detail sheet, a direct `?checkout=` URL, and browse,
+listing, unlock, Back, Forward. Three more cover the collection mount.
+
+Run against the pre-fix code first, where it reproduces the bug: `then browser
+Back` lands on `/?checkout=` with the dialog open.
+
+Also: `npx tsc --noEmit` clean, all 27 `test:*` pass, `pricing` and `name-leak`
+pass by hand, `npx next build` succeeds. Never `npm run build`; it applies
+migrations. Nine assertions added to `scripts/embedded-checkout.test.mjs`, each
+confirmed to fail when the thing it guards is broken. No database write, no
+migration, no script. No email typed, no Stripe session created.
 
 ## What is left, and whose it is
 
-1. **Fatimah: review and merge the PR.** `git push` does not deploy; Vercel
-   deploys `main`.
-2. **Fatimah: the nav word.** She does not want "Collections". Three options
-   were put to Ritvik with reasoning and she has not answered. When it changes
-   it needs changing in nine code locations plus the copy strings: the shared
-   nav and its mobile menu, both footers, the breadcrumb on the hub and all six
-   collections, the band's closing pill, the hub H1, title and description, and
-   all six collection `title`/`description` strings in `lib/collections.ts`,
-   plus three assertions in `scripts/sitemap.test.mjs`. The URL `/essays` needs
-   no change under any of the options.
-3. **Fatimah: Duke Kunshan.** One listing. Split it to its own entry or leave it
-   claiming Duke.
-4. No hand-run step. No migration, no backfill.
+1. **Ritvik: look at the branch.** Then push and open a PR. `git push` does not
+   deploy; Vercel deploys `main`.
+2. No hand-run step. No migration, no backfill.
 
 ## Found but not fixed
 
-- **Eleven cards show a monogram instead of a logo**, because those schools have
-  no artwork in `lib/schoolLogos.ts`: LMU, Georgetown, Clemson, Syracuse, Notre
-  Dame, UMBC, Harvey Mudd, Barnard, Bryn Mawr, St Mary's College of Maryland and
-  Trinity College Dublin. Adding one means sourcing a trademarked mark and
-  recording its provenance in `public/assets/schools/SOURCES.md`, so it is not a
-  file drop. Trinity College Dublin and Fordham are the cheap two: both already
-  have an asset and are simply missing from the `lib/schools.ts` table.
-- **`.nav-links` is `display: none` below 900px**, so every top-level nav item
-  lives behind the burger on mobile. Entirely pre-existing. It is what caused the
-  Collections link to ship invisible on phones before it was caught.
-- **`scripts/pricing.test.mjs` and `scripts/name-leak.test.mjs` are not wired
-  into `package.json`.** Both pass when run by hand, so the 27 `test:*` scripts
-  are not the whole suite.
-- **The seller school picker offers 13 labels the resolver cannot parse**
-  (`Florida`, `Indiana`, `Minnesota`, `UI Chicago` and others). `SCHOOL_OPTIONS`
-  is built from each entry's `short`, and a `short` is not automatically a key.
-  Latent: no current listing is affected.
-- **`/privacy` and `/terms` still have no canonical.** Separate item, already
-  raised with Fatimah.
-- **`lib/admitProof.ts` still has its second normalizer.** Swapping `schoolKey`
-  for `schoolInfo` needs a backfill or every stored acceptance letter is
-  orphaned. Detail is in the PR #86 description.
-- **A collection page has no pagination, no back-to-top and no filter.** The
-  Common App page is 18 screens on desktop. Deliberate for crawlability, and a
-  design conversation rather than a bug.
+- **`detailPushedRef` is cleared by every popstate, including one that lands on
+  an entry `openDetail` pushed.** Back out of checkout to `?listing=`, then
+  close the sheet: the ref is already false, so `closeDetail` replaces instead
+  of popping and the next Back is a press that changes nothing visible. One
+  dead press, no wrong screen. The same `history.state` trick `openBuy` now
+  uses would fix it. Left alone because `closeDetail` was not in scope and is
+  otherwise correct.
+- **`CollectionBrowser`'s `closeCheckout` does not clear `checkoutPushedRef`
+  before `history.back()`,** where `close` does. Harmless today, `onPop` clears
+  it, and the ref is only true when an entry really was pushed, so the `back()`
+  always lands. Asymmetric to read.
+- **`.ecard-unlock` is a `div` with an `onClick`,** no `role`, no `tabIndex`,
+  no key handler (`components/PublicListingCard.tsx:38`). The card around it is
+  a proper `role="button"` with Enter and Space. So a keyboard user can open a
+  listing but cannot unlock one from the catalogue. Pre-existing.
+- **Two links share `.home-see-more`** since the collections band shipped. The
+  band's goes to `/essays`, Featured's opens the catalogue in place. Styling
+  reuse, not a bug, but `document.querySelector('.home-see-more')` picks the
+  wrong one.
+- **Four layers patch `history.pushState` on every page:** this repo's callers
+  sit under Next's App Router, Vercel Analytics and Vercel Speed Insights.
+  Next's own `replaceState` runs immediately after each of our pushes and
+  spreads the existing state, which is why `{ checkout: id }` survives. That is
+  load-bearing for the Forward restore and is asserted.
+- **`openBuy` builds its URL from `new URL('/', origin)`,** so it drops the
+  hash. `#browse` is restored by the `back()` and nothing observable breaks,
+  but a shared or reloaded `?checkout=` link loses the catalogue view. Left as
+  it was.
 
 ## Environment
 
 Unchanged. `DATABASE_URL` points at the production Supabase project. Reads are
 authorized, writes are not. There is no `.env` and no `prisma/.env`; do not
 create one. Next 16.3's dev server appends a generated block to `AGENTS.md` on
-every `npx next dev` start; check `git status` for it before any commit. Ritvik's
-uncommitted `.gitignore` change is his and was left unstaged.
-
-Two gitignored mock-ups under `public/` hold real seller data and must never be
-committed or deployed: `collections-entry-mockup.html` and
-`homepage-collections-mockup.html`.
+every `npx next dev` start; it did so again here and was reverted before the
+commit, so check `git status` for it. Ritvik's uncommitted `.gitignore` change
+is his and was left unstaged.
