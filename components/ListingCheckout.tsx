@@ -28,10 +28,20 @@ export default function ListingCheckout({
   open,
   item,
   onClose,
+  returnTo = 'listing',
 }: {
   open: boolean;
   item: Partial<CheckoutItem>;
   onClose: () => void;
+  /**
+   * Where closing this dialog actually lands, so the control can say so. The
+   * two mounts have different stacks: on a collection page checkout is only
+   * reachable from the open sheet, so closing always returns to the listing,
+   * while the homepage also opens it straight from a card, where no sheet was
+   * ever opened and closing returns to the catalogue. The caller owns its own
+   * history, so it is the only thing that knows which of the two this is.
+   */
+  returnTo?: 'listing' | 'browse';
 }) {
   const [error, setError] = useState('');
   const [deliveryEmail, setDeliveryEmail] = useState('');
@@ -64,16 +74,19 @@ export default function ListingCheckout({
     setEmailConfirmed(true);
   }
 
+  // Every string in this dialog lives here, so the two mounts cannot drift.
+  const backLabel = returnTo === 'listing' ? 'Back to listing' : 'Back to essays';
+
   return (
   <div className={`modal-overlay buy-overlay${open ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="buyTitle" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
     <div className="modal buy-modal">
-      <button className="modal-close mobile-page-close" aria-label="Back to essays" onClick={onClose}>
+      <button className="modal-close mobile-page-close" aria-label={backLabel} onClick={onClose}>
         <span className="mobile-page-close-icon" aria-hidden="true">&times;</span>
         <span className="mobile-page-back-label" aria-hidden="true">← Back</span>
       </button>
       <section className="buy-order">
         <div className="buy-order-logo"><span>admitfolio</span><i /></div>
-        <button className="buy-back" type="button" onClick={onClose}>← Back to listing</button>
+        <button className="buy-back" type="button" onClick={onClose}>&larr; {backLabel}</button>
         <div className="modal-eyebrow">Checkout · No account needed</div>
         <h3 id="buyTitle">Unlock this listing</h3>
         <p className="buy-intro">Read the full listing immediately after checkout.</p>

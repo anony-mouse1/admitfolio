@@ -98,6 +98,10 @@ const LAUNCHED = process.env.NEXT_PUBLIC_LAUNCH === '1';
 
 type BrowseView = 'cards' | 'rows';
 
+// Which surface opened checkout, named for where closing it returns to. A card
+// is one history entry from the catalogue, the detail sheet is two.
+type BuyOrigin = 'browse' | 'listing';
+
 
 type AnonMode = 'anonymous' | 'reveal' | 'public';
 type PricingMode = 'package' | 'separate';
@@ -1382,30 +1386,74 @@ export default function Page() {
   // enter Admitfolio's React state or touch our servers.
   const [curItem, setCurItem] = useState<Partial<CheckoutItem>>({});
 
-  const openBuy = useCallback((item: CheckoutItem, syncUrl = true, trackStart = true) => {
-    if (trackStart) {
+  // True once opening checkout pushed a history entry of our own, the same
+  // contract detailPushedRef has for the sheet above. Closing then pops that
+  // entry instead of pushing another one on top.
+  //
+  // Pushing on close is what sent Back forward into the payment screen. Unlock
+  // a listing and close checkout and the stack read browse, listing, checkout,
+  // listing, with the visitor on the last of those, so the entry behind them
+  // was checkout itself and Back reopened it.
+  const buyPushedRef = useRef(false);
+
+  // Where closing checkout lands, which is decided by how it was opened.
+  //
+  // From the detail sheet the stack is browse, listing, checkout, so one Back
+  // reopens the listing. From a card the sheet never opened, so the stack is
+  // browse, checkout and one Back is the catalogue. Both are correct, and the
+  // control has to say which one it is rather than promising a listing it is
+  // not going to show. Keeping the sheet on the card path would mean pushing a
+  // listing entry nobody visited, which is the bug this replaces.
+  const [buyReturn, setBuyReturn] = useState<BuyOrigin>('listing');
+
+  const openBuy = useCallback((item: CheckoutItem, origin: BuyOrigin | 'url') => {
+    if (origin === 'url') {
+      // A restore is one of two things. Either a fresh load of a pasted or
+      // reloaded ?checkout= link, where there is nothing of ours behind the
+      // visitor, or Forward back onto an entry openBuy pushed earlier, where
+      // there is. Only the pushed entries carry { checkout: id } as their
+      // history state, so the state object tells the two apart.
+      //
+      // buyReturn is deliberately left alone: whatever opened that entry is
+      // still where popping it returns to.
+      buyPushedRef.current = (window.history.state as { checkout?: string } | null)?.checkout === item.listingId;
+    } else {
       trackConversion(ANALYTICS_EVENTS.checkoutStarted, {
         school: item.school,
         value: item.price,
       });
-    }
-    if (syncUrl) {
       const url = new URL('/', window.location.origin);
       url.searchParams.set('checkout', item.listingId);
       window.history.pushState({ checkout: item.listingId }, '', url);
+      buyPushedRef.current = true;
+      setBuyReturn(origin);
     }
     setCurItem(item);
     setBuyOpen(true);
   }, []);
+
   const closeBuy = useCallback(() => {
+    if (buyPushedRef.current) {
+      buyPushedRef.current = false;
+      // syncCheckoutFromUrl below closes the dialog and the sheet's own
+      // popstate handler restores detailId from the URL, so this lands the
+      // visitor on whatever they were actually looking at.
+      window.history.back();
+      return;
+    }
     setBuyOpen(false);
     if (!curItem.listingId) return;
+    // Nothing of ours to pop, so this is a pasted ?checkout= link or a reload
+    // of one. Fall back to the listing rather than the catalogue: the buyer was
+    // reading it a moment ago, and it is what CollectionBrowser already does on
+    // the same path. Replace rather than push, so Back still leaves the site
+    // instead of returning to the checkout they just closed.
     setPageView('browse');
     setDetailId(curItem.listingId);
     const url = new URL('/', window.location.origin);
     url.searchParams.set('listing', curItem.listingId);
     url.hash = 'browse';
-    window.history.pushState({ listing: curItem.listingId }, '', url);
+    window.history.replaceState({ listing: curItem.listingId }, '', url);
   }, [curItem.listingId]);
 
   // A full-page checkout gets its own listing-specific URL. This also restores
@@ -1424,7 +1472,7 @@ export default function Page() {
         setBuyOpen(false);
         return;
       }
-      openBuy(checkoutItemForListing(listing), false, false);
+      openBuy(checkoutItemForListing(listing), 'url');
     }
     syncCheckoutFromUrl();
     window.addEventListener('popstate', syncCheckoutFromUrl);
@@ -2380,7 +2428,7 @@ export default function Page() {
                       price: listing.price || 0,
                       summary: publicListingTitle(listing),
                       essayCount: listing.essays.length,
-                    })}
+                    }, 'browse')}
                     onOpen={() => openDetail(listing.id)}
                   />
                 ))}
@@ -2504,7 +2552,7 @@ export default function Page() {
                         price: l.price || 0,
                         summary: publicListingTitle(l),
                         essayCount: l.essays.length,
-                      })
+                      }, 'browse')
                     }
                     onOpen={() => openDetail(l.id)}
                   />
@@ -3340,13 +3388,13 @@ export default function Page() {
               price: l.price || 0,
               summary: publicListingTitle(l),
               essayCount: l.essays.length,
-            });
+            }, 'listing');
           }}
         />
       )}
 
       {/* ===== Buyer checkout modal ===== */}
-      <ListingCheckout open={buyOpen} item={curItem} onClose={closeBuy} />
+      <ListingCheckout open={buyOpen} item={curItem} onClose={closeBuy} returnTo={buyReturn} />
 
       {/* ===== Sticky floating waitlist button ===== */}
       <button className={`wl-fab${fabShow ? ' show' : ''}`} type="button" aria-label="Join the waitlist" onClick={openWaitlist}>
