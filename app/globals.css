@@ -1062,49 +1062,63 @@ footer { background: #1b1a17; color: #cfccc4; }
   border-radius: 30px; background: var(--bg);
 }
 .buy-modal .modal-close { z-index: 4; width: 42px; height: 42px; font-size: 24px; }
+/* One row. This was a ~750px stack (wordmark, eyebrow, 42px heading, intro,
+   summary card, total, three ticks) restating the detail sheet the buyer had
+   just read, with the submit button below it at y 847 on a 390px phone. */
 .buy-order {
-  min-width: 0; max-height: calc(100vh - 48px); overflow-y: auto;
-  padding: 38px 38px 34px; border-right: 1px solid var(--line);
+  min-width: 0; overflow: visible;
+  padding: 14px 16px 16px; border-right: 1px solid var(--line);
   background: #f7f1ed;
 }
-.buy-order-logo { display: flex; align-items: flex-end; gap: 4px; }
-.buy-order-logo span { font-family: var(--serif); font-size: 25px; font-weight: 700; line-height: 1; }
-.buy-order-logo i { width: 7px; height: 7px; margin-bottom: 3px; border-radius: 50%; background: var(--accent); }
 .buy-back {
-  margin: 30px 0 20px; padding: 0; border: 0; color: var(--accent); background: none;
+  margin: 0 0 12px; padding: 0; border: 0; color: var(--accent); background: none;
   font-family: var(--sans); font-size: 13px; font-weight: 750; cursor: pointer;
 }
-.buy-order .modal-eyebrow, .buy-payment .modal-eyebrow { text-align: left; }
-.buy-order h3 { margin-top: 8px; text-align: left; font-size: 42px; line-height: 1.04; }
-.buy-intro { margin: 10px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.buy-summary {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  margin-top: 24px; padding: 20px; border-radius: 18px;
-  background: #fff; border: 1px solid #e4d7d1;
+.buy-order-row { display: flex; align-items: center; gap: 12px; }
+.buy-order-main { min-width: 0; flex: 1; }
+.buy-order-school { font-family: var(--serif); font-size: 18px; font-weight: 700; line-height: 1.15; }
+.buy-order-meta { margin-top: 2px; font-size: 11.5px; font-weight: 650; color: var(--muted); }
+/* Clamped to two lines, full width under the row. Same string as the card and
+   the sheet, demoted from a serif block to a caption so it confirms the choice
+   without re-pitching it. */
+.buy-order-hook {
+  margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--faint);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.buy-summary-school { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--ink); }
-.buy-summary-hook { font-size: 13px; line-height: 1.45; color: var(--muted); margin-top: 3px; }
-.buy-summary-price { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--accent); flex: none; }
-.buy-total { display: flex; align-items: center; gap: 12px; margin-top: 22px; font-size: 14px; font-weight: 750; }
-.buy-total i { flex: 1; border-top: 1px dashed #9c958d; }
-.buy-total strong { font-family: var(--serif); font-size: 32px; }
-.buy-delivery {
-  display: grid; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
-  color: var(--muted); font-size: 12.5px; line-height: 1.45;
+
+/* The four steps. Rendered in two places and shown in exactly one: the left
+   column on desktop, the payment card body on a phone. */
+.buy-proof-h {
+  margin: 0 0 11px; font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--faint);
 }
-.buy-delivery div { display: flex; gap: 9px; }
-.buy-delivery b { color: #176f49; }
+.buy-proof-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; counter-reset: proof; }
+/* Two children exactly: the counter pseudo element and the copy wrapper. With
+   strong and span as direct children the grid put the span in the 24px number
+   column and the panel rendered 1210px tall instead of 250. */
+.buy-proof-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 11px; align-items: start; }
+.buy-proof-copy { min-width: 0; }
+.buy-proof-list li::before {
+  counter-increment: proof; content: counter(proof);
+  width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px;
+  background: #eef6f1; color: #2a5f45; font-size: 12px; font-weight: 900;
+}
+.buy-proof-list li:last-child::before {
+  background: color-mix(in srgb, var(--accent) 9%, #fff); color: var(--accent);
+}
+.buy-proof-list strong { font-size: 12.5px; font-weight: 800; line-height: 1.3; }
+.buy-proof-list span { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+
+.buy-ticks { display: grid; gap: 8px; margin: 15px 0 0; padding: 0; list-style: none; }
+.buy-ticks li { position: relative; padding-left: 19px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+.buy-ticks li::before { content: '✓'; position: absolute; left: 0; color: #176f49; font-weight: 800; }
+.buy-order-price { flex: none; font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--accent); }
 .buy-payment {
-  min-width: 0; max-height: calc(100vh - 48px); overflow-y: auto;
-  padding: 40px 48px 32px;
+  min-width: 0; overflow: visible;
+  padding: 15px 16px 22px;
   background: radial-gradient(circle at 100% 0, rgba(143,31,50,.055), transparent 35%), #fff;
 }
-.buy-payment h4 {
-  margin: 8px 0 5px; color: var(--ink); font-family: var(--serif);
-  font-size: 36px; line-height: 1.08; letter-spacing: -.025em;
-}
-.buy-payment > p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.buy-email-field { display: grid; gap: 8px; margin-top: 26px; }
+.buy-email-field { display: grid; gap: 7px; margin-top: 0; }
 .buy-email-field label { color: var(--ink); font-size: 13px; font-weight: 800; }
 .buy-email-field input {
   width: 100%; padding: 14px 15px; border: 1.5px solid #ae9489; border-radius: 12px;
@@ -1112,25 +1126,8 @@ footer { background: #1b1a17; color: #cfccc4; }
 }
 .buy-email-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(125,29,45,.1); }
 .buy-email-field small { color: var(--faint); font-size: 12px; line-height: 1.45; }
-.buy-email-continue {
-  width: 100%; margin-top: 22px; padding: 13px 18px; border: 2px solid #4f101d; border-radius: 999px;
-  color: #fff; background: linear-gradient(180deg,#8b2639,#6d1528);
-  box-shadow: inset 0 2px rgba(255,255,255,.16), inset 0 -2px rgba(40,5,13,.18), 0 12px 25px rgba(89,24,38,.25);
-  font-size: 15px; font-weight: 800; cursor: pointer;
-}
-.buy-email-continue:hover { background: linear-gradient(180deg,#7e2033,#611021); }
-.buy-email-confirmed {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  margin: 0 0 16px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px;
-  color: var(--muted); background: #fbf8f4; font-size: 12.5px;
-}
-.buy-email-confirmed b { color: var(--ink); }
-.buy-email-confirmed button {
-  flex: none; padding: 0; border: 0; color: var(--accent); background: none;
-  font: inherit; font-weight: 800; cursor: pointer;
-}
 .buy-stripe-card {
-  position: relative; overflow: hidden; padding: 20px;
+  position: relative; overflow: hidden; margin-top: 14px; padding: 20px;
   border: 1px solid #dfd4cc; border-radius: 22px; background: rgba(255,255,255,.9);
   box-shadow: 0 18px 42px rgba(47,31,25,.08);
 }
@@ -1142,6 +1139,46 @@ footer { background: #1b1a17; color: #cfccc4; }
   position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px;
   margin-bottom: 14px; padding-bottom: 15px; border-bottom: 1px solid var(--line);
 }
+.buy-stripe-body { position: relative; }
+/* Compact on purpose. The full width gradient control was the step 1 of 2 gate
+   this design removed, so this one should not read as the same weight. It sits
+   directly under the field now rather than inside the payment card. */
+.buy-start-payment {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 44px; margin-top: 14px; padding: 0 20px;
+  border: 1px solid var(--accent); border-radius: 999px;
+  color: #fff; background: var(--accent);
+  font-family: var(--sans); font-size: 14px; font-weight: 750; cursor: pointer;
+  box-shadow: 0 8px 18px rgba(125,29,45,.18);
+  transition: background .18s ease, opacity .18s ease;
+}
+.buy-start-payment:hover { background: #691826; }
+.buy-start-payment::after { content: '→'; font-size: 15px; font-weight: 500; }
+/* aria-disabled, not disabled. It looks unavailable and announces as such, but
+   still takes the click so an empty or malformed field gets told why. */
+.buy-start-payment[aria-disabled='true'] {
+  opacity: .5; box-shadow: none; cursor: default;
+}
+.buy-start-payment[aria-disabled='true']:hover { background: var(--accent); }
+
+/* The tick and the control read one derived validity, so they cannot disagree. */
+.buy-email-input { position: relative; }
+.buy-email-input input { padding-right: 42px; }
+.buy-email-input.ok input { border-color: #2a5f45; }
+.buy-email-input.ok input:focus { box-shadow: 0 0 0 3px rgba(42,95,69,.12); }
+.buy-email-tick {
+  position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+  color: #176f49; font-size: 15px; font-weight: 800; line-height: 1; pointer-events: none;
+}
+/* Deliberately shorter than the mounted form. Stripe's wrap is min-height 500px
+   below 560px wide, and matching that here would push everything under the card
+   off the landing screen to reserve space for something not on screen yet. The
+   card grows downward when Stripe mounts, so nothing above it moves. */
+.buy-stripe-idle { display: grid; gap: 11px; opacity: .55; }
+.buy-ghost { height: 42px; border-radius: 11px; background: #f2eee7; }
+.buy-ghost-short { width: 58%; }
+.buy-ghost-row { display: flex; gap: 9px; }
+.buy-ghost-row i { flex: 1; height: 42px; border-radius: 11px; background: #f2eee7; display: block; }
 .buy-stripe-head-main { display: flex; align-items: center; gap: 11px; }
 .buy-stripe-head-main > span:last-child { display: grid; }
 .buy-stripe-head-main strong { font-size: 13px; }
@@ -1156,6 +1193,7 @@ footer { background: #1b1a17; color: #cfccc4; }
   color: #635d57; background: #faf7f4; font-size: 10px; font-weight: 800; white-space: nowrap;
 }
 .embedded-checkout-wrap { min-height: 430px; }
+.embedded-checkout-host { min-height: 1px; }
 .embedded-checkout-loading {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   min-height: 220px; color: var(--muted); font-size: 13px; font-weight: 650;
@@ -1169,41 +1207,51 @@ footer { background: #1b1a17; color: #cfccc4; }
   color: #9a2f25; background: #fff5f3; font-size: 13px; font-weight: 650; line-height: 1.45;
 }
 @keyframes checkoutSpin { to { transform: rotate(360deg); } }
-.buy-secure {
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-  margin-top: 12px; font-size: 11.5px; font-weight: 500; color: var(--faint);
+/* Desktop keeps the two columns. The order column is short now, which is what
+   leaves room for the proof panel that belongs beside the payment form. */
+@media (min-width: 851px) {
+  .buy-order { padding: 26px 28px 24px; }
+  .buy-back { margin-bottom: 16px; }
+  .buy-order-school { font-size: 24px; }
+  .buy-order-price { font-size: 30px; }
+  .buy-payment { padding: 26px 34px 30px; }
+  .buy-proof-mobile { display: none; }
+  .buy-proof-desktop { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+  /* The column has the room, so this reads as content rather than fine print. */
+  .buy-proof-desktop .buy-proof-h { margin-bottom: 14px; font-size: 11.5px; }
+  .buy-proof-desktop .buy-proof-list { gap: 15px; }
+  .buy-proof-desktop .buy-proof-list li { grid-template-columns: 28px minmax(0, 1fr); gap: 13px; }
+  .buy-proof-desktop .buy-proof-list li::before { width: 28px; height: 28px; font-size: 13px; border-radius: 9px; }
+  .buy-proof-desktop .buy-proof-list strong { font-size: 14px; }
+  .buy-proof-desktop .buy-proof-list span { margin-top: 3px; font-size: 13px; line-height: 1.5; }
 }
-.buy-secure svg { color: var(--accent); }
 @media (max-width: 850px) {
+  .buy-proof-desktop { display: none; }
+  .buy-proof-mobile { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
   .modal.buy-modal {
     width: 100%; max-width: 680px; grid-template-columns: 1fr; overflow-y: auto;
     border-radius: 24px; background: #fff;
+    /* The modal is height:100dvh inside .buy-overlay, and grid rows default to
+       align-content:stretch. Left auto, the two rows split the leftover height
+       and the collapsed order panel grew back into a tall one, pushing the
+       email field from 185 to 353. The order row takes its content, the
+       payment column takes the rest. */
+    grid-template-rows: auto 1fr;
   }
-  .buy-order, .buy-payment { max-height: none; overflow: visible; }
-  .buy-order { padding: 34px 30px 28px; border-right: 0; border-bottom: 1px solid var(--line); }
-  .buy-order h3 { font-size: 36px; }
-  .buy-payment { padding: 30px 30px 28px; }
-  .buy-payment h4 { font-size: 31px; }
+  .buy-order { border-right: 0; border-bottom: 1px solid var(--line); }
 }
 @media (max-width: 560px) {
   .modal.buy-modal {
     max-width: none; max-height: calc(100dvh - 16px); padding: 0;
     border-radius: 22px 22px 0 0;
   }
-  .buy-modal .modal-close { position: fixed; top: 22px; right: 16px; }
-  .buy-order { padding: 28px 20px 24px; }
-  .buy-order-logo { padding-right: 48px; }
-  .buy-back { margin: 24px 0 18px; }
-  .buy-order h3 { font-size: 32px; }
-  .buy-summary { align-items: flex-start; padding: 17px; }
-  .buy-summary-school { font-size: 20px; }
-  .buy-summary-price { font-size: 22px; }
-  .buy-payment { padding: 27px 16px calc(24px + env(safe-area-inset-bottom)); }
-  .buy-payment h4 { padding-right: 32px; font-size: 29px; }
-  .buy-stripe-card { padding: 16px 12px; border-radius: 18px; }
+  /* The fixed close control is a top-LEFT pill (left:16px, 42px tall), so what
+     clears it is the panel's top padding, not a right gutter. */
+  .buy-modal .modal-close { position: fixed; top: 14px; right: 12px; }
+  .buy-payment { padding: 15px 16px calc(22px + env(safe-area-inset-bottom)); }
+  .buy-stripe-card { padding: 15px 12px; border-radius: 18px; }
   .buy-stripe-brand { display: none; }
   .embedded-checkout-wrap { min-height: 500px; }
-  .buy-secure { padding: 0 8px; text-align: center; line-height: 1.4; }
 }
 
 /* Checkout keeps its existing content and flow, but uses the full viewport
@@ -1225,8 +1273,13 @@ footer { background: #1b1a17; color: #cfccc4; }
   animation: none;
 }
 @media (min-width: 851px) {
+  /* Both columns must scroll themselves. .buy-modal is overflow:hidden and
+     height:100dvh, so a column that is max-height constrained with visible
+     overflow gets clipped and the bottom of the Stripe form becomes
+     unreachable. There is no scrollbar to find because nothing in the chain
+     owns the overflow. */
   .modal-overlay.buy-overlay .buy-order,
-  .modal-overlay.buy-overlay .buy-payment { max-height: 100dvh; }
+  .modal-overlay.buy-overlay .buy-payment { max-height: 100dvh; overflow-y: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-overlay.buy-overlay { animation: none; }
@@ -3090,7 +3143,10 @@ body { -webkit-tap-highlight-color: transparent; }
     width: auto;
     height: 42px;
   }
-  .buy-overlay .buy-order { padding-top: calc(76px + env(safe-area-inset-top)); }
+  /* The pill is 42px tall at top:12px, so its bottom edge is 54px. 62px clears
+     it with room; the 76px it used to be was sized for an order panel that
+     opened with a wordmark. */
+  .buy-overlay .buy-order { padding-top: calc(62px + env(safe-area-inset-top)); }
   .buy-overlay .buy-back { display: none; }
 }
 
