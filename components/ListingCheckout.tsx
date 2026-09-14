@@ -77,9 +77,10 @@ export default function ListingCheckout({
   const [mountedEmail, setMountedEmail] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   // Checkout Email Submitted has to stay comparable with the numbers measured
-  // under the two-step flow, so it reports once per distinct address rather
-  // than once per commit. Editing an address and going back to an earlier one
-  // does not report it twice. This is unchanged by the move to a click.
+  // under the two-step flow, where it meant the buyer deliberately pressed
+  // Continue or Enter. It reports once per distinct address when payment is
+  // deliberately started. Editing an address and going back to an earlier one
+  // does not report it twice.
   const reportedEmails = useRef<Set<string>>(new Set());
 
   // Set when a mount has failed and been dropped, so the control that comes
@@ -111,8 +112,8 @@ export default function ListingCheckout({
   }
 
   // Commit, not "submit". Runs when the field loses focus or the buyer presses
-  // Enter. Never on keystroke, because that would report a half-typed address.
-  // Reports the event and nothing else: it creates no Stripe session.
+  // Enter. Never on keystroke. It validates and stores the address, but it does
+  // not report a funnel stage or create a Stripe session.
   //
   // The value comes from the event, not from state. Closing over deliveryEmail
   // meant a blur arriving in the same tick as the value change, which is what
@@ -132,23 +133,13 @@ export default function ListingCheckout({
     }
     setDeliveryEmail(email);
     setError('');
-    // Same property shape as Checkout Started so the stages line up in Vercel.
-    // Never the address itself. item is always complete while the modal is
-    // open; the fallbacks only satisfy its Partial type.
-    if (!reportedEmails.current.has(email)) {
-      reportedEmails.current.add(email);
-      trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
-        school: item.school ?? '',
-        value: item.price ?? 0,
-      });
-    }
     // An address that differs from the mounted one retires that mount, so the
     // buyer can never pay on a session built for an address the field has since
     // been edited past. They click again, which is one deliberate act per
     // session by construction.
     setMountedEmail((current) => (current && current !== email ? '' : current));
     return email;
-  }, [item.school, item.price]);
+  }, []);
 
   // The only thing that creates a Stripe Checkout Session. Reads the live input
   // rather than state, so "type then click" works without depending on blur
@@ -165,9 +156,19 @@ export default function ListingCheckout({
       inputRef.current?.focus();
       return;
     }
+    // Preserve the existing funnel definition: this stage is a deliberate
+    // proceed action, not merely a valid address losing focus. Never include
+    // the address itself in analytics.
+    if (!reportedEmails.current.has(email)) {
+      reportedEmails.current.add(email);
+      trackConversion(ANALYTICS_EVENTS.checkoutEmailSubmitted, {
+        school: item.school ?? '',
+        value: item.price ?? 0,
+      });
+    }
     setRetryable(false);
     setMountedEmail(email);
-  }, [commitDeliveryEmail]);
+  }, [commitDeliveryEmail, item.school, item.price]);
 
   // A failed mount is dropped rather than left on screen. /api/checkout can
   // answer 429 (8 per minute per IP) or 5xx, and Stripe.js can fail to
@@ -291,8 +292,8 @@ export default function ListingCheckout({
               onKeyDown={(event) => {
               if (event.key !== 'Enter') return;
               // On a soft keyboard, let Go do what the buyer pressed it for.
-              // The blur that follows still reports Checkout Email Submitted,
-              // it just does not open a Stripe session.
+              // The blur that follows still validates the address, but it does
+              // not report a proceed action or open a Stripe session.
               if (!enterMeansProceed()) return;
               event.preventDefault();
               startPayment();

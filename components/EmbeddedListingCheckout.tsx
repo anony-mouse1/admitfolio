@@ -46,12 +46,17 @@ function runExclusive<T>(job: () => Promise<T>): Promise<T> {
 
 async function releaseSlot(): Promise<void> {
   if (!liveCheckout) return;
+  const instance = liveCheckout;
+  liveCheckout = null;
+  await destroyCheckout(instance);
+}
+
+async function destroyCheckout(instance: StripeEmbeddedCheckout): Promise<void> {
   try {
-    liveCheckout.destroy();
+    instance.destroy();
   } catch {
     // Already destroyed. Releasing the slot is the only thing that matters.
   }
-  liveCheckout = null;
   // destroy() is void and Stripe removes its iframe asynchronously, so yield a
   // macrotask before anyone is allowed to create the next one.
   await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
@@ -156,7 +161,11 @@ export default function EmbeddedListingCheckout({
       });
       const host = hostRef.current;
       if (cancelled || !host) {
-        instance.destroy();
+        // A create can finish after React has already unmounted this component.
+        // That instance never reaches liveCheckout, so releaseSlot cannot see
+        // it. Destroy and await the same teardown barrier here before the queue
+        // lets a replacement create begin.
+        await destroyCheckout(instance);
         return;
       }
       liveCheckout = instance;
