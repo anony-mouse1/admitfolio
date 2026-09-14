@@ -164,6 +164,43 @@ export function collectionBySlug(slug: string): CollectionEntry | undefined {
 }
 
 /**
+ * Where a guide's closing call to action sends the reader. Each of these used
+ * to point at /#browse, a fragment on a client-rendered homepage: it exists
+ * for a reader once React has run and it exists for a crawler never, so the
+ * guides passed no link value to the catalogue at all.
+ *
+ * This is not the `guide` field above read backwards. That field is one guide
+ * per collection, for the "read the method first" line on a collection page.
+ * This direction is many to one: both Common App guides belong to the one
+ * Common App collection, and the collection can only name one of them back.
+ *
+ * Deliberately partial, and it should stay that way. Four guides have no
+ * collection that is about what they are about: how to take inspiration, how
+ * to start, and college essay format each apply to every essay on the site
+ * rather than to one group of them, and why-this-college is about supplements,
+ * which are not a collection. Sending a reader from an article to a page full
+ * of essays it was not written about is a worse link than no link.
+ */
+const GUIDE_COLLECTIONS = {
+  'uc-piq-examples': 'uc-personal-insight-questions',
+  'common-app-essay-examples': 'common-app-personal-statement',
+  'common-app-essay-word-count': 'common-app-personal-statement',
+} as const satisfies Partial<Record<GuideSlug, CollectionSlug>>;
+
+/** A guide that has a paired collection. Every other slug fails to compile. */
+export type PairedGuideSlug = keyof typeof GUIDE_COLLECTIONS;
+
+/**
+ * The path a paired guide links to. Total by construction: an unpaired guide
+ * slug is a type error rather than a runtime surprise, and a collection slug
+ * that no longer exists is one too, so a renamed collection cannot leave three
+ * articles pointing at a 404.
+ */
+export function collectionPathForGuide(slug: PairedGuideSlug): string {
+  return collectionPath(GUIDE_COLLECTIONS[slug]);
+}
+
+/**
  * The majors a listing claims, split the same way the browse card splits them
  * (majorsOf in lib/publicListing.ts). The seller's current major is a fallback
  * only when the listing carries no applied majors of its own, which is the rule

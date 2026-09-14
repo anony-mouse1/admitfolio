@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { collectionPathForGuide } from '@/lib/collections';
 import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
@@ -148,8 +149,13 @@ export default function CommonAppEssayExamplesPage() {
 
           <aside className={styles.articleCta}>
             <h2>See how real students approached the Common App</h2>
-            <p>Browse verified essays by school, prompt, and application type. Use them for inspiration, never imitation.</p>
-            <Link className="btn-primary" href="/#browse">Browse Common App essays →</Link>
+            <p>
+              Read personal statements from students who were admitted, many of them alongside the supplements
+              that went out in the same application. Use them for inspiration, never imitation.
+            </p>
+            <Link className="btn-primary" href={collectionPathForGuide('common-app-essay-examples')}>
+              Browse personal statements →
+            </Link>
           </aside>
         </article>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />

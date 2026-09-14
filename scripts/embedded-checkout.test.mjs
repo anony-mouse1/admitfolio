@@ -76,7 +76,7 @@ assert.match(
 );
 assert.match(
   checkoutRendered,
-  /const startPayment = useCallback\(\(\) => \{[\s\S]{0,320}setMountedEmail\(email\)/,
+  /const startPayment = useCallback\(\(\) => \{[\s\S]{0,700}setMountedEmail\(email\)/,
   'and startPayment is the only place that sets the mounted address',
 );
 assert.equal(
@@ -255,7 +255,7 @@ assert.match(
 
 // ---- The event has to stay comparable with the two step numbers. ----
 assert.match(checkout, /onBlur=\{\(event\) => commitDeliveryEmail\(event\.target\.value\)\}/,
-  'Checkout Email Submitted still reports on blur, unchanged, so the funnel numbers stay comparable');
+  'blur still validates and stores the address without starting payment');
 // The value must come off the event. Reading it from state meant a blur in the
 // same tick as the change, which is what autofill does, committed nothing.
 assert.match(checkout, /commitDeliveryEmail = useCallback\(\(raw: string\)/, 'and reads the value from the event, not from a closure');
@@ -264,10 +264,18 @@ assert.doesNotMatch(
   /onChange=\{\(event\) => \{[^}]*trackConversion/,
   'and never on keystroke',
 );
+const commitStart = checkout.indexOf('const commitDeliveryEmail');
+const paymentStart = checkout.indexOf('const startPayment');
+const mountErrorStart = checkout.indexOf('const handleMountError');
+assert.doesNotMatch(
+  checkout.slice(commitStart, paymentStart),
+  /checkoutEmailSubmitted/,
+  'a valid blur must not inflate the explicit proceed stage',
+);
 assert.match(
-  checkout,
-  /reportedEmails\.current\.has\(email\)[\s\S]{0,200}trackConversion\(ANALYTICS_EVENTS\.checkoutEmailSubmitted/,
-  'Checkout Email Submitted is guarded so one address reports at most once',
+  checkout.slice(paymentStart, mountErrorStart),
+  /reportedEmails\.current\.has\(email\)[\s\S]{0,260}trackConversion\(ANALYTICS_EVENTS\.checkoutEmailSubmitted/,
+  'Checkout Email Submitted is emitted by deliberate proceed and guarded so one address reports at most once',
 );
 assert.match(
   checkout,
@@ -405,6 +413,16 @@ assert.match(
   component,
   /runExclusive\(releaseSlot\)/,
   'and unmount releases the slot through the same queue',
+);
+assert.match(
+  component,
+  /if \(cancelled \|\| !host\) \{[\s\S]{0,360}await destroyCheckout\(instance\)/,
+  'a create that resolves after unmount must await teardown before the queue advances',
+);
+assert.match(
+  component,
+  /async function destroyCheckout[\s\S]{0,500}setTimeout\(resolve, 0\)/,
+  'every destroy path shares the macrotask teardown barrier',
 );
 assert.match(component, /setLoading\(false\);?\s*\n?\s*\}?\);?/, 'a failed mount clears the loading state');
 assert.match(
