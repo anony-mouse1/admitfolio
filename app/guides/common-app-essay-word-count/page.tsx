@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { collectionPathForGuide } from '@/lib/collections';
 import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
@@ -149,8 +150,13 @@ export default function CommonAppEssayWordCountPage() {
 
           <aside className={styles.articleCta}>
             <h2>Compare how real essays use limited space</h2>
-            <p>Study pacing and reflection in verified examples, then revise around the needs of your own story.</p>
-            <Link className="btn-primary" href="/#browse">Browse Common App essays →</Link>
+            <p>
+              Read personal statements from admitted students and see what 650 words looks like when every
+              sentence has to earn its place. Then revise around the needs of your own story.
+            </p>
+            <Link className="btn-primary" href={collectionPathForGuide('common-app-essay-word-count')}>
+              Browse personal statements →
+            </Link>
           </aside>
         </article>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
