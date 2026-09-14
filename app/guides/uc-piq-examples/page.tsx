@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
+import { collectionPathForGuide } from '@/lib/collections';
 import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
@@ -163,8 +164,13 @@ export default function UcPiqExamplesPage() {
 
           <aside className={styles.articleCta}>
             <h2>Compare real approaches to the UC PIQs</h2>
-            <p>Browse verified essays by school and application type. Study the choices, then return to your own story.</p>
-            <Link className="btn-primary" href="/#browse">Browse UC essays →</Link>
+            <p>
+              Read complete Personal Insight Question sets from students who were admitted to a UC. Study the
+              choices they made, then return to your own story.
+            </p>
+            <Link className="btn-primary" href={collectionPathForGuide('uc-piq-examples')}>
+              Browse UC PIQ essays →
+            </Link>
           </aside>
         </article>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />

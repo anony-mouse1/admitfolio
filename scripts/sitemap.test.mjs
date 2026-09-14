@@ -273,6 +273,67 @@ const related = read('components/RelatedGuides.tsx');
 assert.ok(related.includes("from '@/lib/guides'"), 'RelatedGuides reads the registry');
 assert.doesNotMatch(related, /title: '/, 'RelatedGuides keeps no map of its own');
 
+// Internal links into the catalogue. A guide that ends at /#browse passes no
+// link value to anything: the homepage computes that section's id on the
+// client, so #browse is not in the served document, and the collection pages
+// were left with the sitemap plus the homepage band and nothing from the
+// articles Google had already indexed.
+const PAIRED_GUIDES = {
+  'uc-piq-examples': 'uc-personal-insight-questions',
+  'common-app-essay-examples': 'common-app-personal-statement',
+  'common-app-essay-word-count': 'common-app-personal-statement',
+};
+const collectionSlugs = new Set(collections.map((collection) => collection.slug));
+for (const [guideSlug, collectionSlug] of Object.entries(PAIRED_GUIDES)) {
+  assert.ok(collectionSlugs.has(collectionSlug), `${guideSlug} pairs with a collection that exists`);
+  const source = read(`app/guides/${guideSlug}/page.tsx`);
+  assert.ok(
+    source.includes(`collectionPathForGuide('${guideSlug}')`),
+    `${guideSlug} builds its call to action href from the registry`,
+  );
+  assert.doesNotMatch(source, /href="\/#browse"/, `${guideSlug} no longer ends at a fragment a crawler cannot see`);
+  assert.doesNotMatch(source, /href="\/essays/, `${guideSlug} has no literal collection path`);
+}
+// And the registry agrees, so a renamed collection cannot leave an article
+// pointing at a 404 while this test still passes.
+const registrySource = read('lib/collections.ts');
+for (const [guideSlug, collectionSlug] of Object.entries(PAIRED_GUIDES)) {
+  assert.match(
+    registrySource,
+    new RegExp(`'${guideSlug}':\\s*'${collectionSlug}'`),
+    `the registry pairs ${guideSlug} with ${collectionSlug}`,
+  );
+}
+// The four that are deliberately unpaired. Each applies to every essay on the
+// site rather than to one group of them, or is about supplements, which are not
+// a collection. Sending a reader somewhere the article is not about is a worse
+// link than no link, so this asserts the absence on purpose.
+for (const guideSlug of guides.map((guide) => guide.slug).filter((slug) => !(slug in PAIRED_GUIDES))) {
+  const source = read(`app/guides/${guideSlug}/page.tsx`);
+  assert.ok(!source.includes('collectionPathForGuide'), `${guideSlug} is deliberately unpaired`);
+}
+
+// The homepage collections band is the collection pages' other referring link,
+// and it has to stay a real anchor in the server-rendered HTML. An onClick, or
+// a band gated on the client-side catalogue fetch, would make it invisible to a
+// crawler while still looking right in a browser.
+assert.match(
+  homepage,
+  /<a key=\{entry\.slug\} className="home-collection" href=\{collectionPath\(entry\.slug\)\}>/,
+  'each collections band card is an anchor with a real href',
+);
+assert.doesNotMatch(
+  homepage,
+  /className="home-collection"[^>]*onClick/,
+  'a band card must not be a click handler',
+);
+assert.match(
+  homepage,
+  /\{n > 0 && <span className="home-collection-count">/,
+  'only the count waits on the client fetch, never the link',
+);
+assert.match(homepage, /<a className="home-see-more" href=\{COLLECTIONS_PATH\}>/, 'the band closes with a real link to the hub');
+
 // robots.txt: private and API paths blocked, the catalogue the homepage renders
 // from left fetchable, /purchase left crawlable so its noindex can be read.
 assert.equal(rules.rules.userAgent, '*');
