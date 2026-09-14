@@ -5,11 +5,10 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 ## Branch and base
 
 Branch: `ritvik/link-guides-to-collections`, on `origin/main` at `4a9026d`
-(#87 merged). Committed locally, **not pushed**, no PR yet.
+(#87 merged). Pushed and open as PR #90 against `main`.
 
-Branched off `main` deliberately, not off either checkout branch. #88 and #89
-are open and stacked on each other; this touches none of the same files and must
-not be mixed into them.
+Branched off `main` deliberately, not off either checkout branch. #88 has since
+merged and #89 remains open; this touches none of the same files.
 
 ## Why
 
@@ -113,7 +112,7 @@ onto two lines at 390 and fills 88 percent of the card. Measured, not guessed.
 
 ## What is left, and whose it is
 
-1. **Ritvik: review, then push and open the PR.** Nothing is pushed.
+1. **Fatimah: review and merge PR #90.**
 2. No hand-run step. No migration, no backfill.
 
 ## Found but not fixed
