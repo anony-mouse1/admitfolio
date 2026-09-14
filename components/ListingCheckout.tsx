@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import LogoBadge from '@/components/LogoBadge';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
@@ -65,9 +65,6 @@ export default function ListingCheckout({
 }) {
   const [error, setError] = useState('');
   const [deliveryEmail, setDeliveryEmail] = useState('');
-  // The normalised address that has been committed on blur. It drives the
-  // analytics event and enables the button below. It does NOT mount Stripe.
-  const [confirmedEmail, setConfirmedEmail] = useState('');
   // The address Stripe is actually mounted for. Only a deliberate click sets
   // this.
   //
@@ -85,16 +82,33 @@ export default function ListingCheckout({
   // does not report it twice. This is unchanged by the move to a click.
   const reportedEmails = useRef<Set<string>>(new Set());
 
+  // Set when a mount has failed and been dropped, so the control that comes
+  // back can say what it now does.
+  const [retryable, setRetryable] = useState(false);
+
   // A new listing, or a reopen, always starts empty.
   // app/page.tsx used to do this inline in openBuy.
-  useEffect(() => {
-    if (!open) return;
+  //
+  // This runs during render rather than in an effect, and that is the whole
+  // point. An effect runs after the commit, and React runs a child's effects
+  // before its parent's, so the effect version committed one render with the
+  // previous address still in mountedEmail and let EmbeddedListingCheckout's
+  // mount effect fire before this cleared it. That one frame created a real
+  // Stripe Checkout Session, which loads Link, which texts a verification code
+  // to anyone whose number is on a Link account. Every close and reopen spent
+  // one, for a dialog whose email field the buyer could see was empty, and four
+  // of them crossed the 8 per minute throttle on /api/checkout. Setting state
+  // during render of this same component re-renders before anything commits, so
+  // there is no such frame to mount in.
+  const [session, setSession] = useState(() => ({ open, listingId: item.listingId }));
+  if (session.open !== open || session.listingId !== item.listingId) {
+    setSession({ open, listingId: item.listingId });
     setError('');
     setDeliveryEmail('');
-    setConfirmedEmail('');
     setMountedEmail('');
+    setRetryable(false);
     reportedEmails.current.clear();
-  }, [open, item.listingId]);
+  }
 
   // Commit, not "submit". Runs when the field loses focus or the buyer presses
   // Enter. Never on keystroke, because that would report a half-typed address.
@@ -128,7 +142,6 @@ export default function ListingCheckout({
         value: item.price ?? 0,
       });
     }
-    setConfirmedEmail(email);
     // An address that differs from the mounted one retires that mount, so the
     // buyer can never pay on a session built for an address the field has since
     // been edited past. They click again, which is one deliberate act per
@@ -152,8 +165,22 @@ export default function ListingCheckout({
       inputRef.current?.focus();
       return;
     }
+    setRetryable(false);
     setMountedEmail(email);
   }, [commitDeliveryEmail]);
+
+  // A failed mount is dropped rather than left on screen. /api/checkout can
+  // answer 429 (8 per minute per IP) or 5xx, and Stripe.js can fail to
+  // initialise. Before this the dead mount stayed, which kept `mounted` true,
+  // which is the one condition under which the control below does not render:
+  // the buyer was left reading "Please try again" with nothing to try it with.
+  // Dropping the mount brings the control back with the address still in the
+  // field, so the retry is one click and nothing to retype.
+  const handleMountError = useCallback((message: string) => {
+    setError(message);
+    setMountedEmail('');
+    setRetryable(true);
+  }, []);
 
   const proofPanel = (
     <>
@@ -188,9 +215,10 @@ export default function ListingCheckout({
   );
 
   // One source of truth for validity, derived on every render from the live
-  // field. The tick and the control's state both read this, so the signal and
-  // the button can never disagree. Computing validity is not the same as acting
-  // on it: nothing here reports an event or mounts anything.
+  // field. The tick reads it, and so does aria-invalid, so what the buyer sees
+  // and what a screen reader hears cannot disagree. The control does not read
+  // it at all: it acts on any input. Computing validity is not the same as
+  // acting on it, and nothing here reports an event or mounts anything.
   const emailIsValid = emailRe.test(deliveryEmail.trim().toLowerCase());
 
   const info = schoolInfo(item.school || '');
@@ -253,6 +281,13 @@ export default function ListingCheckout({
               value={deliveryEmail}
               onChange={(event) => { setDeliveryEmail(event.target.value); setError(''); }}
               onBlur={(event) => commitDeliveryEmail(event.target.value)}
+              aria-describedby="deliveryEmailHint deliveryEmailError"
+              // Invalid is about the address, not about whatever went wrong.
+              // "Too many attempts" is the server's problem with a perfectly
+              // good address, and the field keeps its valid tick throughout, so
+              // marking the input invalid there would contradict both the tick
+              // and the truth.
+              aria-invalid={error && !emailIsValid ? true : undefined}
               onKeyDown={(event) => {
               if (event.key !== 'Enter') return;
               // On a soft keyboard, let Go do what the buyer pressed it for.
@@ -264,29 +299,38 @@ export default function ListingCheckout({
             }}
               placeholder="you@email.com"
             />
-            {/* Decorative. The control's aria-disabled below carries the same
-                state to a screen reader, and a tick that announced itself on
-                every keystroke would be noise. */}
+            {/* Decorative, and deliberately silent: a tick that announced
+                itself on every keystroke would be noise, and nothing depends on
+                hearing it now that the control below acts on any input. */}
             {emailIsValid && <span className="buy-email-tick" aria-hidden="true">✓</span>}
           </div>
-          <small>Where your reading link goes. Your card can use a different address.</small>
+          <small id="deliveryEmailHint">Where your reading link goes. Your card can use a different address.</small>
         </div>
-        <div className={`field-error${error ? ' show' : ''}`}>{error || ''}</div>
+        {/* The one place a message about this field appears, and now the only
+            one a screen reader hears. role="alert" announces it when it shows
+            up for someone whose focus is elsewhere, and the input's
+            aria-describedby reads it again when startPayment sends focus back.
+            It used to be a red line that only sighted buyers could read. */}
+        <div id="deliveryEmailError" className={`field-error${error ? ' show' : ''}`} role="alert">{error || ''}</div>
 
         {/* Directly under the field, where the buyer's eye already is after
             typing. It used to sit inside the payment card, which meant looking
             away to a mostly empty panel to find the next step.
-            aria-disabled rather than disabled: the state tracks the same
-            validity the tick does, but the control still takes the click so an
-            empty or malformed field is told why instead of going dead. */}
+            No disabled state, neither real nor announced. The button always
+            does something worth doing: a valid address mounts the payment form,
+            an empty or malformed one says why. aria-disabled told a screen
+            reader "unavailable" about a control that works, and the half
+            opacity and default cursor that went with it said the same thing to
+            everyone else. The tick in the field is the validity signal, and it
+            does not need repeating on a control whose behaviour does not
+            change. */}
         {!mounted && (
           <button
             className="buy-start-payment"
             type="button"
-            aria-disabled={!emailIsValid}
             onClick={startPayment}
           >
-            Continue to payment
+            {retryable ? 'Try again' : 'Continue to payment'}
           </button>
         )}
 
@@ -313,7 +357,7 @@ export default function ListingCheckout({
                 deliveryEmail={mountedEmail}
                 school={item.school ?? ''}
                 price={item.price ?? 0}
-                onError={setError}
+                onError={handleMountError}
               />
             ) : (
               // Decorative. The header small above carries the same message to

@@ -81,9 +81,13 @@ assert.match(
 );
 assert.equal(
   (checkoutRendered.match(/setMountedEmail\(/g) || []).length,
-  3,
-  'exactly three writers of mountedEmail: the reset, the retire-on-change, and the click',
+  4,
+  'exactly four writers of mountedEmail: the reset, the retire-on-change, the click, and the dropped mount',
 );
+// confirmedEmail was write-only state whose comment described the aria-disabled
+// control. Nothing read it, so it could only mislead the next reader about what
+// "confirmed" meant.
+assert.doesNotMatch(checkoutRendered, /confirmedEmail/, 'no write-only address state');
 assert.doesNotMatch(
   checkoutRendered,
   /onBlur=\{[^}]*startPayment/,
@@ -138,22 +142,86 @@ assert.match(
   'validity is derived from the live field',
 );
 assert.match(checkoutRendered, /emailIsValid && <span className="buy-email-tick"/, 'the tick reads it');
-assert.match(checkoutRendered, /aria-disabled=\{!emailIsValid\}/, 'and so does the control state');
-// aria-disabled, not disabled: a disabled button cannot be clicked, so the
-// empty-field message would be unreachable.
+
+// ---- The control has no disabled state, real or announced. ----
+// It always does something: a valid address mounts the payment form, an empty
+// or malformed one says why. aria-disabled announced "unavailable" about a
+// control that took the click and answered, and the dimmed styling said the
+// same thing to everyone who could see it.
+const controlTag = checkoutRendered.slice(
+  checkoutRendered.indexOf('<button', checkoutRendered.indexOf('{!mounted && (')),
+  checkoutRendered.indexOf('</button>', checkoutRendered.indexOf('{!mounted && (')),
+);
+assert.ok(controlTag.includes('buy-start-payment'), 'the control is the one under the field');
+assert.doesNotMatch(controlTag, /\sdisabled/, 'the control is never hard disabled, or it could not explain itself');
+assert.doesNotMatch(controlTag, /aria-disabled/, 'nor announced as disabled, which would be a lie about a control that works');
+assert.doesNotMatch(
+  styles,
+  /\.buy-start-payment\[aria-disabled/,
+  'and no styling is left behind to make it look unavailable',
+);
+// The message the control produces has to reach a screen reader, or making the
+// button honest only fixes half of it.
+assert.match(
+  checkoutRendered,
+  /id="deliveryEmailError"[^>]*role="alert"/,
+  'the field message announces itself when it appears',
+);
+assert.match(
+  checkoutRendered,
+  /aria-describedby="deliveryEmailHint deliveryEmailError"/,
+  'and is read again when startPayment sends focus back to the input',
+);
+// Invalid is about the address. A 429 is the server's problem with an address
+// the field is still showing a valid tick for.
+assert.match(
+  checkoutRendered,
+  /aria-invalid=\{error && !emailIsValid \? true : undefined\}/,
+  'the input is marked invalid for a bad address, not for a failed request',
+);
+assert.match(checkoutRendered, /<small id="deliveryEmailHint">/, 'the hint it names exists');
+
+// ---- A failed mount is dropped, so there is something to try again with. ----
+// /api/checkout answers 429 at 8 per minute per IP, and the dead mount used to
+// stay on screen, which kept `mounted` true, which is the one condition under
+// which the control does not render. The buyer read "Please try again" with
+// nothing to try it with.
+assert.match(
+  checkoutRendered,
+  /const handleMountError = useCallback\(\(message: string\) => \{\s*setError\(message\);\s*setMountedEmail\(''\);\s*setRetryable\(true\);/,
+  'a failed mount clears the mounted address so the control comes back',
+);
+assert.match(checkoutRendered, /onError=\{handleMountError\}/, 'and the mount reports its failures to it');
+assert.doesNotMatch(checkoutRendered, /onError=\{setError\}/, 'not to a setter that only paints the message');
+assert.match(
+  checkoutRendered,
+  /\{retryable \? 'Try again' : 'Continue to payment'\}/,
+  'and the control that comes back says what it now does',
+);
+// The address is what must survive, or the retry costs a retype.
 assert.doesNotMatch(
   checkoutRendered,
-  /<button[^>]*className="buy-start-payment"[\s\S]{0,160}\sdisabled/,
-  'the control is never hard disabled, or it could not explain itself',
+  /const handleMountError = useCallback\([\s\S]{0,240}setDeliveryEmail/,
+  'dropping a failed mount must not clear the field the buyer typed',
 );
-// Assert the declaration that does the work, not merely that some rule with
-// this selector exists: renaming the real rule slipped past the looser version
-// because the :hover rule still matched.
+
+// ---- The reset runs during render, not in an effect. ----
+// An effect runs after the commit and React runs a child's effects before its
+// parent's, so the effect version committed one render with the previous
+// address still in mountedEmail and let the Stripe mount fire in it. Every
+// close and reopen spent a real Checkout Session, and a real Link SMS, on a
+// dialog whose email field the buyer could see was empty.
 assert.match(
-  styles,
-  /\.buy-start-payment\[aria-disabled='true'\] \{[^}]*opacity: \.5;/,
-  'and it actually looks unavailable in that state',
+  checkoutRendered,
+  /const \[session, setSession\] = useState\(\(\) => \(\{ open, listingId: item\.listingId \}\)\);\s*if \(session\.open !== open \|\| session\.listingId !== item\.listingId\) \{/,
+  'the reset is a render-phase comparison, so no stale mount is ever committed',
 );
+assert.doesNotMatch(
+  checkoutRendered,
+  /useEffect\(\(\) => \{\s*if \(!open\) return;[\s\S]{0,200}setMountedEmail\(''\)/,
+  'the effect that cleared it one commit too late must not come back',
+);
+assert.doesNotMatch(checkoutRendered, /useEffect/, 'and nothing else in the dialog needs an effect');
 
 // Enter routes through the control. It used to call commitDeliveryEmail, which
 // is what gave Enter its own way into Stripe.
@@ -230,7 +298,11 @@ assert.match(styles, /@keyframes checkoutPageIn[\s\S]*translateX\(44px\)/);
 assert.match(styles, /\.modal-overlay\.buy-overlay \{[\s\S]*z-index: 130;[\s\S]*animation: checkoutPageIn \.38s/);
 assert.match(styles, /\.modal-overlay\.buy-overlay \.buy-modal \{[\s\S]*animation: none;/);
 assert.doesNotMatch(page, /window\.location\.href\s*=\s*data\.url/);
-assert.match(component, /EmbeddedCheckoutProvider/);
+// There used to be an `assert.match(component, /EmbeddedCheckoutProvider/)`
+// here. The provider was removed when this file took over the lifecycle, so
+// the only occurrence left is in the comment explaining why it went, and the
+// assertion passed on that. It said the opposite of the doesNotMatch below,
+// and would have started failing the day someone reworded a comment.
 assert.match(component, /JSON\.stringify\(\{ listingId, deliveryEmail \}\)/);
 assert.match(component, /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY/);
 assert.match(commerce, /ui_mode:\s*'embedded_page'/);

@@ -1150,18 +1150,17 @@ footer { background: #1b1a17; color: #cfccc4; }
   color: #fff; background: var(--accent);
   font-family: var(--sans); font-size: 14px; font-weight: 750; cursor: pointer;
   box-shadow: 0 8px 18px rgba(125,29,45,.18);
-  transition: background .18s ease, opacity .18s ease;
+  transition: background .18s ease;
 }
 .buy-start-payment:hover { background: #691826; }
 .buy-start-payment::after { content: '→'; font-size: 15px; font-weight: 500; }
-/* aria-disabled, not disabled. It looks unavailable and announces as such, but
-   still takes the click so an empty or malformed field gets told why. */
-.buy-start-payment[aria-disabled='true'] {
-  opacity: .5; box-shadow: none; cursor: default;
-}
-.buy-start-payment[aria-disabled='true']:hover { background: var(--accent); }
+/* One appearance, because there is one behaviour. The dimmed aria-disabled
+   state that used to live here looked unavailable and announced as unavailable,
+   on a control that took the click and answered every time. Validity is
+   signalled by the tick inside the field, where the buyer is looking. */
 
-/* The tick and the control read one derived validity, so they cannot disagree. */
+/* The tick is the only thing that reads validity now, and it reads it from the
+   live field, so the signal and the field cannot disagree. */
 .buy-email-input { position: relative; }
 .buy-email-input input { padding-right: 42px; }
 .buy-email-input.ok input { border-color: #2a5f45; }
