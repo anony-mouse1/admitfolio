@@ -20,6 +20,24 @@ import styles from '../essays.module.css';
 // Server-rendered on demand. The listing cards are in the served HTML, which is
 // the entire reason these pages exist: the homepage is one client component and
 // a crawler that does not run JavaScript sees "Loading essays..." there.
+//
+// These six stay uncached, and not by preference. `searchParams` is read below,
+// for ?listing= and ?checkout=, and awaiting it anywhere in a route makes the
+// whole route dynamic. Swapping this line for `export const revalidate` does
+// not cache them. It is accepted silently, with no warning and no build error,
+// and the route stays dynamic: measured on 16.3.2, /essays became Static at 15m
+// in the same build where this route did not move. Reading the query inside a
+// <Suspense> boundary does not help either; that was tried and the route stayed
+// dynamic, because partial prerendering is off.
+//
+// So caching these means not reading the query on the server, which means
+// giving up the server-rendered detail sheet a4f34f8 added for anyone arriving
+// on a ?listing= link in a new tab, and moving the ?checkout= restore to the
+// client. That is a decision about the buyer's first paint, not a caching
+// tweak, so it is not folded in here.
+//
+// Nothing else in this path is per request. No cookies, no headers, no draft
+// mode.
 export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ collection: string }>; searchParams: Promise<{ listing?: string; checkout?: string }> };

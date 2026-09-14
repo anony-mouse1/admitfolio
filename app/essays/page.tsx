@@ -7,10 +7,26 @@ import { SITE_URL } from '@/lib/site';
 import styles from './essays.module.css';
 
 // Server-rendered, so the hub and its counts are in the document a crawler
-// reads. force-dynamic for the same reason /api/listings is: the catalogue
-// changes whenever an admin approves a listing, and nothing here is worth
-// serving stale.
-export const dynamic = 'force-dynamic';
+// reads.
+//
+// This was force-dynamic, copied from /api/listings, where it is right: that
+// route is the live JSON the homepage fetches. It was never right here. These
+// pages held the site's only uncached public HTML, serving
+// `private, no-cache, no-store` on every request against a catalogue that
+// changes a few times a day, while every guide and the homepage came off the
+// CDN.
+//
+// Nothing on this page is per request. No cookies, no headers, no query: it
+// reads the catalogue and counts it. So it prerenders and revalidates on a
+// window.
+//
+// 300s. The only thing that goes stale here is a count, and the page carries no
+// price and no buy control, so a stale one is the cheapest wrong number on the
+// site. Five minutes is short enough that an admin who approves a listing and
+// then looks sees it, and long enough that a crawl sweep or a burst of buyers
+// is served from one render rather than one query each. The six collection
+// pages cannot use this. See the note in [collection]/page.tsx.
+export const revalidate = 300;
 
 const url = `${SITE_URL}${COLLECTIONS_PATH}`;
 const title = 'College Essay Collections From Admitted Students | Admitfolio';
