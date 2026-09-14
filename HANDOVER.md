@@ -4,25 +4,43 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branches and bases
 
-Two branches, stacked. The lower one has to land first.
+The lower half of the stack has landed. One branch is left.
 
-- **`ritvik/checkout-one-screen`**, on `origin/main` at `4a9026d` (#87 merged).
-  Open as **PR #88** against `main`. Seven commits through
-  `Do not let a soft keyboard Go key mount Stripe`, plus one new local commit
-  fixing what Codex found on the PR. That new commit is **not pushed**: Ritvik
-  wants to look first.
-- **`ritvik/checkout-back-button`**, open as **PR #89** against `main`. It was
-  on `origin/main` at `4a9026d` and has been **rebased onto
-  `ritvik/checkout-one-screen`**, because both branches rewrite the same part
-  of `components/ListingCheckout.tsx` and they cannot merge independently.
+- **`ritvik/checkout-one-screen`** merged on 13 Sep as **PR #88**, merge commit
+  `1dd2bd9`. It did not merge as it stood here: one further commit went on it
+  first, `7d78774` "Fix checkout teardown and preserve funnel semantics", which
+  is **not on this branch**. See "The commit this branch does not have" below.
+  `main` has since taken **#90** on top (`3e88554`).
+- **`ritvik/checkout-back-button`**, open as **PR #89** against `main`, three
+  commits. It was rebased onto `c0abfa1`, the tip `ritvik/checkout-one-screen`
+  had at the time, because both branches rewrite the same part of
+  `components/ListingCheckout.tsx` and they cannot merge independently.
+  **Force-pushed 13 Sep** with `--force-with-lease`. The two pre-rebase commits
+  it replaced carried no work that is not in the three.
 
-Both branches are pushed. Neither of the local commits above is.
+Both questions this section used to leave open are now closed. **#89 keeps
+`main` as its base, and that is correct.** `c0abfa1` is an ancestor of `main`,
+so the merge base is `c0abfa1` and the PR diff is this branch's three commits
+and nothing else. No retarget is needed.
 
-**Two things about #89 are now Ritvik's call and nobody else's.** The rebase
-rewrote its two commits, so pushing it needs `--force-with-lease`. And its base
-on GitHub is still `main`, so the PR currently shows #88's commits inside it;
-either retarget #89 at `ritvik/checkout-one-screen`, or merge #88 first and
-then push #89.
+## The commit this branch does not have
+
+`7d78774` went onto `ritvik/checkout-one-screen` after this branch was rebased
+off it, so this branch is built on the version before it. It moves the
+`Checkout Email Submitted` event out of the blur handler and into the deliberate
+proceed handler, keeping the funnel stage comparable with the two-step numbers.
+
+**It is not lost by merging #89.** A three-way merge against current `main` was
+run to check: `components/ListingCheckout.tsx` and
+`scripts/embedded-checkout.test.mjs` both auto-merge, and the merged file
+reports the event once, from the proceed handler. The two branches changed
+different hunks.
+
+**`HANDOVER.md` is the one conflict.** `main` carries the #90 handover at this
+path and this branch carries the checkout one, so the whole file collides. It is
+a conflict between two unrelated documents, not between two versions of the same
+work, and resolving it means choosing which handover `main` should hold, not
+reconciling anything. That is why #89 reads as conflicting on GitHub.
 
 ## Why the Back button work exists
 
@@ -145,14 +163,15 @@ completed.
 
 ## What is left, and whose it is
 
-1. **Ritvik: look at both branches.** Then push #88's new commit, and
-   force-push #89 with `--force-with-lease`, having first decided whether to
-   retarget #89 at `ritvik/checkout-one-screen` or to merge #88 first.
-2. **`HANDOVER.md` on `ritvik/checkout-one-screen` is stale.** It still
-   describes the merged collection pages work, because that is what `main`
-   carries. It was left alone rather than edited, to keep #88's diff about
-   checkout. This file, on the tip of the stack, is the current one.
-3. No hand-run step. No migration, no backfill.
+1. **Done: #88 merged, #89 force-pushed.** Nothing is unpushed. #89 stays
+   based on `main` and its diff is its own three commits.
+2. **Fatimah: #89 needs a review, and it conflicts on `HANDOVER.md` only.**
+   The resolution is a choice about which handover `main` keeps, not a merge of
+   the checkout work. Nobody has made that choice yet, so it was left alone.
+3. **Ritvik: the `7d78774` gap is checked but not re-tested in a browser.** The
+   merge was verified to keep the funnel fix by reading the merged file, not by
+   running the flow with both changes in place. Worth one pass before merge.
+4. No hand-run step. No migration, no backfill.
 
 ## Found but not fixed
 
