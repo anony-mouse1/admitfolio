@@ -371,7 +371,15 @@ assert.doesNotMatch(page, /window\.location\.href\s*=\s*data\.url/);
 // the only occurrence left is in the comment explaining why it went, and the
 // assertion passed on that. It said the opposite of the doesNotMatch below,
 // and would have started failing the day someone reworded a comment.
-assert.match(component, /JSON\.stringify\(\{ listingId, deliveryEmail \}\)/);
+
+// The request body. `source` joined it when buyer attribution shipped: it is
+// which page earned the sale, read from sessionStorage at the moment of the
+// POST. The two fields that decide what is sold and where it is delivered are
+// still exactly the two that were there before.
+assert.match(
+  component,
+  /JSON\.stringify\(\{ listingId, deliveryEmail, source: browserVisitSource\(\) \}\)/,
+);
 assert.match(component, /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY/);
 assert.match(commerce, /ui_mode:\s*'embedded_page'/);
 // ---- The content layer. Two layouts, not one responsive rule. ----

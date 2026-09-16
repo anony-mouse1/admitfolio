@@ -192,6 +192,57 @@ export type ListingQuote = {
   essayCount: number;
 };
 
+// Where the buyer came from, as reported by their own browser. Every field is
+// optional and every field is untrusted, so nothing here is ever used for
+// money, access or fulfilment. See lib/visitSource.ts for what each one means.
+export type CheckoutSource = Partial<Record<VisitSourceKey, unknown>>;
+
+export const VISIT_SOURCE_KEYS = [
+  'landingPage',
+  'landingReferrer',
+  'landingUtm',
+  'checkoutPage',
+] as const;
+type VisitSourceKey = (typeof VISIT_SOURCE_KEYS)[number];
+
+// Stripe caps a metadata value at 500 Unicode code points and rejects the
+// ENTIRE sessions.create call when one is over, which /api/checkout turns into
+// a 502 the buyer reads as "Could not start checkout. Please try again."
+// Verified against the sandbox: 500 characters ok, 501 returns "Metadata values
+// can have up to 500 characters"; 50 keys ok, 51 rejected; key names cap at 40.
+//
+// These four values arrive from the buyer's browser, so a long referrer, a
+// stale client or a hostile one must not be able to break a purchase. Clamping
+// here rather than trusting the client is what makes that true: an absurd
+// referrer becomes a truncated referrer, never a failed checkout. The slice
+// counts code points, so it cannot leave a split surrogate pair behind.
+//
+// 400 rather than 500 is a measured margin; lib/visitSource.ts shows the
+// numbers it came from. Briefly: the longest of the 20 public routes is 51
+// characters, a plausible campaign is 125, and the longest realistic referrer
+// measured was a 192 character r/ApplyingToCollege thread. 400 is double that
+// and still 100 short of the hard limit. There is no aggregate metadata cap to
+// spend: 50 keys at 500 characters each was accepted by the sandbox.
+export const MAX_METADATA_VALUE = 500;
+export const SOURCE_VALUE_LIMIT = 400;
+
+// Empty values are omitted rather than sent as "". A direct visit should show
+// two rows in the Stripe Dashboard's Metadata panel, not four with two blank.
+export function sourceMetadata(source: CheckoutSource | null | undefined): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (!source || typeof source !== 'object') return fields;
+  for (const key of VISIT_SOURCE_KEYS) {
+    const raw = source[key];
+    if (typeof raw !== 'string') continue;
+    // Newlines and tabs render as a broken row in the Dashboard panel and have
+    // no business in a path or a host.
+    const points = [...raw.replace(/\s+/g, ' ').trim()];
+    const value = points.slice(0, SOURCE_VALUE_LIMIT).join('');
+    if (value) fields[key] = value;
+  }
+  return fields;
+}
+
 // Admitfolio is a marketplace that pays sellers through Stripe Connect.
 // Managed Payments is Stripe's merchant-of-record product and does not support
 // Connect marketplaces, so every Checkout Session must opt out explicitly.
@@ -201,8 +252,16 @@ export function checkoutSessionParams(
   deliveryEmail: string,
   siteUrl: string,
   checkoutRecoveryEnabled = false,
+  source?: CheckoutSource | null,
 ) {
   const origin = siteUrl.replace(/\/$/, '');
+  // Mirrored onto the PaymentIntent as well as the Session, and that is the
+  // half that matters. A Checkout Session has no page in the Stripe Dashboard
+  // at all (a direct /checkout/sessions/<id> URL bounces to the home screen),
+  // so session metadata is only readable through the API or Workbench. The
+  // PaymentIntent is what Transactions > Payments > a payment opens, and its
+  // Metadata panel is where anyone will actually look.
+  const sourceFields = sourceMetadata(source);
   return {
     mode: 'payment' as const,
     ui_mode: 'embedded_page' as const,
@@ -249,12 +308,14 @@ export function checkoutSessionParams(
       amountCents: String(quote.amountCents),
       itemLabel: quote.itemLabel,
       buyerIp: buyerIp || '',
+      ...sourceFields,
     },
     payment_intent_data: {
       metadata: {
         checkoutVersion: CHECKOUT_VERSION,
         purchaseUnit: PURCHASE_UNIT,
         listingId: quote.listingId,
+        ...sourceFields,
       },
     },
     return_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
