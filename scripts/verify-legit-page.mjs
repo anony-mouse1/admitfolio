@@ -32,8 +32,11 @@ const CLAIMS = [
   ['edu email confirmed by a code', 'confirmed by a code sent to it'],
   ['acceptance letter, present tense', 'uploads the acceptance letter for that school'],
   ['review panel screens submissions', 'Every submission is screened before anyone sees it'],
+  // The step that carried "191 of the 192" until Ritvik cut it: a documented
+  // number that could only go stale, on a page whose job is being believable.
+  // This sentence is the stronger claim anyway, and it is true of all 192:
+  // zero listings were approved on an automated decision.
   ['a person makes the final call', 'No listing goes live on an automated decision alone'],
-  ['human review count', '191 of the 192 listings on sale today carry a recorded human review'],
   ['reading link speed', 'It arrives in under a minute'],
   ['one year of access', 'keeps working for twelve months'],
   ['per-buyer watermark', 'stamped for you at the moment you open it'],
@@ -219,7 +222,6 @@ const PROBE = `(() => {
   const h1 = document.querySelector('h1');
   const steps = document.querySelectorAll('ol[class*="steps"] > li');
   const faq = document.querySelectorAll('div[class*="faq"] > h3');
-  const figure = document.querySelector('span[class*="stepFigure"]');
   const box = article ? article.getBoundingClientRect() : null;
   const wide = [...document.querySelectorAll('main *')].filter((el) => {
     const r = el.getBoundingClientRect();
@@ -235,8 +237,6 @@ const PROBE = `(() => {
     stepsAllVisible: [...steps].every((li) => li.getBoundingClientRect().height > 0),
     faq: faq.length,
     faqAllVisible: [...faq].every((h) => h.getBoundingClientRect().height > 0),
-    figure: figure ? figure.textContent.trim() : null,
-    figureVisible: figure ? figure.getBoundingClientRect().height > 0 : false,
     articleWidth: box ? Math.round(box.width) : 0,
     articleInsideViewport: box ? box.left >= -1 && box.right <= window.innerWidth + 1 : false,
     pageScrollsSideways: document.scrollingElement.scrollWidth > window.innerWidth + 1,
@@ -274,8 +274,6 @@ for (const width of WIDTHS) {
   assert(probe.stepsAllVisible, `${width.label}: a verification step is not visible`);
   assert(probe.faq === 4, `${width.label}: ${probe.faq} FAQ questions, expected 4`);
   assert(probe.faqAllVisible, `${width.label}: an FAQ question is not visible`);
-  assert(probe.figureVisible, `${width.label}: the human-review figure is not visible`);
-  assert(probe.figure.includes('191 of the 192'), `${width.label}: the figure does not read 191 of 192`);
   assert(!probe.pageScrollsSideways, `${width.label}: the page scrolls sideways`);
   assert(probe.articleInsideViewport, `${width.label}: the article is outside the viewport`);
   assert(probe.overflowing.length === 0, `${width.label}: overflowing ${probe.overflowing.join(', ')}`);

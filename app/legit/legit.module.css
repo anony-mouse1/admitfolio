@@ -58,20 +58,6 @@
   color: var(--muted);
 }
 
-/* The one counted claim on the page. Kept visually distinct from the step it
-   belongs to so it reads as a figure rather than as more prose. */
-.stepFigure {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(125, 29, 45, .08);
-  color: var(--accent);
-  font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: .01em;
-}
-
 /* The FAQ. Questions are h3 so they sit under one h2 in the outline, and h3 has
    no styling of its own anywhere in the article body. No <details>: a question
    someone searched for should be answered in the open, not behind a click. */

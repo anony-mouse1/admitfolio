@@ -71,11 +71,18 @@ structure for a link count.
 
 Verified read-only against the production database on Sep 16 2026:
 
-- **191 of 192.** `SELECT count(*) FROM "Listing" WHERE status='approved'` is
-  192; 191 have `humanReviewedAt` set. The one without has `aiDecision` not
-  equal to `'approved'`, so `isAdminApprovedListing` reads it as legacy admin
-  approval. **Zero listings were approved on an automated decision alone**,
-  which is what makes "a person made the final call" safe to state flatly.
+- **No listing goes live on an automated decision alone.**
+  `SELECT count(*) FROM "Listing" WHERE status='approved'` is 192; 191 have
+  `humanReviewedAt` set, and the one without has `aiDecision` not equal to
+  `'approved'`, so `isAdminApprovedListing` reads it as legacy admin approval.
+  **Zero listings were approved on an automated decision**, which is what makes
+  that sentence safe to state flatly.
+
+  **The page carries no count, deliberately.** It said "191 of the 192 listings
+  on sale today carry a recorded human review" until Ritvik cut it: a documented
+  number can only go stale, and on a page whose whole job is being believable
+  the version without it is the stronger claim anyway, because it is true of all
+  192 rather than of 191. Do not put a figure back into that step.
 
 Reused from the checkout proof panel in `components/ListingCheckout.tsx`, whose
 wording was already checked against the database once. A buyer who reads this
@@ -136,7 +143,7 @@ with no caveat and no footnote. Do not add a count to that step.
   away fails it on "so the page has to exist".
 - **`scripts/verify-legit-page.mjs`**, new, NOT in `package.json`: it needs a
   server and a browser, and `test:*` is pure. Against `npx next start` it checks
-  all 24 claims are in the **raw served HTML**, all 7 forbidden strings are
+  all 23 claims are in the **raw served HTML**, all 7 forbidden strings are
   absent, the page is prerendered, it is in the sitemap, the eleven link counts
   hold, no guide has an in-body link, and at **390 and 1440** the heading, four
   steps and four questions render with no overflow, no clipped text and no
@@ -144,8 +151,8 @@ with no caveat and no footnote. Do not add a count to that step.
 - Screenshots at both widths, plus a collection page with and without a paired
   guide, to confirm the guide note and the trust note do not compete.
 - **No database write of any kind.** The reads were counts against `Listing` and
-  `AdmitProof` to check the 191 of 192 figure and the acceptance-letter
-  coverage, run through a throwaway script that was deleted. No production data
+  `AdmitProof` to check the human-review and acceptance-letter coverage, run
+  through a throwaway script that was deleted. No production data
   was copied into the repo.
 
 ## What is left, and whose it is

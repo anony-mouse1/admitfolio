@@ -94,7 +94,7 @@ export default function LegitPage() {
             <h1>Is Admitfolio legit?</h1>
             <p className={guide.dek}>
               Yes. Here is how the essays get here, what arrives when you buy one, and what happens if
-              something goes wrong. Check it against what you see on the site.
+              something goes wrong.
             </p>
           </header>
 
@@ -107,8 +107,7 @@ export default function LegitPage() {
           <div className={guide.articleBody}>
             <h2 id="verification">How a seller gets verified</h2>
             <p>
-              Nobody can list an essay here by signing up and uploading a file. Four things happen first, and
-              the last of them is a person.
+              Nobody can list an essay here by signing up and uploading a file. Four things happen first.
             </p>
 
             {/* The wording in steps 1, 2 and 3 is the checkout proof panel's own,
@@ -151,7 +150,6 @@ export default function LegitPage() {
                     No listing goes live on an automated decision alone. Someone reads the screening, looks at
                     the listing, and approves or rejects it by hand.
                   </span>
-                  <span className={styles.stepFigure}>191 of the 192 listings on sale today carry a recorded human review</span>
                 </div>
               </li>
             </ol>
@@ -165,7 +163,7 @@ export default function LegitPage() {
             <ul>
               <li>
                 <strong>A reading link by email.</strong> It arrives in under a minute. If it is not there,
-                check spam before you write to us, because that is where it usually is.
+                check spam before you write to us.
               </li>
               <li>
                 <strong>A year of access.</strong> The link keeps working for twelve months from the day you
@@ -194,29 +192,26 @@ export default function LegitPage() {
 
             <h2 id="what-these-are-for">What these essays are for</h2>
             <p>
-              They are reading material. An applicant staring at a blank page has usually never seen a finished
-              admissions essay that worked, only advice about what one should look like. Reading a real one
-              settles a lot of questions quickly: how long a scene can run, how much reflection an essay can
-              carry, how plainly a person is allowed to write.
+              They are reading material. Most applicants have never read a real admissions essay that worked,
+              only advice about them. Reading one settles questions that advice does not, like how much of the
+              essay is reflection rather than story.
             </p>
             <p>
-              What you take from one is a decision, not a sentence. The writer chose to build the essay around
-              a small repeated moment rather than the biggest thing that ever happened to them. That choice is
-              yours to borrow. Their moment is not. Our{' '}
+              The writer chose to build the essay around a small repeated moment rather than the biggest thing
+              that ever happened to them. That choice is yours to borrow, though their moment is not. Our{' '}
               <Link href={`${GUIDES_PATH}/how-to-take-inspiration-from-college-essays`}>
                 guide to taking inspiration without copying
               </Link>{' '}
               is the longer version of that idea, with a method attached.
             </p>
             <p>
-              Every seller here published their own work knowing another applicant would read it. That is the
-              arrangement they agreed to, and it is the only one the site supports.
+              Every seller here published their own work knowing another applicant would read it. That is what
+              they agreed to, and it is all the site is for.
             </p>
 
             <h2 id="copying">What happens if someone copies one</h2>
             <p>
-              Two things are worth knowing before you decide what to do with what you buy, and neither of them
-              is a warning we invented.
+              Two things are worth knowing before you decide what to do with what you buy.
             </p>
             <div className={guide.callout}>
               <strong>The file knows whose it is</strong>
@@ -225,8 +220,8 @@ export default function LegitPage() {
             </div>
             <p>
               That code is on every page, in the footer and across the middle of the sheet. It survives a
-              screenshot, a re-export and a photograph of a screen. It is not a lock, and it is not meant to
-              be. It is attribution, and it works after the fact.
+              screenshot, a re-export and a photograph of a screen. It does not stop a copy being made, it
+              identifies one after the fact.
             </p>
             <p>
               The second thing is about admissions rather than about us. Colleges do compare submitted essays,
@@ -236,8 +231,7 @@ export default function LegitPage() {
             </p>
             <p>
               If a copy bought here is passed around or submitted as someone&apos;s own, there are
-              consequences, and we act on it. We have not written a schedule of penalties and we are not going
-              to pretend we have one.
+              consequences, and we act on it.
             </p>
 
             <h2 id="faq">Questions people ask before they buy</h2>
@@ -246,12 +240,12 @@ export default function LegitPage() {
           <div className={styles.faq}>
             <h3>Is Admitfolio legit?</h3>
             <p>
-              It is a real marketplace with real sellers and a real support address. Selling here means
+              It is a working marketplace, and the students behind the listings are who they say they are.
+              Selling here means
               confirming a .edu address with a code, sending the acceptance letter for the school you claim,
               and having your essays read and then approved by a person. Nothing is published on an automated
               decision. Payment runs through Stripe&apos;s own checkout, so your card details go to Stripe and
-              never touch this site. If you want to test any of that before you spend anything, write to{' '}
-              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> and see whether a person answers.
+              never touch this site.
             </p>
 
             <h3>Is Admitfolio free?</h3>
@@ -260,7 +254,7 @@ export default function LegitPage() {
               the prompt each essay answers, how many essays are in the package, the price, and the real
               opening line of the writing itself. The essays themselves are paid, because a student wrote each
               one and is paid when it sells. The{' '}
-              <Link href={GUIDES_PATH}>guides</Link> are free and always will be.
+              <Link href={GUIDES_PATH}>guides</Link> are free.
             </p>
 
             <h3>Is buying a college essay cheating?</h3>
