@@ -1084,6 +1084,21 @@ footer { background: #1b1a17; color: #cfccc4; }
 .buy-proof-list strong { font-size: 12.5px; font-weight: 800; line-height: 1.3; }
 .buy-proof-list span { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
 
+/* The one way out of the payment screen, to /legit. Sized under the step copy
+   on purpose: it is there for the buyer who stalled, and must not compete with
+   the email field for the attention of the buyer who did not. */
+.buy-proof-more {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 650;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(125, 29, 45, .3);
+}
+.buy-proof-more:hover { border-bottom-color: var(--accent); }
+
 .buy-ticks { display: grid; gap: 8px; margin: 15px 0 0; padding: 0; list-style: none; }
 .buy-ticks li { position: relative; padding-left: 19px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
 .buy-ticks li::before { content: '✓'; position: absolute; left: 0; color: #176f49; font-weight: 800; }
@@ -1198,6 +1213,7 @@ footer { background: #1b1a17; color: #cfccc4; }
   .buy-proof-desktop .buy-proof-list li::before { width: 28px; height: 28px; font-size: 13px; border-radius: 9px; }
   .buy-proof-desktop .buy-proof-list strong { font-size: 14px; }
   .buy-proof-desktop .buy-proof-list span { margin-top: 3px; font-size: 13px; line-height: 1.5; }
+  .buy-proof-desktop .buy-proof-more { margin-top: 15px; font-size: 12.5px; }
 }
 @media (max-width: 850px) {
   .buy-proof-desktop { display: none; }

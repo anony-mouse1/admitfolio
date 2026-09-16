@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { LEGIT_PATH } from '@/lib/legit';
 
 export function GuideHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -97,6 +98,7 @@ export function GuideFooter() {
               <Link href="/#sell">Sell your essay</Link>
               <Link href="/essays">Essay collections</Link>
               <Link href="/guides">Blog</Link>
+              <Link href={LEGIT_PATH}>Is Admitfolio legit?</Link>
             </div>
           </div>
           <div>

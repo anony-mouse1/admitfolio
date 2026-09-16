@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import LogoBadge from '@/components/LogoBadge';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
+import { LEGIT_PATH } from '@/lib/legit';
 import { priceLabel, type CheckoutItem } from '@/lib/publicListing';
 import { schoolColor, schoolInfo } from '@/lib/schools';
 
@@ -252,6 +253,14 @@ export default function ListingCheckout({
           </div>
         </li>
       </ol>
+      {/* The one link out of the payment screen, and deliberately the only one.
+          Someone who has got this far and stalled is asking whether the site is
+          real, and the four claims above are the short version of a page that
+          answers it in full. Opens in a new tab so an abandoned read does not
+          also abandon a checkout that is already halfway through. */}
+      <a className="buy-proof-more" href={LEGIT_PATH} target="_blank" rel="noopener noreferrer">
+        How we verify sellers, and what happens if there is a problem
+      </a>
     </>
   );
 
