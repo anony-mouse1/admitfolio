@@ -27,13 +27,17 @@ import styles from './legit.module.css';
 // PLACEHOLDERS. Two things on this page are deliberately unwritten. Neither is
 // a guess waiting to be checked; both are somebody else's decision.
 //
-//   1. PARTNERSHIPS. Whether the page may say anything about exploring a Common
-//      App or Turnitin partnership is open with Fatimah, and partnership work is
-//      out of scope under Ritvik's contract without her written approval. There
-//      is therefore NO copy about it below, not even hedged copy. If the answer
-//      comes back yes, it belongs in "What happens if someone copies one", and
-//      it must be written as what is being explored, never as something that is
-//      already in place.
+//   1. PARTNERSHIPS. One sentence about working on plagiarism-detection
+//      integrations now sits at the end of "What happens if someone copies one",
+//      added on Ritvik's instruction and in his wording. It names no company,
+//      gives no date, and is conditional, so it describes work in progress
+//      rather than something that exists today.
+//
+//      STILL OPEN, and this is the part Fatimah has to settle: partnership work
+//      is out of scope under Ritvik's contract without her written approval, and
+//      she has not given it. The sentence is in the PR for her to approve, cut
+//      or reword, and it is called out in the PR description rather than left to
+//      be found in the diff. Do not grow it, and never name a service.
 //
 //   2. WHO SUPPORT ROUTES TO. The support copy says "the team" and names nobody,
 //      which is correct either way. Still open: whether Fatimah wants a named
@@ -231,7 +235,14 @@ export default function LegitPage() {
             </p>
             <p>
               If a copy bought here is passed around or submitted as someone&apos;s own, there are
-              consequences, and we act on it.
+              consequences, and we act on it.{' '}
+              {/* ONE SENTENCE. Ritvik's wording, and it stays this size. No company is named, no
+                  date is given, and the conditional ("would mean") is what keeps it a statement
+                  about work in progress rather than a claim about something that exists today.
+                  scripts/verify-legit-page.mjs asserts this sentence is present and that no
+                  detection service is named anywhere on the page, so neither half can drift. */}
+              We are working on integrations with plagiarism detection services, which would mean essays
+              bought here can be checked against submitted work.
             </p>
 
             <h2 id="faq">Questions people ask before they buy</h2>

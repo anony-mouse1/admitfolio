@@ -49,6 +49,12 @@ const CLAIMS = [
   ['colleges rescind offers', 'they do rescind offers over plagiarism'],
   ['and do it years later', 'in some cases years later'],
   ['consequences, not a penalty schedule', 'consequences, and we act on it'],
+  // Conditional and unnamed on purpose. "would mean" is what separates this
+  // from a claim that the integration exists today, so the whole clause is
+  // pinned here rather than a fragment of it.
+  ['detection work is in progress, not in place',
+    'We are working on integrations with plagiarism detection services, which would mean essays '
+    + 'bought here can be checked against submitted work.'],
   ['faq: is it legit', '<h3>Is Admitfolio legit?</h3>'],
   ['faq: is it free', '<h3>Is Admitfolio free?</h3>'],
   ['faq: is it cheating', '<h3>Is buying a college essay cheating?</h3>'],
@@ -61,12 +67,15 @@ const CLAIMS = [
 // exists: none of them is true today, and the page's whole job is being
 // believable. The rest are the house style rule and the schema decision.
 const FORBIDDEN = [
+  // These two are also what hold the plagiarism-detection sentence to its size.
+  // It is allowed to say integrations are being worked on; it is never allowed
+  // to say whose.
   ['names Common App', 'Common App'],
   ['names Turnitin', 'Turnitin'],
   ['claims a plagiarism check runs', 'plagiarism check'],
   ['promises copying is caught', 'will be caught'],
   ['claims these essays are in a corpus', 'database of essays'],
-  ['em dash in site copy', '—'],
+  ['em dash in site copy', '\u2014'],
   // Google restricted FAQ rich results to government and health sites, so
   // FAQPage markup here renders nothing and only adds a surface to get wrong.
   ['FAQPage schema', 'FAQPage'],

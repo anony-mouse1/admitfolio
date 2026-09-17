@@ -121,16 +121,30 @@ lives in an inbox rather than in the database. The page therefore says what
 happens to a submission today and **claims nothing about the older listings**,
 with no caveat and no footnote. Do not add a count to that step.
 
-## Placeholders, both marked in `app/legit/page.tsx`
+## Open with Fatimah, both marked in `app/legit/page.tsx`
 
-1. **Partnerships.** Whether the page may say anything about exploring a Common
-   App or Turnitin partnership is open with Fatimah, and partnership work is out
-   of scope under Ritvik's contract without her written approval. There is no
-   copy about it on the page, not even hedged copy.
-2. **Who support routes to.** The copy says "a person on the team" and names
-   nobody, which is correct either way. Open: whether Fatimah wants a named
-   owner or a stated response time. A response time is a commitment to a buyer,
-   so it is hers to make.
+1. **Partnerships. Needs her approval before this merges.** One sentence now
+   sits at the end of "What happens if someone copies one", added on Ritvik's
+   instruction and in his wording:
+
+   > We are working on integrations with plagiarism detection services, which
+   > would mean essays bought here can be checked against submitted work.
+
+   It names no company, gives no date, and is conditional, so it describes work
+   in progress rather than something that exists today. **Partnership work is
+   out of scope under Ritvik's contract without Fatimah's written approval, and
+   she has not given it.** The sentence is in the PR for her to approve, cut or
+   reword, and it is called out in the PR description rather than left to be
+   found in the diff. It is also the one claim on the page that is not backed by
+   the database or the code: it rests on Ritvik's assertion.
+
+   `scripts/verify-legit-page.mjs` pins the whole sentence and keeps "Common
+   App" and "Turnitin" on the forbidden list, so it can neither drift nor grow
+   into a named service.
+2. **Who support routes to. Settled for now: "the team".** The copy says "a
+   person on the team" and names nobody, which Ritvik confirmed is what he
+   wants. Still open if she wants it: a named owner or a stated response time.
+   A response time is a commitment to a buyer, so it is hers to make.
 
 ## Verification completed
 
@@ -143,7 +157,7 @@ with no caveat and no footnote. Do not add a count to that step.
   away fails it on "so the page has to exist".
 - **`scripts/verify-legit-page.mjs`**, new, NOT in `package.json`: it needs a
   server and a browser, and `test:*` is pure. Against `npx next start` it checks
-  all 23 claims are in the **raw served HTML**, all 7 forbidden strings are
+  all 24 claims are in the **raw served HTML**, all 7 forbidden strings are
   absent, the page is prerendered, it is in the sitemap, the eleven link counts
   hold, no guide has an in-body link, and at **390 and 1440** the heading, four
   steps and four questions render with no overflow, no clipped text and no
