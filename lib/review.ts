@@ -72,11 +72,16 @@ export type ReviewableListing = {
   }[];
 };
 
-type EssayPdf = {
+// `essayId` and `bytes` are carried for lib/essayWordCount.ts, which counts the
+// words in these same buffers rather than downloading every PDF a second time.
+// Neither field reaches the model: buildUserContent below lists what it sends.
+export type EssayPdf = {
+  essayId: string;
   prompt: string;
   question: string | null;
   wordCount: number | null;
   base64: string;
+  bytes: Buffer;
 };
 
 // Download every uploaded essay PDF from the private Supabase bucket and encode
@@ -91,10 +96,12 @@ export async function fetchEssayPdfsBase64(listing: ReviewableListing): Promise<
     }
     const buf = Buffer.from(await data.arrayBuffer());
     pdfs.push({
+      essayId: essay.id,
       prompt: essay.prompt,
       question: essay.question,
       wordCount: essay.wordCount,
       base64: buf.toString('base64'),
+      bytes: buf,
     });
   }
   return pdfs;

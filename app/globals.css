@@ -249,42 +249,49 @@ a { color: inherit; }
 .d-teaser { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin-top: 10px; }
 .d-sec { margin-top: 24px; }
 .d-sec h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 0 0 10px; }
-.d-essay-details { overflow: hidden; border: 1px solid var(--card-line); border-radius: 12px; background: #fff; }
-.d-essay-details summary {
-  min-height: 68px; padding: 12px 14px 12px 16px; display: flex; align-items: center; gap: 14px;
-  cursor: pointer; list-style: none;
+/* ===== "What you get": the value panel on the listing sheet =====
+   Replaced a collapsed <details> that sat below the price and the Unlock
+   button. Never collapsed, and above the price, because it exists to be read
+   before the decision it informs. */
+.d-value { overflow: hidden; border: 1px solid var(--card-line); border-radius: 16px; background: #fdfcf9; margin-top: 22px; }
+.d-value-head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px;
+  padding: 14px 16px 12px; border-bottom: 1px solid var(--card-line);
 }
-.d-essay-details summary::-webkit-details-marker { display: none; }
-.d-essay-details summary:focus-visible { outline: 2px solid rgba(143,31,50,.3); outline-offset: -2px; border-radius: 11px; }
-.d-essay-summary-copy { flex: 1; min-width: 0; }
-.d-essay-summary-copy strong { display: block; font-size: 14px; line-height: 1.25; }
-.d-essay-summary-copy > span {
-  display: block; margin-top: 4px; overflow: hidden; color: var(--faint); font-size: 12.5px;
-  line-height: 1.25; text-overflow: ellipsis; white-space: nowrap;
+.d-value-count { font-family: var(--serif); font-size: 17px; font-weight: 700; line-height: 1.2; }
+.d-value-for { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.d-value-for b { font-weight: 600; color: var(--ink); }
+/* One row per distinct prompt. Identical prompts collapse into one row with a
+   count, so four Personal Insight Questions are one line rather than four
+   lines a buyer reads as a rendering bug. */
+.d-value-list { list-style: none; margin: 0; padding: 0; }
+.d-value-list li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: baseline;
+  padding: 12px 16px; border-bottom: 1px solid var(--card-line);
 }
-.d-essay-summary-count { color: var(--faint); font-size: 12.5px; white-space: nowrap; }
-.d-essay-chevron {
-  width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 34px;
-  border: 1px solid #dfd8cf; border-radius: 50%; color: var(--accent); background: #fff;
-  transition: transform .18s ease, background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+.d-value-list li:last-child { border-bottom: 0; }
+.d-value-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); line-height: 1.4; overflow-wrap: anywhere;
 }
-.d-essay-chevron svg { width: 16px; height: 16px; display: block; }
-.d-essay-details summary:hover .d-essay-chevron {
-  border-color: #691826; color: #fff; background: #691826;
-  box-shadow: 0 10px 22px rgba(125,29,45,.24); transform: translateY(-2px);
+.d-value-meta { font-size: 12.5px; color: var(--faint); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+/* Seller free text, and only on "Other" rows. Clamped for the same reason the
+   old .d-essays .q was: the longest in the live data is 1,201 characters. */
+.d-value-q {
+  grid-column: 1 / -1; font-size: 13px; line-height: 1.5; color: var(--muted); margin: 2px 0 0;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.d-essay-details[open] .d-essay-chevron { transform: rotate(180deg); }
-.d-essay-details[open] summary:hover .d-essay-chevron { transform: translateY(-2px) rotate(180deg); }
-.d-essays { list-style: none; margin: 0; padding: 0 16px 4px; border-top: 1px solid var(--card-line); }
-.d-essays li { padding: 13px 0; border-bottom: 1px solid #f0ece6; }
-.d-essays li:last-child { border-bottom: 0; }
-.d-essays .p { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
-/* Sellers paste whole prompts in here; the longest in the live data is 1,201
-   characters. Clamp so one listing cannot make the sheet unreadable. */
-.d-essays .q {
-  font-size: 13.5px; line-height: 1.5; color: var(--muted); margin-top: 6px;
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+/* True of every purchase rather than of this listing. */
+.d-value-inc {
+  margin: 0; padding: 12px 16px 13px; border-top: 1px solid var(--card-line); background: #faf7f1;
+  list-style: none; display: grid; gap: 7px;
 }
+.d-value-inc li {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; align-items: start;
+  font-size: 12.5px; line-height: 1.45; color: var(--muted);
+}
+.d-value-inc svg { width: 14px; height: 14px; margin-top: 2px; color: var(--accent); }
+.d-value-inc b { font-weight: 600; color: var(--ink); }
 .d-schools { display: flex; flex-wrap: wrap; gap: 8px; }
 .d-school {
   display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--card-line);
@@ -347,6 +354,10 @@ a { color: inherit; }
 }
 .d-price { font-family: var(--serif); font-size: 30px; font-weight: 700; }
 .d-price span { font-family: var(--sans); font-size: 13px; font-weight: 400; color: var(--faint); margin-left: 8px; }
+/* What one essay works out at. Multi-essay listings only: see perEssayPrice in
+   lib/publicListing.ts for why this is rounded to nearest and why it does not
+   multiply back up to the package price. */
+.d-price small { display: block; font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--faint); margin: 2px 0 0; letter-spacing: 0; }
 .d-unlock-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 50px;
   padding: 6px 8px 6px 20px; border: 1px solid var(--accent); border-radius: 999px;
@@ -365,6 +376,11 @@ a { color: inherit; }
   .sheet { border-radius: 24px 24px 0 0; max-height: 92vh; padding: 26px 20px 28px; }
   .d-foot { align-items: stretch; flex-direction: column; }
   .d-unlock-btn { width: 100%; justify-content: space-between; }
+  /* A long uppercase label plus "2 essays · 219 to 288 words" does not fit on
+     one 390px line, and letting the meta wrap inside its own column pushed the
+     row to four lines. Stacked it is two. */
+  .d-value-list li { grid-template-columns: minmax(0, 1fr); }
+  .d-value-meta { text-align: left; white-space: normal; }
 }
 
 /* Count on the left, sort on the right, above the grid. */

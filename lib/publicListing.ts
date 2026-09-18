@@ -108,6 +108,116 @@ export function majorsOf(l: PublicListing): string[] {
   return (l.appliedMajors || l.major || '').split(',').map((m) => m.trim()).filter(Boolean);
 }
 
+/* ========================================================================== *
+ * The "What you get" panel on the listing sheet.
+ *
+ * Everything below is pure so scripts/listing-value-panel.test.mjs can hold it
+ * to the live catalogue's shapes without a browser or a database. Measured on
+ * 2026-09-18 over the 192 purchasable listings: 563 essay rows, 75 listings
+ * repeating a prompt label, 61 once the question text is taken into account,
+ * 383 rows after grouping, at most 8 groups in one listing and at most 9 essays
+ * in one group.
+ * ========================================================================== */
+
+export type EssayGroup = {
+  /**
+   * The row heading: the preset prompt, verbatim.
+   *
+   * Deliberately NOT essayLabel. That function substitutes the seller's own
+   * question for the prompt on "Other" rows, which is right for a one-line card
+   * summary and wrong here, because the panel prints the question underneath as
+   * well. Using it rendered the same sentence twice on every "Other" row, once
+   * truncated and shouting in uppercase and once in full, and cost 122px a row
+   * on a phone.
+   */
+  label: string;
+  /** The seller's free-text prompt, present only on "Other" rows. */
+  question: string | null;
+  /** How many essays in this listing share that exact prompt and question. */
+  count: number;
+  /** Null unless EVERY essay in the group has a stored count. */
+  words: { min: number; max: number } | null;
+};
+
+/**
+ * One row per distinct essay, in the order the seller submitted them.
+ *
+ * Grouped on the prompt AND the question text, not the prompt alone. Four UC
+ * Personal Insight Questions are one row because nothing distinguishes them:
+ * Essay.question is null on all 488 non-Other essays, so we cannot say which
+ * college any given supplement was written for and must not imply it. Three
+ * "Other supplement" rows carrying three different questions are three rows,
+ * because that text is the only thing on the sheet that says what they are.
+ * Grouping on the prompt alone would collapse 14 listings that way.
+ */
+export function essayGroups(l: PublicListing): EssayGroup[] {
+  const groups: EssayGroup[] = [];
+  const index = new Map<string, EssayGroup>();
+  for (const essay of l.essays) {
+    const question = (essay.question || '').trim() || null;
+    const key = `${essay.prompt}␟${question ?? ''}`;
+    let group = index.get(key);
+    if (!group) {
+      group = { label: essay.prompt, question, count: 0, words: null };
+      index.set(key, group);
+      groups.push(group);
+    }
+    group.count += 1;
+    // A group reports a length only when every essay in it has one. A partial
+    // group would be quietly reporting the length of some of what is bought.
+    if (group.count === 1) {
+      group.words = essay.wordCount != null ? { min: essay.wordCount, max: essay.wordCount } : null;
+    } else if (group.words && essay.wordCount != null) {
+      group.words = {
+        min: Math.min(group.words.min, essay.wordCount),
+        max: Math.max(group.words.max, essay.wordCount),
+      };
+    } else {
+      group.words = null;
+    }
+  }
+  return groups;
+}
+
+/**
+ * The right-hand column of a panel row: how many, then how long.
+ *
+ * Null means print nothing. The count is suppressed when the whole listing
+ * collapses to a single group, because the panel header has already said it and
+ * a row reading "4 essays" beside a header reading "4 essays" is the same
+ * number twice.
+ */
+export function essayGroupMeta(group: EssayGroup, groupCount: number): string | null {
+  const parts: string[] = [];
+  if (group.count > 1 && groupCount > 1) parts.push(`${group.count} essays`);
+  if (group.words) {
+    const { min, max } = group.words;
+    if (group.count === 1) parts.push(`${min} words`);
+    else if (min === max) parts.push(`${min} words each`);
+    else parts.push(`${min} to ${max} words`);
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
+
+/**
+ * What one essay in the package works out at, in whole dollars.
+ *
+ * Math.round, never Math.floor. Floor understates by up to 99 cents; nearest
+ * understates by at most 49 and only when the remainder is under half. Null on
+ * a single-essay listing, where "$20 an essay" under "$20" is noise, and null
+ * when there is no price to divide.
+ *
+ * The printed figure times the essay count does not have to equal the package
+ * price and usually will not. $346 over 18 essays prints $19, and 18 x $19 is
+ * $342. The line says what one essay works out at, not what the package costs,
+ * and the package price is directly above it.
+ */
+export function perEssayPrice(l: PublicListing): number | null {
+  const count = l.essays.length;
+  if (count < 2 || l.price == null || l.price <= 0) return null;
+  return Math.round(l.price / count);
+}
+
 // The first five schools, then a count. Five is a fixed number rather than a
 // width budget so every card lists the same amount, and .admit-names reserves
 // the height whether or not it is used.
