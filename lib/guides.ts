@@ -18,7 +18,8 @@ export type Guide = {
   // The index card's cover photo, and its alt text. Both required: GuideCover
   // can fall back to the CSS cover keyed on `cover` above, but every guide has
   // a photo and a card without one reads as unfinished beside the rest.
-  // Provenance for each file is recorded in public/blog-images/SOURCES.md.
+  // scripts/sitemap.test.mjs fails if either is empty or the file is not on
+  // disk under public/.
   image: string;
   imageAlt: string;
   // YYYY-MM-DD. `modified` feeds article:modified_time, the JSON-LD
