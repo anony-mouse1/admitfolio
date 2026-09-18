@@ -45,7 +45,7 @@ No new component, no new CSS beyond one background colour.
 
 ### The read time, and the method behind it
 
-**6 min read, from 1,271 counted words.** Not estimated. See "Read time" below
+**6 min read, from 1,276 counted words.** Not estimated. See "Read time" below
 for why it went up rather than down.
 
 `f453223` corrected all seven existing read times downwards, one by more than
@@ -141,47 +141,55 @@ for any of the seven, and nothing else in the repo does either.
 
 ### The stat block
 
-Ritvik supplied the copy. It now reads, verbatim:
+Ritvik supplied the copy and the label. It reads:
 
-> Two questions run through almost every engineering supplement: why
-> engineering, and what did you build. Prepare both properly and most of your
-> list is answerable.
+> **The two questions:** Two questions run through almost every engineering
+> supplement: why engineering, and what did you build. Prepare both properly and
+> most of your list is answerable.
 
-The box itself is unchanged. What it held before restated the first paragraph of
-section 1, which was his objection.
+The label matches the dominant house shape, "The <noun phrase>:", which four of
+the seven use. None of the seven is closer to a two-questions idea than that, so
+his suggestion was taken as given rather than matched to an existing one.
 
-**Two things to look at before this ships.**
+**One thing left open: the label echoes the first three words of the body.**
+"The two questions: Two questions run through almost every engineering
+supplement:" repeats itself and carries two colons in one sentence. None of the
+seven neighbours does this; in every one of them the label names the thing and
+the body states it without using the label's words again. Taking three words out
+of the body fixes it and keeps his sentences intact:
 
-First, **it now restates the second paragraph of the intro** instead, which is
-about sixty words below it:
+> **The two questions:** They run through almost every engineering supplement:
+> why engineering, and what did you build.
 
-> Why engineering and what you built are the two questions that run through most
-> of it. Both are worth preparing properly, because a strong answer to either
-> can be adapted across your whole list.
+Not applied, because both the copy and the label were given explicitly. His call.
 
-Same two facts, same order, near enough the same clauses. That is the defect
-that was being fixed, moved from section 1 to the intro rather than removed.
-Cutting or reworking that intro paragraph would settle it, and it was left alone
-because it was not asked for.
+### The intro
 
-Second, **the new copy carries no bold label**, and all seven neighbours open
-with one: "The official format:", "The current Common App range:", "The fastest
-fix:", "A simple test:", "The best method:", "The short answer:", "Why we wrote
-this:". Nothing breaks, the CSS does not style `strong` at all, but the box
-reads plainer than the rest of the set. Screenshotted beside `uc-piq-examples`
-for comparison.
+**Paragraph 2 is cut.** It said what the box says sixty words above it, which
+was the defect that moved out of section 1 when the box copy changed. The
+replacement makes the point neither the box nor section 1 makes:
 
-What the other seven hold, which is what prompted the rewrite: only two carry an
-external fact (the Common App 250 to 650 range, and UC's eight PIQs). The other
-five hold advice, a method, a test, or a line about us.
+> Most of that extra writing is narrower and more technical than the personal
+> statement, so the drafting hours you have already spent carry over less than
+> you would hope. Give it its own block of time.
+
+Two paragraphs is what all seven other articles open with, so the paragraph was
+replaced rather than simply removed.
+
+### What the other seven put in their boxes
+
+Only two carry an external fact: the Common App 250 to 650 range, and UC's eight
+PIQs. The other five hold advice, a method, a test, or a line about us. That is
+what prompted the rewrite, and it is worth knowing before anyone treats the box
+as a fact panel.
 
 **No verifier asserts the block exists on every guide.**
 `scripts/guide-read-time.mjs` used to, through `need('articleStat')`, and would
 have failed outright on a guide that dropped it. It now counts zero for a
-missing block. Mutation checked: with the block removed the count fell from
-1,284 to 1,246 and the script still passed.
-`scripts/verify-engineering-guide.mjs` only ever included it in a selector list
-for the clipping sweep, which tolerates its absence.
+missing block. Mutation checked: with the block removed the count fell by 38
+words and the script still passed. `scripts/verify-engineering-guide.mjs` only
+ever included it in a selector list for the clipping sweep, which tolerates its
+absence.
 
 One of its nine claim assertions did depend on the old copy, so it was swapped
 for a phrase from the new one. The substance it was guarding, that each college
@@ -257,7 +265,7 @@ supplement. `how-to-take-inspiration` keeps its related-guides card, so
 
 ### Read time
 
-**6 min read, from 1,271 counted words.** It went up, not down: cutting the
+**6 min read, from 1,276 counted words.** It went up, not down: cutting the
 statistics removed about forty words, and the rewrites added seventy, because
 antithesis is a compressive shape and the sentences that replaced it are not.
 
@@ -331,8 +339,8 @@ already-paired guides were moved off it in #90.
 
 1. **Fatimah, through Ritvik: the watermark on `inspiration.webp`.** Live in
    production, licensing question, not this branch's to fix.
-2. **Ritvik: the intro paragraph the stat block now duplicates**, and whether
-   the box wants a bold label like the other seven. Both are described above.
+2. **Ritvik: the three-word echo between the stat block's label and its first
+   sentence.** Described above, with the fix. Nothing else on the page is open.
 3. **Ritvik: review, then push and open a PR.** Nothing is pushed.
 4. No env var, no migration, no backfill.
 
