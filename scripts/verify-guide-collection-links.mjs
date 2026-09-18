@@ -29,6 +29,7 @@ const PAIRED = {
   'uc-piq-examples': '/essays/uc-personal-insight-questions',
   'common-app-essay-examples': '/essays/common-app-personal-statement',
   'common-app-essay-word-count': '/essays/common-app-personal-statement',
+  'engineering-application-essays': '/essays/engineering',
 };
 // Deliberately still pointing at the homepage: no collection is about what
 // these are about. See the comment on GUIDE_COLLECTIONS in lib/collections.ts.

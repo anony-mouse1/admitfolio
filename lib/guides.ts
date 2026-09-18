@@ -13,8 +13,13 @@ export type Guide = {
   slug: string;
   // Shown as the pill on the article and on its related-guides card.
   category: string;
-  cover: 'inspiration' | 'common' | 'uc' | 'start' | 'why' | 'format' | 'count';
+  cover: 'inspiration' | 'common' | 'uc' | 'start' | 'why' | 'format' | 'count' | 'engineering';
   coverTitle: string;
+  // The index card's cover photo, and its alt text. Both required: GuideCover
+  // can fall back to the CSS cover keyed on `cover` above, but every guide has
+  // a photo and a card without one reads as unfinished beside the rest.
+  // scripts/sitemap.test.mjs fails if either is empty or the file is not on
+  // disk under public/.
   image: string;
   imageAlt: string;
   // YYYY-MM-DD. `modified` feeds article:modified_time, the JSON-LD
@@ -22,12 +27,31 @@ export type Guide = {
   // so bump it when the article's content changes.
   published: string;
   modified: string;
+  // "N min read", counted from the rendered article at 225 words a minute and
+  // rounded to the nearest minute, which is the method f453223 used when it
+  // corrected all seven of these downwards. Do not estimate one:
+  // `node scripts/guide-read-time.mjs` prints the number and fails if any
+  // entry here disagrees with the page it labels.
   readTime: string;
   title: string;
   description: string;
 };
 
 export const guides = [
+  {
+    slug: 'engineering-application-essays',
+    category: 'Engineering',
+    cover: 'engineering',
+    coverTitle: 'Count the writing first',
+    image: '/blog-images/engineering.webp',
+    imageAlt: 'Students working at long tables in a university library reading room',
+    published: '2026-09-18',
+    modified: '2026-09-18',
+    readTime: '6 min read',
+    title: 'Engineering application essays: what you actually have to write',
+    description:
+      'What an engineering application asks for beyond the personal statement, and how to plan for the supplements and short answers.',
+  },
   {
     slug: 'how-to-take-inspiration-from-college-essays',
     category: 'Essay examples',

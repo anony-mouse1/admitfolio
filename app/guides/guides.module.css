@@ -490,6 +490,10 @@ a.guideCard:hover {
 .coverWhy { background: #ccd9ee; }
 .coverFormat { background: #e9d5da; }
 .coverCount { background: #e6d8ae; }
+/* The first cover with no photo behind it, so this is the only one of the eight
+   a reader actually sees rendered. Same muted family as the rest; the diagonal
+   stripe overlay and the centred .coverTitle card do the work. */
+.coverEngineering { background: #d5dcd2; }
 
 .coverTitle {
   position: relative;

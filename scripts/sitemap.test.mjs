@@ -107,6 +107,20 @@ for (const guide of guides) {
   for (const key of ['category', 'coverTitle', 'image', 'imageAlt', 'title', 'description']) {
     assert.ok(guide[key].length > 0, `${guide.slug} has a ${key}`);
   }
+  // A declared cover photo has to be on disk. The non-empty check above cannot
+  // tell a real path from a typo, and a 404 cover renders as a bare grey box.
+  assert.ok(
+    fs.existsSync(path.join(root, 'public', guide.image.replace(/^\//, ''))),
+    `${guide.slug} points at a cover photo that exists`,
+  );
+}
+// Every `cover` in the registry has a class behind it on the index, or the card
+// renders on a bare grey box.
+const indexSource = read('app/guides/page.tsx');
+for (const cover of new Set(guides.map((guide) => guide.cover))) {
+  assert.match(indexSource, new RegExp(`\\b${cover}: styles\\.`), `the index maps the "${cover}" cover to a class`);
+  const covered = `cover${cover[0].toUpperCase()}${cover.slice(1)}`;
+  assert.match(read('app/guides/guides.module.css'), new RegExp(`\\.${covered}\\b`), `.${covered} exists in the stylesheet`);
 }
 
 // The sitemap is exactly the static pages plus every registered guide, all on
@@ -282,6 +296,7 @@ const PAIRED_GUIDES = {
   'uc-piq-examples': 'uc-personal-insight-questions',
   'common-app-essay-examples': 'common-app-personal-statement',
   'common-app-essay-word-count': 'common-app-personal-statement',
+  'engineering-application-essays': 'engineering',
 };
 const collectionSlugs = new Set(collections.map((collection) => collection.slug));
 for (const [guideSlug, collectionSlug] of Object.entries(PAIRED_GUIDES)) {
@@ -304,6 +319,16 @@ for (const [guideSlug, collectionSlug] of Object.entries(PAIRED_GUIDES)) {
     `the registry pairs ${guideSlug} with ${collectionSlug}`,
   );
 }
+// The other direction. A collection's `guide` is the "read the method first"
+// line on the collection page, so it has to name a guide that exists.
+const registryGuideSlugs = new Set(guides.map((guide) => guide.slug));
+for (const collection of collections.filter((entry) => 'guide' in entry)) {
+  assert.ok(
+    registryGuideSlugs.has(collection.guide),
+    `/essays/${collection.slug} names a guide "${collection.guide}" that is not in the registry`,
+  );
+}
+
 // The four that are deliberately unpaired. Each applies to every essay on the
 // site rather than to one group of them, or is about supplements, which are not
 // a collection. Sending a reader somewhere the article is not about is a worse
