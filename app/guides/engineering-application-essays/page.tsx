@@ -65,8 +65,8 @@ export default function EngineeringApplicationEssaysPage() {
           </header>
 
           <div className={styles.articleStat}>
-            Two questions run through almost every engineering supplement: why engineering, and what did you
-            build. Prepare both properly and most of your list is answerable.
+            <strong>The two questions:</strong> Two questions run through almost every engineering supplement:
+            why engineering, and what did you build. Prepare both properly and most of your list is answerable.
           </div>
 
           <GuideArticleOverview
@@ -94,9 +94,9 @@ export default function EngineeringApplicationEssaysPage() {
               October, when the supplements for a full school list arrive at once.
             </p>
             <p>
-              Why engineering and what you built are the two questions that run through most of it. Both are
-              worth preparing properly, because a strong answer to either can be adapted across your whole
-              list.
+              Most of that extra writing is narrower and more technical than the personal statement, so the
+              drafting hours you have already spent carry over less than you would hope. Give it its own block
+              of time.
             </p>
 
             <h2 id="count-the-writing">Count the writing before you draft any of it</h2>
