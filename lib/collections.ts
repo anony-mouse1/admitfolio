@@ -97,6 +97,7 @@ export const collections = [
       'If you are writing about a project, this is the collection to read for calibration. The open question in almost every engineering draft is how much of the build to explain, and these show you where other admitted applicants drew that line.',
     ],
     rule: { kind: 'major', pattern: /engineering/ },
+    guide: 'engineering-application-essays',
   },
   {
     slug: 'business',
@@ -174,17 +175,22 @@ export function collectionBySlug(slug: string): CollectionEntry | undefined {
  * This direction is many to one: both Common App guides belong to the one
  * Common App collection, and the collection can only name one of them back.
  *
- * Deliberately partial, and it should stay that way. Four guides have no
+ * Deliberately partial, and it should stay that way. Four guides still have no
  * collection that is about what they are about: how to take inspiration, how
  * to start, and college essay format each apply to every essay on the site
  * rather than to one group of them, and why-this-college is about supplements,
  * which are not a collection. Sending a reader from an article to a page full
  * of essays it was not written about is a worse link than no link.
+ *
+ * The engineering pairing is the one that runs both ways. Engineering is the
+ * largest collection nothing pointed at, and the article was written from that
+ * collection's own aggregates, so the collection names the guide back.
  */
 const GUIDE_COLLECTIONS = {
   'uc-piq-examples': 'uc-personal-insight-questions',
   'common-app-essay-examples': 'common-app-personal-statement',
   'common-app-essay-word-count': 'common-app-personal-statement',
+  'engineering-application-essays': 'engineering',
 } as const satisfies Partial<Record<GuideSlug, CollectionSlug>>;
 
 /** A guide that has a paired collection. Every other slug fails to compile. */

@@ -1,49 +1,35 @@
-# Handover: cache the essay collections hub
+# Handover: structured data, llms.txt, and checkout email validation analytics
 
 Read `AGENTS.md` first. This file records the current work in flight.
 
 ## Branch and base
 
-Branch: `ritvik/cache-collection-pages`, based on `main` at `3e88554`, and
-opened as PR #91.
-
-## Why
-
-The `/essays` hub was rendered dynamically on every request even though its
-content can tolerate a short cache window. This made it slower for readers and
-crawlers without improving correctness.
+Branch `ritvik/structured-data-and-llms-txt`, PR #97. Merged `main` after
+PR #95 at `54ae0a9` before final review.
 
 ## What changed
 
-- `/essays` now uses a five-minute revalidation window.
-- Individual `/essays/[collection]` pages remain dynamic so a newly approved
-  listing appears there immediately.
-- `scripts/verify-collection-cache.mjs` verifies the cache split and checks that
-  every collection page matches the current public catalogue.
+- Added an Organization JSON-LD block to the homepage and ItemList blocks to
+  `/essays` and its six collection pages. The lists are built from the same
+  items those pages render; there are no Product or Offer claims.
+- Added `/llms.txt` from the existing collection and guide registries.
+- Added a `Checkout Email Invalid` analytics event without sending the email
+  address or changing the Stripe mount path.
+- Escaped `<` in JSON-LD before embedding it in a script element. A listing
+  title can contain seller-authored text, so plain `JSON.stringify` was not
+  safe. A regression test uses a script-closing title and checks that the
+  serialized result cannot break out of the element.
+- Qualified the llms.txt description where some legacy listings do not have
+  a confirmed target application.
 
-## Verification completed
+## Verification
 
-- `npm run lint` passes.
-- All 28 `scripts/*.test.mjs` files pass.
-- A direct `next build` passes. `/essays` is prerendered with a five-minute
-  revalidation window; collection pages remain dynamic.
-- The cache verifier passes against the local production build.
-- The cache verifier fails against the current production deployment because
-  the change is not live there yet, which confirms that it detects the behavior
-  it is meant to guard.
-- Vercel's PR deployment check passes.
+- TypeScript and all `scripts/*.test.mjs` files pass after the review fix.
+- A direct `next build` and the live route verifier must pass before merge.
+- No database write, migration, backfill, or hand-run deploy step is required.
 
-## What is left
+## Remaining
 
-Merge PR #91. No migration, backfill, database write, or other hand-run deploy
-step is required.
-
-## Found but not fixed
-
-- The Vercel preview deployment is protected by Vercel authentication, so the
-  public cache verifier cannot inspect that URL without a bypass token. The
-  deployed build itself passed Vercel's check, and the same commit was verified
-  locally as a production build.
-- The repository's dependency audit reports one high and one critical advisory.
-  They predate this cache-only PR and should be handled separately after checking
-  for breaking upgrades.
+Wait for a fresh Vercel check, merge PR #97, then verify the structured data,
+llms.txt, and main deployment on production. PRs #89, #92, #94, and #96 are
+separate review decisions; this branch does not alter them.

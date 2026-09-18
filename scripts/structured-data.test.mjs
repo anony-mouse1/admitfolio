@@ -43,7 +43,7 @@ const savedSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 delete process.env.NEXT_PUBLIC_SITE_URL;
 const siteModule = toDataUrl(read('lib/site.ts'));
 const site = await import(siteModule);
-const { organizationSchema, itemListSchema, absoluteUrl } = await import(
+const { organizationSchema, itemListSchema, absoluteUrl, serializeJsonLd } = await import(
   toDataUrl(relink(read('lib/structuredData.ts'), './site', siteModule))
 );
 if (savedSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
@@ -94,10 +94,10 @@ assert.doesNotMatch(
 
 // ---- The homepage actually emits it ----
 const page = read('app/page.tsx');
-assert.match(page, /import \{ organizationSchema \} from '@\/lib\/structuredData';/);
+assert.match(page, /import \{ organizationSchema, serializeJsonLd \} from '@\/lib\/structuredData';/);
 assert.match(
   page,
-  /<script\s+type="application\/ld\+json"\s+dangerouslySetInnerHTML=\{\{ __html: JSON\.stringify\(organizationSchema\(\)\) \}\}/,
+  /<script\s+type="application\/ld\+json"\s+dangerouslySetInnerHTML=\{\{ __html: serializeJsonLd\(organizationSchema\(\)\) \}\}/,
   'the homepage renders the Organization block',
 );
 // app/page.tsx is a client component, but Next server-renders it, which is why
@@ -105,7 +105,7 @@ assert.match(
 // block must stay in that same top-level fragment rather than behind any state,
 // or it ships only to a browser that runs JavaScript.
 const canonicalAt = page.indexOf('<link rel="canonical"');
-const scriptAt = page.indexOf('JSON.stringify(organizationSchema())');
+const scriptAt = page.indexOf('serializeJsonLd(organizationSchema())');
 assert.ok(canonicalAt > -1 && scriptAt > canonicalAt, 'and renders it beside the canonical link');
 assert.ok(scriptAt - canonicalAt < 600, 'with nothing conditional in between');
 
@@ -116,6 +116,16 @@ const list = itemListSchema('Engineering application essays', [
   { name: 'A bridge that did not hold', url: absoluteUrl('/essays/engineering?listing=b') },
   { name: 'Why I stopped sketching rockets', url: absoluteUrl('/essays/engineering?listing=c') },
 ]);
+
+// A seller-authored title must not be able to close the JSON-LD script and
+// inject another tag into the served page.
+const hostile = itemListSchema('Essays', [
+  { name: '</script><script>alert(1)</script>', url: absoluteUrl('/essays/engineering?listing=x') },
+]);
+const safeJson = serializeJsonLd(hostile);
+assert.ok(!safeJson.includes('</script>'), 'seller text cannot close the JSON-LD script');
+assert.ok(!safeJson.includes('<script>'), 'seller text cannot open an HTML script');
+assert.deepEqual(JSON.parse(safeJson), hostile, 'escaping preserves the structured-data value');
 
 assert.equal(list['@context'], 'https://schema.org');
 assert.equal(list['@type'], 'ItemList');
@@ -165,10 +175,10 @@ const hub = read('app/essays/page.tsx');
 const collectionPage = read('app/essays/[collection]/page.tsx');
 
 for (const [name, source] of [['app/essays/page.tsx', hub], ['app/essays/[collection]/page.tsx', collectionPage]]) {
-  assert.match(source, /import \{ absoluteUrl, itemListSchema \} from '@\/lib\/structuredData';/, `${name} imports the builder`);
+  assert.match(source, /import \{ absoluteUrl, itemListSchema, serializeJsonLd \} from '@\/lib\/structuredData';/, `${name} imports the builder and safe serializer`);
   assert.match(
     source,
-    /<script\s+type="application\/ld\+json"\s+dangerouslySetInnerHTML=\{\{ __html: JSON\.stringify\(itemList\) \}\}/,
+    /<script\s+type="application\/ld\+json"\s+dangerouslySetInnerHTML=\{\{ __html: serializeJsonLd\(itemList\) \}\}/,
     `${name} renders the ItemList`,
   );
 }

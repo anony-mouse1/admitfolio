@@ -12,7 +12,7 @@ import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
-import { organizationSchema } from '@/lib/structuredData';
+import { organizationSchema, serializeJsonLd } from '@/lib/structuredData';
 import { COLLECTIONS_PATH, collectionPath, collections, listingsInCollection } from '@/lib/collections';
 import type { ListingPriceSave } from '@/components/seller/ListingPricePanel';
 import { PROFILE_TAGS } from '@/lib/site';
@@ -574,7 +574,6 @@ export default function Page() {
   /* ---- Which overlays are open (drives body scroll lock) ---- */
   const [sellOpen, setSellOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
-  const [wlOpen, setWlOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
   // True while the sell wizard was launched from the seller dashboard, so it
@@ -1437,36 +1436,15 @@ export default function Page() {
     void essay;
   }
 
-  /* ============================ Waitlist (notify) ============================ */
+  /* ============================ Notify me at launch ============================ */
+  // The only surface that collects these emails is the "Releasing soon" banner
+  // in the pre-launch branch of the featured section, so none of this renders
+  // while NEXT_PUBLIC_LAUNCH is on. The sticky button and the scroll-triggered
+  // popup that used to sit alongside it rendered on every page load regardless
+  // of the flag, which is why they were removed rather than gated.
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifyMsg, setNotifyMsg] = useState<Msg>({ text: '', kind: '' });
   const [notifyBusy, setNotifyBusy] = useState(false);
-
-  const [wlEmail, setWlEmail] = useState('');
-  const [wlMsg, setWlMsg] = useState<Msg>({ text: '', kind: '' });
-  const [wlBusy, setWlBusy] = useState(false);
-  const [fabShow, setFabShow] = useState(false);
-  const wlEmailRef = useRef<HTMLInputElement>(null);
-  const autoShownRef = useRef(false);
-  // Live view of "is any popup open" for timers whose closures would go stale.
-  const overlayOpenRef = useRef(false);
-
-  const hasJoined = () => {
-    try {
-      return localStorage.getItem('admitly_waitlist_joined') === '1';
-    } catch {
-      return false;
-    }
-  };
-  const markJoined = useCallback(() => {
-    try {
-      localStorage.setItem('admitly_waitlist_joined', '1');
-    } catch {
-      /* ignore */
-    }
-    autoShownRef.current = true;
-    setFabShow(false);
-  }, []);
 
   async function submitWaitlist(email: string): Promise<{ ok: boolean; already?: boolean; error?: string }> {
     const resp = await fetch('/api/waitlist', {
@@ -1491,73 +1469,12 @@ export default function Page() {
       const { already } = await submitWaitlist(email);
       setNotifyMsg({ text: already ? WAITLIST_MSG_OK_DUP : WAITLIST_MSG_OK_NEW, kind: 'ok' });
       setNotifyEmail('');
-      markJoined();
     } catch (err) {
       setNotifyMsg({ text: err instanceof Error ? err.message : 'Could not sign you up right now. Please try again.', kind: 'err' });
     } finally {
       setNotifyBusy(false);
     }
   }
-
-  const openWaitlist = useCallback(() => {
-    setWlOpen(true);
-    setTimeout(() => wlEmailRef.current?.focus(), 60);
-  }, []);
-
-  async function handleWlSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const email = wlEmail.trim();
-    if (!emailRe.test(email)) {
-      setWlMsg({ text: 'Please enter a valid email address.', kind: 'err' });
-      return;
-    }
-    setWlBusy(true);
-    try {
-      const { already } = await submitWaitlist(email);
-      setWlMsg({ text: already ? WAITLIST_MSG_OK_DUP : WAITLIST_MSG_OK_NEW, kind: 'ok' });
-      setWlEmail('');
-      markJoined();
-      setTimeout(() => setWlOpen(false), 1900);
-    } catch (err) {
-      setWlMsg({ text: err instanceof Error ? err.message : 'Could not sign you up right now. Please try again.', kind: 'err' });
-    } finally {
-      setWlBusy(false);
-    }
-  }
-
-  // Sticky FAB + scroll-triggered popup.
-  //
-  // Both belong to the pre-launch page. Once the catalogue is live there is
-  // nothing to wait for, so a "Be first to read the essays" popup over a page
-  // full of buyable essays is just wrong. The featured section already branches
-  // on LAUNCHED; this timer did not, so it fired regardless.
-  useEffect(() => {
-    if (LAUNCHED) return;
-    function onScroll() {
-      if (hasJoined()) {
-        setFabShow(false);
-        return;
-      }
-      const scrolled = window.scrollY;
-      setFabShow(scrolled > 360);
-      if (!autoShownRef.current && scrolled > 450) {
-        autoShownRef.current = true;
-        setTimeout(() => {
-          if (hasJoined()) return;
-          // Never pop over an open modal/menu; re-arm so it can still
-          // appear once the user has closed it and scrolls again.
-          if (overlayOpenRef.current) {
-            autoShownRef.current = false;
-            return;
-          }
-          openWaitlist();
-        }, 15000);
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [openWaitlist]);
 
   /* ============================ Seller login (email + password) ============================ */
   const [slPane, setSlPane] = useState(1);
@@ -2089,17 +2006,14 @@ export default function Page() {
     return () => window.removeEventListener('scroll', updateNav);
   }, []);
 
-  // Lock body scroll while any overlay is open; keep the ref in sync so the
-  // waitlist auto-popup timer can check it (the hamburger menu counts as a
-  // popup for that purpose, but shouldn't lock scroll).
+  // Lock body scroll while any overlay is open.
   useEffect(() => {
-    const anyOpen = sellOpen || buyOpen || wlOpen || loginOpen || dashOpen || detailId !== null || confirmTakedown !== null || confirmSubmit;
-    overlayOpenRef.current = anyOpen || menuOpen;
+    const anyOpen = sellOpen || buyOpen || loginOpen || dashOpen || detailId !== null || confirmTakedown !== null || confirmSubmit;
     document.body.style.overflow = anyOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [sellOpen, buyOpen, wlOpen, loginOpen, dashOpen, menuOpen, detailId, confirmTakedown, confirmSubmit]);
+  }, [sellOpen, buyOpen, loginOpen, dashOpen, detailId, confirmTakedown, confirmSubmit]);
 
   // Layout variant body classes + ?login deep-link (mirrors the original IIFEs).
   useEffect(() => {
@@ -2149,11 +2063,10 @@ export default function Page() {
       else if (buyOpen) closeBuy();
       else if (detailId) closeDetail();
       else if (loginOpen) closeLogin();
-      else if (wlOpen) setWlOpen(false);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [confirmSubmit, submitting, confirmTakedown, takedownBusy, matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, wlOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
+  }, [confirmSubmit, submitting, confirmTakedown, takedownBusy, matcherOpen, menuOpen, dashOpen, buyOpen, detailId, sellOpen, loginOpen, closeDashboard, closeBuy, closeSell, closeLogin, closeDetail]);
 
   // Scroll-reveal animations.
   useEffect(() => {
@@ -2192,7 +2105,7 @@ export default function Page() {
           records what is deliberately absent and why. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema()) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationSchema()) }}
       />
       {missingListing && (
         <div className="site-update" role="status">
@@ -3357,29 +3270,6 @@ export default function Page() {
 
       {/* ===== Buyer checkout modal ===== */}
       <ListingCheckout open={buyOpen} item={curItem} onClose={closeBuy} />
-
-      {/* ===== Sticky floating waitlist button ===== */}
-      <button className={`wl-fab${fabShow ? ' show' : ''}`} type="button" aria-label="Join the waitlist" onClick={openWaitlist}>
-        <span className="wl-fab-pulse"></span>Join the waitlist
-      </button>
-
-      {/* ===== Scroll-triggered waitlist modal ===== */}
-      <div className={`modal-overlay${wlOpen ? ' open' : ''}`} id="waitlistModal" role="dialog" aria-modal="true" aria-labelledby="wlTitle" onClick={(e) => { if (e.target === e.currentTarget) setWlOpen(false); }}>
-        <div className="modal">
-          <button className="modal-close" aria-label="Close" onClick={() => setWlOpen(false)}>&times;</button>
-          <div className="modal-logo"><span className="w">admitfolio</span><span className="d"></span></div>
-          <div className="modal-eyebrow"><span className="wl-dot"></span>Coming soon</div>
-          <h3 id="wlTitle">Be first to read the essays that got them in.</h3>
-          <p className="sub">We&apos;re collecting verified admit essays right now. Drop your email and we&apos;ll tell you the moment they go live. No spam, just one heads-up.</p>
-          <form autoComplete="on" onSubmit={handleWlSubmit}>
-            <div className="field">
-              <input ref={wlEmailRef} type="email" placeholder="you@email.com" autoComplete="email" spellCheck={false} aria-label="Email address" value={wlEmail} onChange={(e) => { setWlEmail(e.target.value); if (wlMsg.text) setWlMsg({ text: '', kind: '' }); }} />
-            </div>
-            <button type="submit" className="modal-btn" disabled={wlBusy}>{wlBusy ? 'Adding…' : 'Notify me when essays drop'}</button>
-            <div className={`notify-msg wl-msg${wlMsg.kind ? ' ' + wlMsg.kind : ''}`}>{wlMsg.text}</div>
-          </form>
-        </div>
-      </div>
 
       {/* ===== Seller login modal ===== */}
       <div className={`modal-overlay${loginOpen ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="slTitle" onClick={(e) => { if (e.target === e.currentTarget) closeLogin(); }}>

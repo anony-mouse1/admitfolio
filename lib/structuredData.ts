@@ -18,6 +18,13 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from './site';
 
 export type JsonLd = Record<string, unknown>;
 
+// JSON is not automatically safe inside an HTML script element. Listing names
+// can contain seller-authored text, so escape '<' before embedding JSON-LD.
+// JSON.parse still restores the original text for a crawler.
+export function serializeJsonLd(value: JsonLd): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 /**
  * The homepage's Organization block.
  *

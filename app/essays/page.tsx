@@ -4,7 +4,7 @@ import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { COLLECTIONS_PATH, collectionPath, collections, listingsInCollection } from '@/lib/collections';
 import { publicCatalogListings } from '@/lib/publicCatalog';
 import { SITE_URL } from '@/lib/site';
-import { absoluteUrl, itemListSchema } from '@/lib/structuredData';
+import { absoluteUrl, itemListSchema, serializeJsonLd } from '@/lib/structuredData';
 import styles from './essays.module.css';
 
 // Server-rendered, so the hub and its counts are in the document a crawler
@@ -64,7 +64,7 @@ export default async function EssayCollectionsPage() {
     <div className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemList) }}
       />
       <GuideHeader />
       <main className={styles.main}>

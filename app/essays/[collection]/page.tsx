@@ -16,7 +16,7 @@ import { collectionSummary } from '@/lib/collectionSummary';
 import { guideBySlug, guidePath } from '@/lib/guides';
 import { publicCatalogListings } from '@/lib/publicCatalog';
 import { publicListingTitle } from '@/lib/publicListing';
-import { absoluteUrl, itemListSchema } from '@/lib/structuredData';
+import { absoluteUrl, itemListSchema, serializeJsonLd } from '@/lib/structuredData';
 import styles from '../essays.module.css';
 
 // Server-rendered on demand. The listing cards are in the served HTML, which is
@@ -129,7 +129,7 @@ export default async function CollectionPage({ params, searchParams }: Params) {
     <div className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemList) }}
       />
       <GuideHeader />
       <main className={styles.main}>
