@@ -88,6 +88,19 @@ assert.match(sheet, /sheet-x mobile-page-close/);
 assert.match(styles, /\.sheet\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);
 assert.match(styles, /\.buy-overlay \.modal\.buy-modal\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);
 
+// The pre-launch waitlist popup and its floating button rendered unconditionally,
+// so a launched marketplace served "Coming soon" and "Be first to read the essays
+// that got them in" to every crawler while no user could ever see either. They
+// were deleted rather than gated: a gate would still have shipped the markup on
+// the day the flag flipped, and there is nothing left to wait for.
+assert.doesNotMatch(page, /wl-fab|waitlistModal/, 'the unconditional waitlist markup must not come back');
+assert.doesNotMatch(page, /Be first to read the essays that got them in/, 'pre-launch popup copy must not come back');
+assert.doesNotMatch(styles, /\.wl-fab|#waitlistModal|\.wl-msg/, 'waitlist styles must not outlive the markup');
+// The "Releasing soon" banner is the surviving signup surface and it is inside
+// the pre-launch branch, so the flag flipping back still gives visitors a way to
+// leave an email. `/api/waitlist` and `WaitlistEntry` are untouched.
+assert.match(page, /'\/api\/waitlist'/, 'the pre-launch notify form must still reach the waitlist endpoint');
+
 assert.doesNotMatch(terms, /Sales are split 60\/40/);
 assert.doesNotMatch(terms, /Purchasing is not yet live/);
 assert.doesNotMatch(privacy, /when purchasing launches/i);
