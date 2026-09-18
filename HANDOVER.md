@@ -45,7 +45,7 @@ No new component, no new CSS beyond one background colour.
 
 ### The read time, and the method behind it
 
-**6 min read, from 1,286 counted words.** Not estimated. See "Read time" below
+**6 min read, from 1,284 counted words.** Not estimated. See "Read time" below
 for why it went up rather than down.
 
 `f453223` corrected all seven existing read times downwards, one by more than
@@ -64,35 +64,102 @@ counts to within two words**, which is entity and apostrophe tokenising noise.
 The script prints every article's count and exits non-zero if any `readTime` in
 the registry disagrees with the page it labels, so this cannot drift again.
 
-### The cover, blocked on Ritvik
+### The cover photo
 
-**There is no image in this repo that fits, so the card still renders the CSS
-cover and `Guide.image` is still nullable.** Ritvik is picking one. Downloading
-anything is out: third-party licensing needs written approval under his
-contract.
+Ritvik supplied one: a university library reading room, Unsplash, Dominic
+Kurniawan Suryaputra, `r0U2y0HhdGE`, Unsplash License, downloaded 2026-09-18.
 
-What the repo actually holds:
+**4.79 MB in, 119.1 KB out**, a 97.6% cut. 4240x2832 progressive JPEG to
+1200x800 WebP at quality 72, converted with the `sharp` already in
+`node_modules` as a Next dependency. Nothing installed, no dependency added.
+Quality 72 and 80 were compared at the real display crop (1082x540, the card at
+2x) and are indistinguishable, so the smaller one shipped.
 
-- `public/blog-images/` is seven photos and all seven are claimed, one per
-  existing guide.
-- `public/assets/schools/` and `public/mockup-assets/university-logos/` are
-  university logos and seals. `public/assets/schools/SOURCES.md` says outright
-  that the marks "remain the property of their respective owners" and that "the
-  repository does not record their original upstream URLs", so one of those on a
-  blog cover would be unattributed third-party marks implying endorsement.
-- `app/icon.svg` and `app/apple-icon.png` are the favicon.
+**"Match the existing seven" turned out not to be well defined.** They agree on
+format and on nothing else: all WebP, sRGB, no ICC, no EXIF, but 600x400 through
+1400x934, ratios 1.50 to 1.67, and 17.4 KB through 314.3 KB. The measurements
+are in `public/blog-images/SOURCES.md`.
 
-**When an eighth photo lands**, three things go back the way they were and
-nothing else changes: drop the file into `public/blog-images/`, put the two
-strings into the registry entry, narrow `Guide.image` and `Guide.imageAlt` back
-to `string`, and restore the non-empty assertion in `scripts/sitemap.test.mjs`.
-The stricter assertions added alongside it are worth keeping either way: a
-declared photo has to exist on disk, and every `cover` token has to have a class
-on the index and a rule in the stylesheet.
+So: WebP to match the one thing they share, and **1200x800 because that is what
+`app/guides/page.tsx` already declares on the `<img>`**. This is the only file in
+the directory for which that declaration is true, and it is the only one not
+upscaled on a 2x display, where the card is 507 CSS px wide at 1440 and 360 at
+390. At 119 KB it is well under the 314 KB the directory already carries.
 
-Until then the card is a sage panel with the existing diagonal overlay and the
-white serif title card, which looks deliberate on its own and plainer than its
-seven neighbours in a row.
+The 4.79 MB source was moved out of the repo rather than committed: none of the
+other seven has an original here, and the Unsplash URL in `SOURCES.md` makes it
+re-fetchable.
+
+Wired up, and the nullable type is gone:
+
+- `image` and `imageAlt` are set, and `Guide.image` / `Guide.imageAlt` are back
+  to required `string`.
+- The **"image is non-empty" assertion is restored** in
+  `scripts/sitemap.test.mjs`. The "both or neither" assertion added while the
+  type was nullable is **dropped as subsumed**: with both required and non-empty
+  it can no longer fail. The two stricter ones stay, and both were re-checked by
+  mutation: a declared photo must exist on disk, and every `cover` token must
+  have a class on the index and a rule in the stylesheet.
+- `public/blog-images/SOURCES.md` is **new**, modelled on
+  `public/assets/schools/SOURCES.md`, recording source, photographer, URL,
+  licence, download date, and the before and after of the conversion.
+
+**`GuideCover` now takes its photo branch, which does not render `coverTitle`**,
+so the verifier's card assertions were rewritten: the photo is served as
+`image/webp`, decodes at 1200x800, is `object-fit: cover`, leaves no gap, sits
+in a cover box the same height as the other seven, and the index shows 8 cards.
+The `<img>` is laid out at its own ratio and overflows the fixed-height box,
+which `.blogCover` clips; all eight behave that way, and the first version of
+that assertion was wrong rather than the layout.
+
+### While placing it: a stock watermark on a live photo
+
+**`public/blog-images/inspiration.webp` has a `dreamstime` preview watermark
+baked into the pixels**, a script wordmark across the horizontal centre. It is
+faint against a bright background and easy to miss, and it is serving in
+production right now on the `/guides` card for
+`how-to-take-inspiration-from-college-essays`.
+
+A watermark like that is on a comp rather than a licensed download. The centre
+band of all eight files was checked at raised contrast and this is the only one.
+It predates this branch and it is **not touched here**: it is a licensing
+question, which under Ritvik's contract goes to Fatimah. Recorded in
+`public/blog-images/SOURCES.md` so it cannot be lost.
+
+Related: that commit, `57d5c5c`, records no source, photographer, licence or URL
+for any of the seven, and nothing else in the repo does either.
+
+### The stat block, left alone
+
+Ritvik asked whether the other seven all put a real fact in theirs, and to
+delete this one if any of them omit the block.
+
+**All eight have one, so nothing was deleted. But the "real fact" premise only
+holds for two of seven.** What they actually hold:
+
+| Guide | Stat block | Kind |
+|---|---|---|
+| `common-app-essay-word-count` | the personal essay accepts 250 to 650 words, and 650 is a limit not a target | **external fact** |
+| `uc-piq-examples` | UC gives eight PIQs, you choose four, up to 350 words each | **external fact** |
+| `college-essay-format` | use normal paragraphs, separate dialogue, skip decorative formatting, inspect the preview | advice |
+| `how-to-start-a-college-essay` | draft the clearest scene in the middle first, write the opening after | advice |
+| `how-to-take-inspiration` | notice one writing choice, close the example, turn it into a question | a method |
+| `why-this-college-essay-examples` | if you can swap the college name and it still works, the research is not specific enough | a test |
+| `common-app-essay-examples` | Admitfolio has hundreds of real application essays from verified students | a claim about us |
+
+So five of seven put advice, a method, a test or an editorial line in the box.
+Neither of Ritvik's branches fired cleanly, so the block stays as written and
+the decision is his. His read of it is right either way: it does restate the
+first paragraph of section 1.
+
+**No verifier asserts the block exists on every guide any more.**
+`scripts/guide-read-time.mjs` used to, through `need('articleStat')`, and would
+have failed outright on a guide that dropped it. It now counts zero for a
+missing block. Mutation checked: with the block removed the count fell from
+1,284 to 1,246 and the script still passed.
+`scripts/verify-engineering-guide.mjs` only ever included it in a selector list
+for the clipping sweep, which tolerates its absence, and its claim assertions
+are article-specific rather than about every guide.
 
 ## No catalogue statistics, and why
 
@@ -163,7 +230,7 @@ supplement. `how-to-take-inspiration` keeps its related-guides card, so
 
 ### Read time
 
-**6 min read, from 1,286 counted words.** It went up, not down: cutting the
+**6 min read, from 1,284 counted words.** It went up, not down: cutting the
 statistics removed about forty words, and the rewrites added seventy, because
 antithesis is a compressive shape and the sentences that replaced it are not.
 
@@ -202,15 +269,18 @@ already-paired guides were moved off it in #90.
 - `scripts/guide-read-time.mjs`: the registry agrees with every rendered page,
   and the method still reproduces all seven counts from `f453223`.
 - **`scripts/verify-engineering-guide.mjs`**, new, NOT in `package.json`: it
-  needs a server and a browser, and `test:*` is pure. **25 checks** against
+  needs a server and a browser, and `test:*` is pure. **26 checks** against
   `npx next start`. Served with no JavaScript: the headline, all 7 sections, the
   **9 claims that had to survive losing their counts**, the **10 catalogue-count
   patterns that must stay absent**, no em or en dash, no price, one call to
   action link pointing at the collection with no fragment anywhere in the block,
   the back link, the canonical, the OpenGraph article tags, the JSON-LD, the
-  sitemap, the index card, and the collection linking back. Hydrated at **1440
-  and 390**: the back link, the layout, the call to action, the two body links,
-  the index card and the click through to the collection.
+  sitemap, the cover photo (served as `image/webp`, under the largest file
+  already in the directory, with alt text), and the collection linking back.
+  Hydrated at **1440 and 390**: the back link, the layout, the call to action,
+  the two body links, the card's photo (decoded at 1200x800, `object-fit:
+  cover`, no gap, clipped by its box, same cover height as the other seven, 8
+  cards on the index) and the click through to the collection.
 - **The back link was hit-tested, not assumed.** `elementFromPoint` at the
   link's own centre returns the link at both widths. It clears the nav by 31px
   at 1440 and 22px at 390. This is the failure the CSS comment at
@@ -219,23 +289,24 @@ already-paired guides were moved off it in #90.
 - `scripts/verify-guide-collection-links.mjs`, extended with the new pairing:
   36 checks over two widths, all four paired guides land on a collection with
   cards. 44 cards on `/essays/engineering`, matching the figure in the article.
-- Mutation checked, five ways: dropping the cover class mapping, a photo with
-  null alt text, a photo that is not on disk, forgetting the new pairing in the
-  test's own map, and putting a catalogue count back into the copy each fail
-  with the message they should.
-- Screenshots at 1440 and 390 of both the article and the index card.
+- Mutation checked, six ways: dropping the cover class mapping, empty alt text,
+  a photo path that is not on disk, forgetting the new pairing in the test's own
+  map, and putting a catalogue count back into the copy each fail with the
+  message they should. Removing the stat block, the sixth, now **passes**, which
+  is the point of that change: the count fell to 1,246 rather than throwing.
+- Screenshots at 1440 and 390 of the article, and of the new card sitting in
+  the grid beside its neighbours, which is what the photo had to survive.
 - **No database write of any kind**, and no database read either. The figures
   that informed the first draft came from the public JSON API and are now out of
   the article entirely. No production data was copied into the repo.
 
 ## What is left, and whose it is
 
-1. **Ritvik: the cover photo.** Blocked on him, not on work. Nothing in the repo
-   fits and downloading one needs written approval under his contract. The card
-   renders the CSS cover until he picks one, and `Guide.image` stays nullable
-   until it lands.
-2. **Ritvik: review, then push and open a PR.** Nothing is pushed.
-3. No env var, no migration, no backfill.
+1. **Fatimah, through Ritvik: the watermark on `inspiration.webp`.** Live in
+   production, licensing question, not this branch's to fix.
+2. **Ritvik: the stat block.** Left as written; his call whether to replace it.
+3. **Ritvik: review, then push and open a PR.** Nothing is pushed.
+4. No env var, no migration, no backfill.
 
 ## Found but not fixed
 
