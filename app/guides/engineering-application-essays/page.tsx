@@ -65,9 +65,8 @@ export default function EngineeringApplicationEssaysPage() {
           </header>
 
           <div className={styles.articleStat}>
-            <strong>Where the extra writing comes from:</strong> One Common App essay goes to every college on
-            your list. Each college can then add its own supplements and short answers, which appear in My
-            Colleges once you add that school.
+            Two questions run through almost every engineering supplement: why engineering, and what did you
+            build. Prepare both properly and most of your list is answerable.
           </div>
 
           <GuideArticleOverview
