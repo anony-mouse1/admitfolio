@@ -15,6 +15,8 @@ import {
 import { collectionSummary } from '@/lib/collectionSummary';
 import { guideBySlug, guidePath } from '@/lib/guides';
 import { publicCatalogListings } from '@/lib/publicCatalog';
+import { publicListingTitle } from '@/lib/publicListing';
+import { absoluteUrl, itemListSchema } from '@/lib/structuredData';
 import styles from '../essays.module.css';
 
 // Server-rendered on demand. The listing cards are in the served HTML, which is
@@ -97,6 +99,25 @@ export default async function CollectionPage({ params, searchParams }: Params) {
   // homepage still has it, from the JSON API, where it always was.
   const browsable = listings.map(({ otherListingIds: _siblings, ...listing }) => listing);
 
+  // The page's own list, described for a crawler.
+  //
+  // Built from `listings`, the same array the cards below are mapped over, in
+  // the same order, so the markup cannot describe a listing the page does not
+  // show or miss one it does. `name` is publicListingTitle, which is the text
+  // in .ecard-hook and the card's aria-label, and `url` is the card's own href
+  // made absolute. Both are read from the listing rather than restated.
+  //
+  // Bare ListItems. No Product, no Offer, no price: a listing has no page of
+  // its own for an offer to live on, and the reasoning is in
+  // lib/structuredData.ts.
+  const itemList = itemListSchema(
+    collection.name,
+    listings.map((listing) => ({
+      name: publicListingTitle(listing),
+      url: absoluteUrl(`${basePath}?listing=${encodeURIComponent(listing.id)}`),
+    })),
+  );
+
   const summary = collectionSummary(listings);
   // `as const satisfies` keeps each registry entry at its literal shape, so the
   // collections with no paired guide have no `guide` key rather than undefined.
@@ -106,6 +127,10 @@ export default async function CollectionPage({ params, searchParams }: Params) {
 
   return (
     <div className={styles.page}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+      />
       <GuideHeader />
       <main className={styles.main}>
         <nav className={styles.crumbs} aria-label="Breadcrumb">

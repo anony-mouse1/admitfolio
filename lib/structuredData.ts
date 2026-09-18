@@ -12,7 +12,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from './site';
 //
 // Nothing here is a rich result we are eligible for. Admitfolio sells a
 // listing, not a product with a per-item page, so there is no Product and no
-// Offer anywhere in this file (see the note on collectionItemList). These
+// Offer anywhere in this file (see the note on itemListSchema). These
 // objects exist to tell a crawler what the organisation is and what each page
 // is a list of, which is understanding, not decoration.
 
@@ -21,7 +21,7 @@ export type JsonLd = Record<string, unknown>;
 /**
  * The homepage's Organization block.
  *
- * Deliberately five fields and no more. Every one of them is something the
+ * Deliberately four fields and no more. Every one of them is something the
  * served page already states:
  *
  * - `name` is the wordmark in the nav and the first word of the <title>.

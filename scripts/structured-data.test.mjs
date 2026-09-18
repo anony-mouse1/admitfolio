@@ -43,7 +43,7 @@ const savedSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 delete process.env.NEXT_PUBLIC_SITE_URL;
 const siteModule = toDataUrl(read('lib/site.ts'));
 const site = await import(siteModule);
-const { organizationSchema } = await import(
+const { organizationSchema, itemListSchema, absoluteUrl } = await import(
   toDataUrl(relink(read('lib/structuredData.ts'), './site', siteModule))
 );
 if (savedSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
@@ -108,5 +108,102 @@ const canonicalAt = page.indexOf('<link rel="canonical"');
 const scriptAt = page.indexOf('JSON.stringify(organizationSchema())');
 assert.ok(canonicalAt > -1 && scriptAt > canonicalAt, 'and renders it beside the canonical link');
 assert.ok(scriptAt - canonicalAt < 600, 'with nothing conditional in between');
+
+
+// ---- ItemList ----
+const list = itemListSchema('Engineering application essays', [
+  { name: 'The summer I rebuilt the gearbox', url: absoluteUrl('/essays/engineering?listing=a') },
+  { name: 'A bridge that did not hold', url: absoluteUrl('/essays/engineering?listing=b') },
+  { name: 'Why I stopped sketching rockets', url: absoluteUrl('/essays/engineering?listing=c') },
+]);
+
+assert.equal(list['@context'], 'https://schema.org');
+assert.equal(list['@type'], 'ItemList');
+assert.equal(list.name, 'Engineering application essays');
+
+// numberOfItems is derived from the array, never passed in, so it cannot claim
+// a count the elements do not back up.
+assert.equal(list.numberOfItems, 3);
+assert.equal(list.itemListElement.length, list.numberOfItems);
+assert.deepEqual(
+  list.itemListElement.map((entry) => entry.position),
+  [1, 2, 3],
+  'positions are 1-based and follow the order the page maps in',
+);
+assert.deepEqual(list.itemListElement[0], {
+  '@type': 'ListItem',
+  position: 1,
+  name: 'The summer I rebuilt the gearbox',
+  url: `${ORIGIN}/essays/engineering?listing=a`,
+});
+
+assert.equal(itemListSchema('Empty', []).numberOfItems, 0);
+assert.deepEqual(itemListSchema('Empty', []).itemListElement, []);
+
+// ---- What a ListItem must NOT carry ----
+// A listing has no page of its own, so there is nowhere for an Offer to live.
+// Product markup on a page that is not a product page is the most common
+// structured-data manual action there is.
+const serialised = JSON.stringify(list);
+for (const forbidden of ['Product', 'Offer', 'price', 'priceCurrency', 'availability', 'aggregateRating', 'review']) {
+  assert.ok(!serialised.includes(forbidden), `a ListItem must not carry ${forbidden}`);
+}
+for (const entry of list.itemListElement) {
+  assert.deepEqual(
+    Object.keys(entry).sort(),
+    ['@type', 'name', 'position', 'url'],
+    'a ListItem is exactly a type, a position, the rendered name and the rendered href',
+  );
+}
+// itemListOrder would have to be one of schema.org's three. The catalogue comes
+// back newest-reviewed first, which is none of them, and ItemListUnordered
+// would say the order means nothing when it does.
+assert.ok(!('itemListOrder' in list), 'no itemListOrder we cannot honestly name');
+
+// ---- The pages emit it, from the array they render ----
+const hub = read('app/essays/page.tsx');
+const collectionPage = read('app/essays/[collection]/page.tsx');
+
+for (const [name, source] of [['app/essays/page.tsx', hub], ['app/essays/[collection]/page.tsx', collectionPage]]) {
+  assert.match(source, /import \{ absoluteUrl, itemListSchema \} from '@\/lib\/structuredData';/, `${name} imports the builder`);
+  assert.match(
+    source,
+    /<script\s+type="application\/ld\+json"\s+dangerouslySetInnerHTML=\{\{ __html: JSON\.stringify\(itemList\) \}\}/,
+    `${name} renders the ItemList`,
+  );
+}
+
+// The collection page must build its list from `listings`, the same array the
+// cards are mapped over, and take the name from publicListingTitle, the same
+// function the card prints. Anything else is a second source of truth.
+assert.match(
+  collectionPage,
+  /const itemList = itemListSchema\(\s*collection\.name,\s*listings\.map\(\(listing\) => \(\{\s*name: publicListingTitle\(listing\),\s*url: absoluteUrl\(`\$\{basePath\}\?listing=\$\{encodeURIComponent\(listing\.id\)\}`\),/,
+  'the collection ItemList is built from the rendered listings, named by publicListingTitle',
+);
+// The card href and the ListItem url have to be the same string. If one ever
+// stops encoding the id, this is what catches it.
+const card = read('components/CollectionListingCard.tsx');
+assert.match(
+  card,
+  /href=\{`\$\{basePath\}\?listing=\$\{encodeURIComponent\(listing\.id\)\}`\}/,
+  'the card href is the same path the ListItem url is built from',
+);
+assert.match(card, /aria-label=\{publicListingTitle\(listing\)\}/, 'and the same name');
+
+// The hub renders six collection cards and no listings, so its list is the six
+// collections, from the registry the grid maps over.
+assert.match(
+  hub,
+  /const itemList = itemListSchema\(\s*'College essay collections',\s*collections\.map\(\(collection\) => \(\{\s*name: collection\.name,\s*url: absoluteUrl\(collectionPath\(collection\.slug\)\),/,
+  'the hub ItemList is the six collections',
+);
+assert.match(hub, /<h1>College essay collections<\/h1>/, 'and its name is the h1 the page renders');
+// The hub has no listing cards, so its list must not pretend to hold listings.
+assert.doesNotMatch(
+  hub,
+  /itemListSchema\([\s\S]{0,200}listings\.map/,
+  'the hub must not describe listings it does not render',
+);
 
 console.log('structured data tests passed');

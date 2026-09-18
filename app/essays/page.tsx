@@ -4,6 +4,7 @@ import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { COLLECTIONS_PATH, collectionPath, collections, listingsInCollection } from '@/lib/collections';
 import { publicCatalogListings } from '@/lib/publicCatalog';
 import { SITE_URL } from '@/lib/site';
+import { absoluteUrl, itemListSchema } from '@/lib/structuredData';
 import styles from './essays.module.css';
 
 // Server-rendered, so the hub and its counts are in the document a crawler
@@ -42,8 +43,29 @@ export const metadata: Metadata = {
 
 export default async function EssayCollectionsPage() {
   const listings = (await publicCatalogListings()) || [];
+
+  // What this page is a list of. The hub renders six collection cards and no
+  // listings, so its ItemList is the six collections, named and linked exactly
+  // as the cards below name and link them. `collections` is the registry the
+  // grid maps over, in the same order, so the two cannot disagree.
+  //
+  // The per-collection listing counts are deliberately not in here. They are
+  // rendered, but a count is not a property of a ListItem, and inventing a
+  // place to put it would be markup describing nothing on the page.
+  const itemList = itemListSchema(
+    'College essay collections',
+    collections.map((collection) => ({
+      name: collection.name,
+      url: absoluteUrl(collectionPath(collection.slug)),
+    })),
+  );
+
   return (
     <div className={styles.page}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+      />
       <GuideHeader />
       <main className={styles.main}>
         <nav className={styles.crumbs} aria-label="Breadcrumb">

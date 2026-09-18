@@ -49,6 +49,12 @@ function relink(source, specifier, target) {
 process.env.NEXT_PUBLIC_SITE_URL = BASE;
 const siteModule = toDataUrl(read('lib/site.ts'));
 const site = await import(siteModule);
+// lib/collections.ts imports GuideSlug as a type only, so transpiling drops it
+// and only lib/site.ts has to be relinked. Same arrangement as the other
+// verifiers.
+const { collections, collectionPath, COLLECTIONS_PATH } = await import(
+  toDataUrl(relink(read('lib/collections.ts'), './site', siteModule))
+);
 
 const failures = [];
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -94,6 +100,47 @@ function metaContent(html, name) {
     if (content) return decodeEntities(content[1]);
   }
   return null;
+}
+
+function h1Text(html) {
+  const match = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
+  return match ? decodeEntities(match[1].replace(/<[^>]+>/g, '')).trim() : null;
+}
+
+/** The visible card titles, in document order. This is .ecard-hook's text. */
+function cardTitles(html) {
+  const titles = [];
+  const re = /<div class="ecard-hook"[^>]*>([\s\S]*?)<\/div>/g;
+  let match;
+  while ((match = re.exec(html)) !== null) titles.push(decodeEntities(match[1]).trim());
+  return titles;
+}
+
+/** The card hrefs, in document order. */
+function cardHrefs(html, basePath) {
+  const hrefs = [];
+  const re = new RegExp(`href="(${basePath.replace(/[/-]/g, '\\$&')}\\?listing=[^"]*)"`, 'g');
+  let match;
+  while ((match = re.exec(html)) !== null) hrefs.push(decodeEntities(match[1]));
+  return hrefs;
+}
+
+/** The hub's collection card hrefs, in document order. */
+function hubHrefs(html) {
+  const hrefs = [];
+  const re = /href="(\/essays\/[a-z0-9-]+)"/g;
+  let match;
+  while ((match = re.exec(html)) !== null) hrefs.push(match[1]);
+  return hrefs;
+}
+
+/** The hub's collection card titles, in document order. */
+function hubTitles(html) {
+  const titles = [];
+  const re = /<div class="[^"]*hubCardTitle[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
+  let match;
+  while ((match = re.exec(html)) !== null) titles.push(decodeEntities(match[1]).trim());
+  return titles;
 }
 
 async function page(pagePath) {
@@ -162,6 +209,124 @@ if (home.status !== 200) {
     }
     if (!('sameAs' in org)) ok('/ Organization claims no sameAs, since Admitfolio has no profile of its own');
   }
+}
+
+// ---- The collections hub: ItemList of the six collections ----
+const hub = await page(COLLECTIONS_PATH);
+if (hub.status !== 200) {
+  fail(`${COLLECTIONS_PATH} returned ${hub.status}`);
+} else {
+  const list = hub.blocks.find((b) => b['@type'] === 'ItemList');
+  if (!list) {
+    fail(`${COLLECTIONS_PATH} serves no ItemList block`);
+  } else {
+    const heading = h1Text(hub.html);
+    if (list.name === heading) ok(`${COLLECTIONS_PATH} ItemList name is the served h1 (${heading})`);
+    else fail(`${COLLECTIONS_PATH} ItemList name is ${JSON.stringify(list.name)}, the served h1 is ${JSON.stringify(heading)}`);
+
+    const hrefs = hubHrefs(hub.html);
+    const titles = hubTitles(hub.html);
+    if (list.numberOfItems === hrefs.length) ok(`${COLLECTIONS_PATH} numberOfItems is ${hrefs.length}, the number of cards served`);
+    else fail(`${COLLECTIONS_PATH} numberOfItems is ${list.numberOfItems}, the page serves ${hrefs.length} collection cards`);
+
+    const elementPaths = list.itemListElement.map((e) => String(e.url).replace(site.SITE_URL, ''));
+    if (JSON.stringify(elementPaths) === JSON.stringify(hrefs)) ok(`${COLLECTIONS_PATH} every ItemList url is a card href, in the same order`);
+    else fail(`${COLLECTIONS_PATH} ItemList urls do not match the served hrefs.\n        ld:   ${elementPaths.join(', ')}\n        page: ${hrefs.join(', ')}`);
+
+    const elementNames = list.itemListElement.map((e) => e.name);
+    if (JSON.stringify(elementNames) === JSON.stringify(titles)) ok(`${COLLECTIONS_PATH} every ItemList name is a served card title`);
+    else fail(`${COLLECTIONS_PATH} ItemList names do not match the served card titles.\n        ld:   ${elementNames.join(' | ')}\n        page: ${titles.join(' | ')}`);
+  }
+}
+
+// ---- The six collection pages: ItemList of the listings they render ----
+for (const collection of collections) {
+  const basePath = collectionPath(collection.slug);
+  const result = await page(basePath);
+  if (result.status !== 200) {
+    fail(`${basePath} returned ${result.status}`);
+    continue;
+  }
+  const list = result.blocks.find((b) => b['@type'] === 'ItemList');
+  if (!list) {
+    fail(`${basePath} serves no ItemList block`);
+    continue;
+  }
+
+  const heading = h1Text(result.html);
+  if (list.name === heading) ok(`${basePath} ItemList name is the served h1`);
+  else fail(`${basePath} ItemList name is ${JSON.stringify(list.name)}, the served h1 is ${JSON.stringify(heading)}`);
+
+  // The one assertion this whole file exists for. Every ListItem must be a card
+  // the served document actually shows, with the same text and the same href,
+  // in the same order. A listing described in markup and missing from the page
+  // is the violation; a card on the page and missing from the markup is an
+  // incomplete list.
+  const titles = cardTitles(result.html);
+  const hrefs = cardHrefs(result.html, basePath);
+  if (titles.length !== hrefs.length) {
+    fail(`${basePath} serves ${titles.length} card titles and ${hrefs.length} card hrefs, which should be equal`);
+    continue;
+  }
+  if (list.numberOfItems === titles.length) ok(`${basePath} numberOfItems is ${titles.length}, the number of cards served`);
+  else fail(`${basePath} numberOfItems is ${list.numberOfItems}, the page serves ${titles.length} cards`);
+
+  const elementNames = list.itemListElement.map((e) => e.name);
+  const elementPaths = list.itemListElement.map((e) => String(e.url).replace(site.SITE_URL, ''));
+  if (JSON.stringify(elementNames) === JSON.stringify(titles)) ok(`${basePath} every ItemList name is a served card title, in order`);
+  else {
+    const at = elementNames.findIndex((name, i) => name !== titles[i]);
+    fail(`${basePath} ItemList name ${at + 1} is ${JSON.stringify(elementNames[at])}, the card there reads ${JSON.stringify(titles[at])}`);
+  }
+  if (JSON.stringify(elementPaths) === JSON.stringify(hrefs)) ok(`${basePath} every ItemList url is a served card href, in order`);
+  else {
+    const at = elementPaths.findIndex((url, i) => url !== hrefs[i]);
+    fail(`${basePath} ItemList url ${at + 1} is ${JSON.stringify(elementPaths[at])}, the card there links ${JSON.stringify(hrefs[at])}`);
+  }
+
+  const positions = list.itemListElement.map((e) => e.position);
+  const expected = positions.map((_, i) => i + 1);
+  if (JSON.stringify(positions) === JSON.stringify(expected)) ok(`${basePath} positions are 1 to ${positions.length}`);
+  else fail(`${basePath} positions are not 1 to ${positions.length}`);
+
+  for (const entry of list.itemListElement) {
+    const extra = Object.keys(entry).filter((k) => !['@type', 'name', 'position', 'url'].includes(k));
+    if (extra.length) fail(`${basePath} a ListItem carries ${extra.join(', ')}; a listing has no page for an Offer to live on`);
+  }
+
+  // ---- The query params these six pages read, still working ----
+  // This route is force-dynamic precisely because it awaits searchParams for
+  // ?listing= and ?checkout=. Adding markup above that read is exactly the kind
+  // of change that could move the render, so both are exercised rather than
+  // assumed. A GET of ?checkout= opens the dialog; it creates no Stripe session,
+  // which only a click in the browser does.
+  const firstId = hrefs.length ? decodeURIComponent(hrefs[0].split('?listing=')[1]) : null;
+  if (!firstId) {
+    fail(`${basePath} serves no listing href to test the query params with`);
+    continue;
+  }
+  for (const [param, marker] of [['listing', 'ecard-hook'], ['checkout', 'buy-overlay']]) {
+    const probe = await page(`${basePath}?${param}=${encodeURIComponent(firstId)}`);
+    if (probe.status !== 200) {
+      fail(`${basePath}?${param}= returned ${probe.status}`);
+      continue;
+    }
+    const stillListed = probe.blocks.find((b) => b['@type'] === 'ItemList');
+    if (!stillListed || stillListed.numberOfItems !== list.numberOfItems) {
+      fail(`${basePath}?${param}= serves a different ItemList from the bare path`);
+    } else if (!probe.html.includes(marker)) {
+      fail(`${basePath}?${param}= serves 200 but no ${marker} in the HTML`);
+    } else {
+      ok(`${basePath}?${param}= still serves 200 with the same ItemList and a server-rendered ${marker}`);
+    }
+  }
+
+  // A listing id that is not in this collection must still serve the page and
+  // the same list, with the "no longer for sale" notice rather than a 404.
+  const gone = await page(`${basePath}?listing=does-not-exist`);
+  if (gone.status !== 200) fail(`${basePath}?listing=does-not-exist returned ${gone.status}`);
+  else if (!gone.html.includes('no longer for sale')) fail(`${basePath}?listing=does-not-exist serves no takedown notice`);
+  else ok(`${basePath}?listing= with an unknown id still serves the collection`);
 }
 
 console.log('');
