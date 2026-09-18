@@ -12,6 +12,7 @@ import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
+import { organizationSchema } from '@/lib/structuredData';
 import { COLLECTIONS_PATH, collectionPath, collections, listingsInCollection } from '@/lib/collections';
 import type { ListingPriceSave } from '@/components/seller/ListingPricePanel';
 import { PROFILE_TAGS } from '@/lib/site';
@@ -2184,6 +2185,15 @@ export default function Page() {
           file is a client component so it cannot export metadata; React hoists
           a rendered <link> into <head>, and it is in the prerendered HTML. */}
       <link rel="canonical" href={`${SITE_URL}/`} />
+      {/* Who the site is, for a crawler that has no other way to tell. The
+          four fields are the four the served document already states: the
+          wordmark, this same origin, the apple-touch-icon the head links, and
+          the identical string in <meta name="description">. lib/structuredData.ts
+          records what is deliberately absent and why. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema()) }}
+      />
       {missingListing && (
         <div className="site-update" role="status">
           <span>That essay is no longer for sale. Browse the rest below.</span>
