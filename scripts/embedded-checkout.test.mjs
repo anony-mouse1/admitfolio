@@ -282,6 +282,66 @@ assert.match(
   /checkoutEmailSubmitted,\s*\{\s*school:[\s\S]{0,60}value:/,
   'with the same two properties the earlier funnel numbers were measured on',
 );
+
+// ---- Checkout Email Invalid: the typo bucket, kept clean. ----
+// Without it, a buyer who gave up on a mistyped address and a buyer who gave up
+// on the price are the same number: both leave without a Checkout Email
+// Submitted.
+const commitBody = checkoutRendered.slice(
+  checkoutRendered.indexOf('const commitDeliveryEmail'),
+  checkoutRendered.indexOf('const startPayment'),
+);
+assert.match(
+  commitBody,
+  /if \(!emailRe\.test\(email\)\) \{[\s\S]{0,400}?reportedInvalid\.current\.has\(email\)[\s\S]{0,200}?trackConversion\(ANALYTICS_EVENTS\.checkoutEmailInvalid/,
+  'Checkout Email Invalid fires in the malformed branch, guarded so one typo reports once',
+);
+// The empty-field branch returns before the regex runs, so nothing may be
+// reported there. An untouched field is someone who has not started, not
+// someone who got it wrong, and counting it would fill this bucket with every
+// buyer who opened the dialog and left.
+const emptyBranch = commitBody.slice(
+  commitBody.indexOf('if (!email) {'),
+  commitBody.indexOf('if (!emailRe.test(email))'),
+);
+assert.ok(emptyBranch.length > 0, 'the empty-field branch is still there');
+assert.doesNotMatch(emptyBranch, /trackConversion/, 'an empty field reports nothing');
+// It belongs to the field, not to the click. startPayment reaches it only by
+// calling commitDeliveryEmail, so clicking Continue on a typo reports once, not
+// twice.
+const paymentBody = checkoutRendered.slice(
+  checkoutRendered.indexOf('const startPayment'),
+  checkoutRendered.indexOf('const handleMountError'),
+);
+assert.doesNotMatch(paymentBody, /checkoutEmailInvalid/, 'the click does not report the failure a second time');
+assert.equal(
+  (checkoutRendered.match(/ANALYTICS_EVENTS\.checkoutEmailInvalid/g) || []).length,
+  1,
+  'exactly one place reports it',
+);
+assert.match(
+  checkoutRendered,
+  /reportedInvalid\.current\.clear\(\);/,
+  'and a new listing or a reopen starts the guard empty, like reportedEmails',
+);
+
+// ---- The Stripe mount lifecycle is untouched. ----
+// This change adds a report inside a branch that already returned early. It
+// must not have moved anything that decides when Stripe mounts.
+assert.doesNotMatch(commitBody, /setMountedEmail\(email\)/, 'commitDeliveryEmail still never mounts');
+assert.match(
+  commitBody,
+  /if \(!emailRe\.test\(email\)\) \{[\s\S]{0,600}?return '';/,
+  'and a malformed address still returns empty, so no caller proceeds on it',
+);
+// The dependency list grew because the event reads item.school and item.price.
+// Nothing here is an effect, so a new callback identity per listing changes no
+// lifecycle, and the mount stays keyed on the listing and the address.
+assert.match(
+  checkoutRendered,
+  /\}, \[item\.school, item\.price\]\);/,
+  'commitDeliveryEmail declares the two values the event reads',
+);
 assert.match(page, /url\.searchParams\.set\('checkout', item\.listingId\);[\s\S]*pushState\(\{ checkout: item\.listingId \}/);
 // A collection page must write ?checkout= against its own path, never '/'.
 // Writing it against the homepage is what threw a buyer out of the page they

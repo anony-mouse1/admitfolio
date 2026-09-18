@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 
@@ -54,6 +55,7 @@ assert.deepEqual(Object.values(ANALYTICS_EVENTS), [
   'Browse Opened',
   'Listing Viewed',
   'Checkout Started',
+  'Checkout Email Invalid',
   'Checkout Email Submitted',
   'Checkout Payment Loaded',
   'Purchase Completed',
@@ -63,5 +65,24 @@ assert.deepEqual(Object.values(ANALYTICS_EVENTS), [
   'Seller Listing Submitted',
 ]);
 assert.equal(new Set(Object.values(ANALYTICS_EVENTS)).size, Object.keys(ANALYTICS_EVENTS).length);
+
+
+// The two checkout email stages carry the same two properties, so a funnel can
+// be sliced the same way at both. Neither may ever carry the address.
+const checkout = fs.readFileSync(new URL('../components/ListingCheckout.tsx', import.meta.url), 'utf8');
+for (const key of ['checkoutEmailInvalid', 'checkoutEmailSubmitted']) {
+  assert.match(
+    checkout,
+    new RegExp(`${key},\\s*\\{\\s*school: item\\.school \\?\\? '',\\s*value: item\\.price \\?\\? 0,\\s*\\}`),
+    `${key} reports school and value, the two Vercel Pro allows`,
+  );
+}
+// The malformed address is held in a ref to deduplicate reports and is never a
+// property. A typo is still somebody's address with a character wrong.
+assert.doesNotMatch(
+  checkout,
+  /trackConversion\([\s\S]{0,200}?(email|deliveryEmail|raw)[,:}]/,
+  'no analytics call may pass an address',
+);
 
 console.log('analytics policy tests passed');

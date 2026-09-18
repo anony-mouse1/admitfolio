@@ -82,6 +82,13 @@ export default function ListingCheckout({
   // deliberately started. Editing an address and going back to an earlier one
   // does not report it twice.
   const reportedEmails = useRef<Set<string>>(new Set());
+  // Checkout Email Invalid, guarded the same way and for the same reason. The
+  // value is kept here only so one typo cannot report twice: commitDeliveryEmail
+  // runs on blur as well as from the Continue click, so a buyer who clicks
+  // Continue on a malformed address, gets focus sent back, then tabs away would
+  // otherwise report it once per trip past the field. The address itself is
+  // never sent, exactly as it is never sent for the stage above.
+  const reportedInvalid = useRef<Set<string>>(new Set());
 
   // Set when a mount has failed and been dropped, so the control that comes
   // back can say what it now does.
@@ -109,11 +116,18 @@ export default function ListingCheckout({
     setMountedEmail('');
     setRetryable(false);
     reportedEmails.current.clear();
+    reportedInvalid.current.clear();
   }
 
   // Commit, not "submit". Runs when the field loses focus or the buyer presses
-  // Enter. Never on keystroke. It validates and stores the address, but it does
-  // not report a funnel stage or create a Stripe session.
+  // Enter. Never on keystroke. It validates and stores the address, and it
+  // creates no Stripe session.
+  //
+  // It reports nothing about a VALID address either: Checkout Email Submitted
+  // means a deliberate proceed, and moving it here would inflate it with every
+  // tab past a filled field, which is the whole reason it lives in startPayment.
+  // The one thing it does report is the failure, below, because a malformed
+  // address is only ever observable here.
   //
   // The value comes from the event, not from state. Closing over deliveryEmail
   // meant a blur arriving in the same tick as the value change, which is what
@@ -123,12 +137,33 @@ export default function ListingCheckout({
     const email = raw.trim().toLowerCase();
     // An empty field is someone who has not started, not someone who got it
     // wrong. Nagging on the blur of an untouched input is hostile.
+    //
+    // It reports nothing either, which is the same judgement said twice. An
+    // empty field is not a typo, and counting it as one would put every buyer
+    // who opened the dialog and left into the bucket this event exists to keep
+    // clean. The click on an empty field still says "Enter a valid delivery
+    // email." below, because a click is a deliberate ask; that message is about
+    // what to do next, not a measurement.
     if (!email) {
       setError('');
       return '';
     }
     if (!emailRe.test(email)) {
       setError('Enter a valid delivery email.');
+      // The buyer typed something and it is not an address. This is the only
+      // thing that separates a buyer who gave up on a typo from one who gave up
+      // on the price: both leave without a Checkout Email Submitted, and until
+      // now they were the same number.
+      //
+      // Never the address, malformed or not. A mistyped address is still
+      // somebody's address with a character wrong.
+      if (!reportedInvalid.current.has(email)) {
+        reportedInvalid.current.add(email);
+        trackConversion(ANALYTICS_EVENTS.checkoutEmailInvalid, {
+          school: item.school ?? '',
+          value: item.price ?? 0,
+        });
+      }
       return '';
     }
     setDeliveryEmail(email);
@@ -139,7 +174,12 @@ export default function ListingCheckout({
     // session by construction.
     setMountedEmail((current) => (current && current !== email ? '' : current));
     return email;
-  }, []);
+    // school and price are read for the event above. Nothing in this file
+    // depends on this callback's identity: it is passed to onBlur and called by
+    // startPayment, and neither is an effect, so a new one per listing changes
+    // no lifecycle. In particular the Stripe mount is keyed on
+    // `${item.listingId}:${mountedEmail}` and is untouched by this.
+  }, [item.school, item.price]);
 
   // The only thing that creates a Stripe Checkout Session. Reads the live input
   // rather than state, so "type then click" works without depending on blur
