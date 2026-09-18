@@ -412,6 +412,13 @@ a { color: inherit; }
        bar sits directly beneath in the same column. Top two corners only: the
        bar's bottom edge meets the sheet's bottom padding and never shows. */
     border-radius: 16px 16px 0 0;
+    /* The sheet's own side gutter, inherited rather than repeated: 20px at or
+       below 560px and max(34px, ...) above it, both declared on .ov .sheet.
+       Without it the price and the button sit hard against the bar's rounded
+       edges, which is the one place on the sheet where content meets a corner
+       with nothing between them. */
+    padding-left: var(--sheet-pad-x);
+    padding-right: var(--sheet-pad-x);
     padding-bottom: 16px;
     background: #fff;
     box-shadow: 0 -10px 18px -6px rgba(20, 18, 15, 0.09);
@@ -3067,7 +3074,10 @@ body { -webkit-tap-highlight-color: transparent; }
   height: 100vh;
   height: 100dvh;
   max-height: none;
-  padding: 88px max(34px,calc((100vw - 720px) / 2)) 70px;
+  /* Named so the sticky price bar can inset its contents by exactly the
+     sheet's own gutter without a second copy of the number. */
+  --sheet-pad-x: max(34px,calc((100vw - 720px) / 2));
+  padding: 88px var(--sheet-pad-x) 70px;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -3109,7 +3119,8 @@ body { -webkit-tap-highlight-color: transparent; }
     height: 100vh;
     height: 100dvh;
     max-height: none;
-    padding: calc(76px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom));
+    --sheet-pad-x: 20px;
+    padding: calc(76px + env(safe-area-inset-top)) var(--sheet-pad-x) calc(30px + env(safe-area-inset-bottom));
     border: 0;
     border-radius: 0;
     box-shadow: none;

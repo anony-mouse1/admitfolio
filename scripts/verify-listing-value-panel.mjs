@@ -139,6 +139,23 @@ async function measure(cdp, session, url, viewport, { hydrated }) {
         const r = q('.d-foot-top').getBoundingClientRect();
         return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
       })() : null,
+      // The bar's side gutter must equal the sheet's own, read off both rather
+      // than compared against a number this file also hardcodes.
+      footPadX: q('.d-foot-top')
+        ? [getComputedStyle(q('.d-foot-top')).paddingLeft, getComputedStyle(q('.d-foot-top')).paddingRight]
+        : null,
+      sheetPadX: sheet
+        ? [getComputedStyle(sheet).paddingLeft, getComputedStyle(sheet).paddingRight]
+        : null,
+      // What the reader actually sees: the gap between the bar's edge and the
+      // button inside it.
+      buttonInset: (() => {
+        const bar = q('.d-foot-top');
+        if (!bar || !btn) return null;
+        const b = bar.getBoundingClientRect();
+        const u = btn.getBoundingClientRect();
+        return { left: Math.round(u.left - b.left), right: Math.round(b.right - u.right) };
+      })(),
       // Any word count anywhere in the panel. Null on every row today.
       wordsText: [...document.querySelectorAll('.d-value-meta')]
         .map((el) => el.textContent).filter((t) => /word/i.test(t)),
@@ -213,6 +230,16 @@ for (const testCase of CASES) {
         // 16px is what .d-value and .d-overview use. Top two only.
         assert.equal(m.footRadius, vpName === '390' ? '16px 16px 0px 0px' : '0px');
       });
+      check(`${tag}: the bar's side gutter matches the sheet's own`, () => {
+        if (vpName !== '390') return; // in flow above 640px, no gutter of its own
+        assert.deepEqual(m.footPadX, m.sheetPadX, 'bar gutter drifted from the sheet gutter');
+      });
+      check(`${tag}: the price and button are not flush to the bar's edges`, () => {
+        if (vpName !== '390') return;
+        assert.ok(m.buttonInset.left > 0, `button flush left inside the bar (${m.buttonInset.left})`);
+        assert.ok(m.buttonInset.right > 0, `button flush right inside the bar (${m.buttonInset.right})`);
+        assert.equal(m.buttonInset.left, m.buttonInset.right, 'button is not centred in the bar');
+      });
       check(`${tag}: the seller question clamps tighter on a phone`, () => {
         if (m.questionClamp === null) return; // no "Other" row on this listing
         assert.equal(m.questionClamp, vpName === '390' ? '2' : '3');
@@ -260,7 +287,8 @@ for (const r of rows) {
     `${r.case.padEnd(40)} ${r.vp.padEnd(5)} ${(r.hydrated ? 'hydrated' : 'first paint').padEnd(12)} ` +
     `${String(r.panel?.height ?? '-').padStart(7)}  ${String(r.unlock?.top ?? '-').padStart(8)}  ` +
     `${String(r.unlock?.bottom ?? '-').padStart(10)}  ${String(r.rows).padStart(4)}  ${r.footPosition}` +
-    `  bar ${String(r.footRect?.top ?? '-')}-${String(r.footRect?.bottom ?? '-')} of ${r.viewportH}  r=${r.footRadius}`,
+    `  bar ${String(r.footRect?.top ?? '-')}-${String(r.footRect?.bottom ?? '-')} of ${r.viewportH}` +
+    `  padX=${r.footPadX ? r.footPadX[0] : '-'}  inset=${r.buttonInset ? r.buttonInset.left : '-'}`,
   );
 }
 console.log('');
