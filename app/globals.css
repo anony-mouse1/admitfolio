@@ -576,31 +576,6 @@ body.bg-soft .release-essays::after {
   .notify-row .btn-primary { width: 100%; }
 }
 
-/* ---- Scroll-triggered waitlist modal ---- */
-#waitlistModal .modal-eyebrow { display: flex; align-items: center; justify-content: center; gap: 8px; }
-#waitlistModal .wl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulseDot 2s infinite; }
-#waitlistModal .field { margin-top: 22px; }
-#waitlistModal .modal-btn { margin-top: 14px; }
-.wl-msg { text-align: center; min-height: 18px; margin-top: 12px; }
-.wl-msg.ok { color: var(--accent); }
-.wl-msg.err { color: #c0392b; }
-
-/* ---- Sticky floating waitlist button (centered, above page bottom) ---- */
-.wl-fab {
-  position: fixed; left: 50%; bottom: 26px; z-index: 90;
-  display: inline-flex; align-items: center; gap: 10px;
-  font-family: var(--sans); font-size: 15px; font-weight: 700; letter-spacing: -0.01em;
-  color: #fff; background: var(--accent); border: none; border-radius: 999px;
-  padding: 14px 26px; cursor: pointer;
-  box-shadow: 0 14px 34px rgba(125,29,45,0.42), 0 2px 6px rgba(20,18,15,0.18);
-  opacity: 0; visibility: hidden; transform: translateX(-50%) translateY(16px);
-  transition: opacity .3s ease, transform .3s cubic-bezier(.22,.61,.36,1), background .2s ease, box-shadow .2s ease;
-}
-.wl-fab.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
-.wl-fab:hover { background: #5e1522; box-shadow: 0 18px 42px rgba(125,29,45,0.52), 0 2px 6px rgba(20,18,15,0.2); }
-.wl-fab .wl-fab-pulse { width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(255,255,255,.7); animation: pulseDot 2s infinite; }
-@media (max-width: 560px) { .wl-fab { bottom: 18px; padding: 13px 22px; font-size: 14px; } }
-
 /* ---- How it works ---- */
 .how { }
 .how-inner { max-width: 1120px; margin: 0 auto; padding: 88px 40px; text-align: center; }
@@ -1753,12 +1728,9 @@ body { -webkit-tap-highlight-color: transparent; }
   .dash-listing-card { flex-direction: column; align-items: stretch; }
   .dash-listing-summary { align-items: flex-start; min-width: 0; }
   .dash-listing-actions { margin-top: 2px; }
-
-  /* Floating waitlist button clears the home indicator */
-  .wl-fab { bottom: calc(14px + env(safe-area-inset-bottom)); }
 }
 
-/* Waitlist sheet (and all modals) slide up from the bottom edge on phones */
+/* Modal sheets slide up from the bottom edge on phones */
 @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 @media (max-width: 560px) {
@@ -2937,7 +2909,6 @@ body { -webkit-tap-highlight-color: transparent; }
 .editorial-unlock,
 .ecard-unlock,
 .seller-actions a,
-.wl-fab,
 .essay-reader-head button {
   border: 2px solid #4f101d;
   border-radius: 999px;
@@ -2955,7 +2926,6 @@ body { -webkit-tap-highlight-color: transparent; }
 .editorial-unlock:hover,
 .ecard-unlock:hover,
 .seller-actions a:hover,
-.wl-fab:hover,
 .essay-reader-head button:hover {
   color: #fff;
   background: linear-gradient(180deg,#7e2033,#611021);
