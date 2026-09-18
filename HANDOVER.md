@@ -14,11 +14,14 @@ untouched. Nothing here depends on the legitimacy page.
 
 ## Why
 
-`/essays/engineering` is the largest collection nothing linked to. 44 listings,
-the biggest of the four major-based collections and second only to the Common
-App personal statement collection, which already has two guides pointing at it.
-The seven guides are the only pages on this domain that have indexed quickly, so
-this is an eighth guide rather than more collection pages.
+`/essays/engineering` is the largest collection nothing linked to: the biggest
+of the four grouped by major, and second overall only to the Common App personal
+statement collection, which already has two guides pointing at it. The seven
+guides are the only pages on this domain that have indexed quickly, so this is
+an eighth guide rather than more collection pages.
+
+(That comparison is why the article exists. It is not in the article, and no
+count is. See below.)
 
 ## What was added
 
@@ -42,7 +45,8 @@ No new component, no new CSS beyond one background colour.
 
 ### The read time, and the method behind it
 
-**5 min read, from 1,221 counted words.** Not estimated.
+**6 min read, from 1,286 counted words.** Not estimated. See "Read time" below
+for why it went up rather than down.
 
 `f453223` corrected all seven existing read times downwards, one by more than
 three times, and recorded the method only in its commit message: the visible
@@ -60,81 +64,113 @@ counts to within two words**, which is entity and apostrophe tokenising noise.
 The script prints every article's count and exits non-zero if any `readTime` in
 the registry disagrees with the page it labels, so this cannot drift again.
 
-### The cover, the one thing decided without a mock-up
+### The cover, blocked on Ritvik
 
-There is no eighth cover photo and none was invented. The card renders the
-**CSS cover** instead, the branch `GuideCover` has always had and no guide has
-ever taken: every entry already carried a `cover` and a `coverTitle` that
-nothing rendered, because all seven had photos.
+**There is no image in this repo that fits, so the card still renders the CSS
+cover and `Guide.image` is still nullable.** Ritvik is picking one. Downloading
+anything is out: third-party licensing needs written approval under his
+contract.
 
-That needed three small changes, all reversible:
+What the repo actually holds:
 
-- `Guide.image` and `Guide.imageAlt` widened to `string | null`. `GuideCover`
-  already typed its props that way.
-- One new `cover` token, `engineering`, mapped in `app/guides/page.tsx` and
-  given one line of CSS: `.coverEngineering { background: #d5dcd2; }`, the same
-  muted family as the other six.
-- `scripts/sitemap.test.mjs` no longer requires a non-empty `image`. It now
-  asserts the stricter thing instead: image and alt text are **both set or both
-  null**, a declared photo **exists in `public/`**, and every `cover` in the
-  registry has both a class on the index and a rule in the stylesheet.
+- `public/blog-images/` is seven photos and all seven are claimed, one per
+  existing guide.
+- `public/assets/schools/` and `public/mockup-assets/university-logos/` are
+  university logos and seals. `public/assets/schools/SOURCES.md` says outright
+  that the marks "remain the property of their respective owners" and that "the
+  repository does not record their original upstream URLs", so one of those on a
+  blog cover would be unattributed third-party marks implying endorsement.
+- `app/icon.svg` and `app/apple-icon.png` are the favicon.
 
-Screenshotted at 1440 and 390 and it reads as deliberate: sage background, the
-existing diagonal stripe overlay, the white serif title card. **If a photo is
-wanted, drop a `.webp` into `public/blog-images/` and put the two strings back
-in the registry entry. Nothing else has to change.**
+**When an eighth photo lands**, three things go back the way they were and
+nothing else changes: drop the file into `public/blog-images/`, put the two
+strings into the registry entry, narrow `Guide.image` and `Guide.imageAlt` back
+to `string`, and restore the non-empty assertion in `scripts/sitemap.test.mjs`.
+The stricter assertions added alongside it are worth keeping either way: a
+declared photo has to exist on disk, and every `cover` token has to have a class
+on the index and a rule in the stylesheet.
 
-## The numbers, and where each comes from
+Until then the card is a sage panel with the existing diagonal overlay and the
+white serif title card, which looks deliberate on its own and plainer than its
+seven neighbours in a row.
 
-Every figure in the article is an **aggregate off the public
-`/api/listings`**, not the database, counted by
-`scripts/engineering-guide-figures.mjs` on **September 18, 2026**. The article
-states that date in the stat block, so a reader a year from now can tell how old
-the counting is.
+## No catalogue statistics, and why
 
-**No individual listing data is on the page.** No opening line, no teaser, no
-seller, no background tag, no price. The figures script prints aggregates only
-and writes nothing, and `scripts/verify-engineering-guide.mjs` asserts no dollar
-figure appears in the copy at all.
+The first draft opened with counts off `/api/listings`: how many engineering
+listings, how many essays, how the prompts split, how many colleges appeared.
+**All of it is gone.** Those numbers go stale the day someone lists another
+engineering essay, Google caches the old ones, and the reader is a junior
+writing a supplement who has never heard of this site and does not want our
+inventory.
 
-| Stated | Value |
+**The claims survived; the arithmetic did not.** Each one is now stated as a
+fact about engineering applications:
+
+| Was | Is now |
 |---|---|
-| The collection | 44 listings, 116 essays |
-| Those essays | 28 personal statements, 26 UC PIQs, 62 supplements or short answers |
-| No personal statement at all | 16, of which 7 are PIQ sets and 9 are supplements alone |
-| Heaviest listing | 8 supplements and short answers |
-| Most common shape | 17 of 44, a statement with supplements |
-| Short answers | 23, in only 8 listings, 6 in one of them |
-| UC PIQs | 8 listings, 6 of them complete sets of four |
-| Disciplines | biomedical, then aerospace, then mechanical; 7 uncommitted |
-| Colleges | 78 distinct, 45 appearing more than once |
+| 116 essays split 28 / 26 / 62 | one Common App essay goes everywhere, each college adds its own |
+| 16 of 44 with no personal statement | how much you write depends entirely on where you apply |
+| 23 short answers in 8 listings | a few programs, mostly large publics on their own portals, attach a run of them |
+| biomedical 14, aerospace 10, mechanical 8 | engineering covers a dozen fields; those three meet the same prompt with different material |
+| 78 colleges, 45 repeating | prompts differ enough between programs that a good example can teach the wrong shape |
+| 8 listings with PIQ sets | UC ignores the Common App and asks for four PIQs of up to 350 words |
 
-Two assertions inside the figures script keep the article honest rather than
-merely consistent: every essay must fall into exactly one of the three buckets
-the stat block names, and every listing into exactly one of the three shapes.
-Either one failing means the catalogue grew a prompt type the article does not
-account for.
+The paragraph explaining that our listings are whole applications is also gone.
+It existed only to set the counts up.
 
-**One claim was corrected during writing.** The first draft said the 16 listings
-with no personal statement "are supplements and short answers". Seven of them
-are UC PIQ sets, where there is no personal statement to write. The article now
-splits them.
+`scripts/engineering-guide-figures.mjs` is **deleted**. It guarded nothing once
+the figures came out, and this repo already has one verifier rotting in it.
+`scripts/verify-engineering-guide.mjs` now asserts the opposite of what it used
+to: nine claims have to survive in the served text, and ten patterns shaped like
+a catalogue count have to be absent. Mutation checked by putting
+"Sixteen of the 44 engineering listings" back, which fails on
+`/\bof the \d+ (engineering )?listings\b/`.
 
-### What the data could not support, and so is not on the page
+### The Common App claim, verified
 
-- **No word-count advice.** `Essay.wordCount` is null on all 563 essays in the
-  catalogue (see "Found but not fixed"), so there was nothing to calibrate
-  against and the section was dropped rather than filled with generic advice.
-- **No ranking claim.** 12 of the 44 listings claim a top-25 national university
-  and 37 claim a top-50, which is real and checkable, but
-  `/guides/why-this-college-essay-examples` tells applicants to leave rankings
-  out of an essay, and a stat that contradicts a neighbouring article is worse
-  than a missing one.
-- **No claim about where short answers come from.** The load is concentrated in
-  eight listings, but nothing in the public API says which programs asked, so
-  the article says the total varies by school list and to go and count it.
-- **No claim about what admissions readers think.** Every piece of advice is
-  framed as craft.
+The article tells applicants that a college's writing requirements appear in
+**My Colleges**. Checked against
+`https://www.commonapp.org/apply/first-year-students/` before it stayed in. That
+page says "You can find more information about writing supplements in **My
+Colleges**", "In My Colleges or College search, you can learn more by viewing a
+school's college information page", and "Every college gets to choose their own
+recommendation requirements." The link is in the article on the words "guide for
+first-year applicants".
+
+### The prose
+
+Ritvik flagged twelve sentences built on the same antithesis, the
+X-is-not-the-thing-Y-is-the-thing shape, plus the dek. **Twenty-five sentences
+were rewritten into different shapes**, not reworded into the same one. Two
+instances survive on purpose, which is where he wanted it: the spec-sheet
+paragraph, and the 650-word contrast in the short-answers section.
+
+Worth knowing: **that pattern is the existing house voice.** Five of the seven
+deks are built on it, and so is the "Why we wrote this" stat block on the Common
+App guide. This article now reads slightly differently from its neighbours as a
+result. That was the instruction and it is the better call for a reader, but it
+is a divergence rather than a match.
+
+Three "our guide to X covers it" links were all phrased the same way. **One was
+cut**, the general "read examples properly" pointer to
+`how-to-take-inspiration-from-college-essays`, because the related-guides block
+and the call to action were both already making it. The other two are rephrased
+and both do work the sentence around them needs: "a method of its own" separates
+why-engineering from why-this-college, and "Choosing which four to answer" hands
+off the UC application, which is a separate application rather than a
+supplement. `how-to-take-inspiration` keeps its related-guides card, so
+`uc-piq-examples` is still un-orphaned and nothing lost a link entirely.
+
+### Read time
+
+**6 min read, from 1,286 counted words.** It went up, not down: cutting the
+statistics removed about forty words, and the rewrites added seventy, because
+antithesis is a compressive shape and the sentences that replaced it are not.
+
+**This is now the longest article on the blog by some way**, against 545 to 881
+for the other seven. Nothing in it is padding, but if it should be shorter the
+section to lose is "Reading examples without inheriting the wrong shape", which
+is the one whose advice the other guides already carry.
 
 ## Links, in and out
 
@@ -167,13 +203,14 @@ already-paired guides were moved off it in #90.
   and the method still reproduces all seven counts from `f453223`.
 - **`scripts/verify-engineering-guide.mjs`**, new, NOT in `package.json`: it
   needs a server and a browser, and `test:*` is pure. **25 checks** against
-  `npx next start`. Served with no JavaScript: the headline, all 7 sections, all
-  16 figures, the date, no em or en dash, no price, one call to action link
-  pointing at the collection with no fragment anywhere in the block, the back
-  link, the canonical, the OpenGraph article tags, the JSON-LD, the sitemap, the
-  index card, and the collection linking back. Hydrated at **1440 and 390**: the
-  back link, the layout, the call to action, the body links, the index card and
-  the click through to the collection.
+  `npx next start`. Served with no JavaScript: the headline, all 7 sections, the
+  **9 claims that had to survive losing their counts**, the **10 catalogue-count
+  patterns that must stay absent**, no em or en dash, no price, one call to
+  action link pointing at the collection with no fragment anywhere in the block,
+  the back link, the canonical, the OpenGraph article tags, the JSON-LD, the
+  sitemap, the index card, and the collection linking back. Hydrated at **1440
+  and 390**: the back link, the layout, the call to action, the two body links,
+  the index card and the click through to the collection.
 - **The back link was hit-tested, not assumed.** `elementFromPoint` at the
   link's own centre returns the link at both widths. It clears the nav by 31px
   at 1440 and 22px at 390. This is the failure the CSS comment at
@@ -182,18 +219,22 @@ already-paired guides were moved off it in #90.
 - `scripts/verify-guide-collection-links.mjs`, extended with the new pairing:
   36 checks over two widths, all four paired guides land on a collection with
   cards. 44 cards on `/essays/engineering`, matching the figure in the article.
-- Mutation checked, four ways: dropping the cover class mapping, a photo with
-  null alt text, a photo that is not on disk, and forgetting the new pairing in
-  the test's own map each fail with the message they should.
+- Mutation checked, five ways: dropping the cover class mapping, a photo with
+  null alt text, a photo that is not on disk, forgetting the new pairing in the
+  test's own map, and putting a catalogue count back into the copy each fail
+  with the message they should.
 - Screenshots at 1440 and 390 of both the article and the index card.
-- **No database write of any kind**, and no database read either. Everything
-  came from the public JSON API. No production data was copied into the repo.
+- **No database write of any kind**, and no database read either. The figures
+  that informed the first draft came from the public JSON API and are now out of
+  the article entirely. No production data was copied into the repo.
 
 ## What is left, and whose it is
 
-1. **Ritvik: review, then push and open a PR.** Nothing is pushed.
-2. **The cover photo, if one is wanted.** See above; it is two strings and a
-   file, and nothing else changes.
+1. **Ritvik: the cover photo.** Blocked on him, not on work. Nothing in the repo
+   fits and downloading one needs written approval under his contract. The card
+   renders the CSS cover until he picks one, and `Guide.image` stays nullable
+   until it lands.
+2. **Ritvik: review, then push and open a PR.** Nothing is pushed.
 3. No env var, no migration, no backfill.
 
 ## Found but not fixed
