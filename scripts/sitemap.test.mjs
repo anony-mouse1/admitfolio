@@ -104,24 +104,15 @@ for (const guide of guides) {
   assert.ok(roundTrips(guide.published) && roundTrips(guide.modified), `${guide.slug} dates are real dates`);
   assert.ok(guide.modified >= guide.published, `${guide.slug} was not modified before it was published`);
   assert.match(guide.readTime, /^\d+ min read$/, `${guide.slug} read time`);
-  for (const key of ['category', 'coverTitle', 'title', 'description']) {
+  for (const key of ['category', 'coverTitle', 'image', 'imageAlt', 'title', 'description']) {
     assert.ok(guide[key].length > 0, `${guide.slug} has a ${key}`);
   }
-  // A cover photo is optional: a guide with none renders the CSS cover keyed on
-  // `cover`. A photo with no alt text is the combination that must not ship, so
-  // the two travel together or not at all.
-  assert.equal(
-    guide.image === null,
-    guide.imageAlt === null,
-    `${guide.slug} must declare a cover photo and its alt text together, or neither`,
+  // A declared cover photo has to be on disk. The non-empty check above cannot
+  // tell a real path from a typo, and a 404 cover renders as a bare grey box.
+  assert.ok(
+    fs.existsSync(path.join(root, 'public', guide.image.replace(/^\//, ''))),
+    `${guide.slug} points at a cover photo that exists`,
   );
-  if (guide.image !== null) {
-    assert.ok(guide.image.length > 0 && guide.imageAlt.length > 0, `${guide.slug} has an empty image or alt`);
-    assert.ok(
-      fs.existsSync(path.join(root, 'public', guide.image.replace(/^\//, ''))),
-      `${guide.slug} points at a cover photo that exists`,
-    );
-  }
 }
 // Every `cover` in the registry has a class behind it on the index, or the card
 // renders on a bare grey box.

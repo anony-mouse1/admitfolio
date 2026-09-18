@@ -15,12 +15,12 @@ export type Guide = {
   category: string;
   cover: 'inspiration' | 'common' | 'uc' | 'start' | 'why' | 'format' | 'count' | 'engineering';
   coverTitle: string;
-  // A photo for the index card, or null for the CSS cover keyed on `cover`
-  // above. GuideCover has always branched on this; every guide happened to
-  // have a photo, so the branch had never been taken. Both or neither: a photo
-  // with no alt text is the one combination that must not ship.
-  image: string | null;
-  imageAlt: string | null;
+  // The index card's cover photo, and its alt text. Both required: GuideCover
+  // can fall back to the CSS cover keyed on `cover` above, but every guide has
+  // a photo and a card without one reads as unfinished beside the rest.
+  // Provenance for each file is recorded in public/blog-images/SOURCES.md.
+  image: string;
+  imageAlt: string;
   // YYYY-MM-DD. `modified` feeds article:modified_time, the JSON-LD
   // dateModified, the "Updated" line on the article and the sitemap lastmod,
   // so bump it when the article's content changes.
@@ -42,10 +42,8 @@ export const guides = [
     category: 'Engineering',
     cover: 'engineering',
     coverTitle: 'Count the writing first',
-    // No eighth cover photo exists, so this card takes the CSS cover the
-    // registry has carried a `cover` and `coverTitle` for since it was written.
-    image: null,
-    imageAlt: null,
+    image: '/blog-images/engineering.webp',
+    imageAlt: 'Students working at long tables in a university library reading room',
     published: '2026-09-18',
     modified: '2026-09-18',
     readTime: '6 min read',

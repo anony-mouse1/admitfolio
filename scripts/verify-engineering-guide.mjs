@@ -187,8 +187,21 @@ const indexHtml = await fetch(`${appUrl}/guides`).then((r) => r.text());
 assert(indexHtml.includes(`href="${GUIDE}"`), 'the blog index does not link the new guide');
 const order = [...indexHtml.matchAll(/href="(\/guides\/[^"]+)"/g)].map((m) => m[1]);
 assert(order[0] === GUIDE, `the index lists ${order[0]} first; the newest article should lead`);
-assert(indexHtml.includes('Count the writing first'), 'the index card is missing its cover title');
-pass('the blog index leads with the new guide and renders its cover title');
+assert(indexHtml.includes('/blog-images/engineering.webp'), 'the index card does not carry the cover photo');
+const cardAlt = /<img[^>]*src="\/blog-images\/engineering\.webp"[^>]*alt="([^"]*)"|<img[^>]*alt="([^"]*)"[^>]*src="\/blog-images\/engineering\.webp"/.exec(indexHtml);
+assert(cardAlt && (cardAlt[1] || cardAlt[2]), 'the cover photo has no alt text in the served HTML');
+pass(`the blog index leads with the new guide, cover photo alt "${cardAlt[1] || cardAlt[2]}"`);
+
+// The file the registry points at has to be served, and be the size and type
+// the rest of public/blog-images is. A 404 cover renders as a bare grey box
+// that looks deliberate.
+const photo = await fetch(`${appUrl}/blog-images/engineering.webp`);
+assert(photo.status === 200, `the cover photo answered ${photo.status}`);
+assert(photo.headers.get('content-type') === 'image/webp', `the cover photo is served as ${photo.headers.get('content-type')}`);
+const photoBytes = (await photo.arrayBuffer()).byteLength;
+// why-college.webp is the largest of the seven that were here first.
+assert(photoBytes < 321882, `the cover photo is ${photoBytes} bytes, larger than every photo already in the directory`);
+pass(`the cover photo is served, image/webp, ${(photoBytes / 1024).toFixed(1)} KB`);
 
 const collectionHtml = await fetch(`${appUrl}${COLLECTION}`).then((r) => r.text());
 assert(collectionHtml.includes(`href="${GUIDE}"`), `${COLLECTION} does not link back to the guide`);
@@ -308,26 +321,40 @@ const LAYOUT_PROBE = `(() => {
   };
 })()`;
 
-// The index card has no photo, so it takes the CSS cover. That branch of
-// GuideCover had never rendered on this site before this article.
+// The index card, which has to sit in a row with seven others without looking
+// like the odd one out. The photo is object-fit: cover inside a fixed-height
+// box, so what matters is that it decoded, that it fills the box, and that the
+// box is the same height as its neighbours'.
 const CARD_PROBE = `(() => {
   const card = document.querySelector('a[href="${GUIDE}"]');
   if (!card) return { missing: true };
   const cover = card.querySelector('div[class*="blogCover"]');
-  const title = cover ? cover.querySelector('span[class*="coverTitle"]') : null;
+  const img = cover ? cover.querySelector('img') : null;
   const box = cover ? cover.getBoundingClientRect() : null;
-  const titleBox = title ? title.getBoundingClientRect() : null;
+  const imgBox = img ? img.getBoundingClientRect() : null;
+  const neighbours = [...document.querySelectorAll('div[class*="blogCover"]')]
+    .map((el) => Math.round(el.getBoundingClientRect().height));
   return {
     hasCover: Boolean(cover),
-    hasPhoto: Boolean(cover && cover.querySelector('img')),
-    background: cover ? getComputedStyle(cover).backgroundColor : null,
-    title: title ? title.textContent.trim() : null,
-    coverHeight: box ? Math.round(box.height) : null,
-    titleInsideCover: box && titleBox
-      ? titleBox.left >= box.left - 1 && titleBox.right <= box.right + 1
-        && titleBox.top >= box.top - 1 && titleBox.bottom <= box.bottom + 1
+    hasPhoto: Boolean(img),
+    src: img ? img.getAttribute('src') : null,
+    alt: img ? img.getAttribute('alt') : null,
+    // naturalWidth is 0 when the file failed to decode, which is how a broken
+    // cover looks identical to a slow one in a screenshot.
+    decoded: img ? img.naturalWidth > 0 : false,
+    naturalSize: img ? img.naturalWidth + 'x' + img.naturalHeight : null,
+    objectFit: img ? getComputedStyle(img).objectFit : null,
+    // The img is laid out at its own aspect ratio and overflows the fixed
+    // height box, which .blogCover clips. So "fills" means no gap on either
+    // axis, not equal boxes: every one of the eight overflows vertically.
+    fillsCover: box && imgBox
+      ? imgBox.width >= box.width - 1 && imgBox.height >= box.height - 1
       : false,
-    titleClipped: title ? title.scrollWidth > title.clientWidth + 1 : false,
+    coverClips: cover ? getComputedStyle(cover).overflow === 'hidden' : false,
+    coverHeight: box ? Math.round(box.height) : null,
+    // Every card in the grid should be the same height as this one.
+    coversAgree: neighbours.length > 1 && new Set(neighbours).size === 1,
+    coverCount: neighbours.length,
     meta: card.querySelector('div[class*="blogCardMeta"]')?.textContent.trim() || null,
   };
 })()`;
@@ -389,14 +416,20 @@ for (const viewport of WIDTHS) {
   await go('/guides');
   const card = await evaluate(CARD_PROBE);
   assert(!card.missing, `${viewport.label}: the index has no card for the new guide`);
-  assert(card.hasCover && !card.hasPhoto, `${viewport.label}: the card should render the CSS cover, not a photo`);
-  assert(card.title === 'Count the writing first', `${viewport.label}: the cover title reads "${card.title}"`);
-  assert(card.titleInsideCover, `${viewport.label}: the cover title sits outside its cover`);
-  assert(!card.titleClipped, `${viewport.label}: the cover title is clipped`);
+  assert(card.hasCover && card.hasPhoto, `${viewport.label}: the card has no cover photo`);
+  assert(card.src === '/blog-images/engineering.webp', `${viewport.label}: the cover src is ${card.src}`);
+  assert((card.alt || '').length > 0, `${viewport.label}: the cover photo has no alt text`);
+  assert(card.decoded, `${viewport.label}: the cover photo did not decode, so the card is a grey box`);
+  assert(card.naturalSize === '1200x800', `${viewport.label}: the cover photo decoded at ${card.naturalSize}, expected 1200x800`);
+  assert(card.objectFit === 'cover', `${viewport.label}: the cover photo is ${card.objectFit}, so it will letterbox or stretch`);
+  assert(card.fillsCover, `${viewport.label}: the photo leaves a gap in its cover box`);
+  assert(card.coverClips, `${viewport.label}: the cover no longer clips, so the photo overflows the card`);
   assert(card.coverHeight > 100, `${viewport.label}: the cover collapsed to ${card.coverHeight}px`);
+  assert(card.coverCount === 8, `${viewport.label}: ${card.coverCount} cards on the index, expected 8`);
+  assert(card.coversAgree, `${viewport.label}: the new card is a different height from its neighbours`);
   assert(/min read/.test(card.meta || ''), `${viewport.label}: the card meta line reads "${card.meta}"`);
   assert(realErrors().length === 0, `${viewport.label}: console errors on the index ${JSON.stringify(realErrors())}`);
-  pass(`${viewport.label}: the index card renders the CSS cover, ${card.coverHeight}px, "${card.meta}"`);
+  pass(`${viewport.label}: the card shows its photo at ${card.coverHeight}px, same height as the other 7, "${card.meta}"`);
 
   // Follow the link the way a reader would, and land on essays.
   await go(GUIDE);
