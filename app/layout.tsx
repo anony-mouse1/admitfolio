@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import SiteAnalytics from '@/components/SiteAnalytics';
-import { SITE_URL } from '@/lib/site';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
 const fontStylesheet =
@@ -15,9 +15,11 @@ export const viewport: Viewport = {
   themeColor: '#F6F0E7',
 };
 
-const homeTitle = 'Admitfolio, Read the essays that got them in';
-const homeDescription =
-  'A marketplace of real college admissions essays, written by the students who got accepted. Browse by school and prompt, see why each one worked, and find the angle only you can write.';
+// Both strings moved to lib/site.ts. They are unchanged, and the move is the
+// point: the Organization JSON-LD on the homepage has to publish the same
+// description this tag carries, and two copies of a sentence drift.
+const homeTitle = SITE_TITLE;
+const homeDescription = SITE_DESCRIPTION;
 
 export const metadata: Metadata = {
   // Every other page builds absolute canonical and OpenGraph URLs by hand.
@@ -35,7 +37,7 @@ export const metadata: Metadata = {
     title: homeTitle,
     description: homeDescription,
     url: SITE_URL,
-    siteName: 'Admitfolio',
+    siteName: SITE_NAME,
     type: 'website',
   },
 };

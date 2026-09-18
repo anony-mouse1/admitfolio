@@ -1,40 +1,35 @@
-# Handover: engineering application essay guide
+# Handover: structured data, llms.txt, and checkout email validation analytics
 
 Read `AGENTS.md` first. This file records the current work in flight.
 
 ## Branch and base
 
-Branch `ritvik/engineering-guide`, PR #95. Based on `main` after PR #93 merged
-as `8ba69e6`. The merge from `main` changed only this handover file.
+Branch `ritvik/structured-data-and-llms-txt`, PR #97. Merged `main` after
+PR #95 at `54ae0a9` before final review.
 
 ## What changed
 
-- Added `/guides/engineering-application-essays`, a server-rendered guide for
-  engineering applicants, and links between it and `/essays/engineering`.
-- Registered the guide for the index, sitemap, and guide-to-collection checks.
-- Added a cover photo with provenance recorded in commit `db8e05f`. The
-  [Unsplash source](https://unsplash.com/photos/a-large-library-filled-with-lots-of-books-r0U2y0HhdGE)
-  identifies Dominic Kurniawan Suryaputra and marks it free under the
-  Unsplash License.
-- Added read-time and page-verification scripts.
+- Added an Organization JSON-LD block to the homepage and ItemList blocks to
+  `/essays` and its six collection pages. The lists are built from the same
+  items those pages render; there are no Product or Offer claims.
+- Added `/llms.txt` from the existing collection and guide registries.
+- Added a `Checkout Email Invalid` analytics event without sending the email
+  address or changing the Stripe mount path.
+- Escaped `<` in JSON-LD before embedding it in a script element. A listing
+  title can contain seller-authored text, so plain `JSON.stringify` was not
+  safe. A regression test uses a script-closing title and checks that the
+  serialized result cannot break out of the element.
+- Qualified the llms.txt description where some legacy listings do not have
+  a confirmed target application.
 
 ## Verification
 
-- TypeScript and all `scripts/*.test.mjs` files pass.
-- A direct `next build` passes and prerenders the new guide.
-- `scripts/guide-read-time.mjs` passes against the built server. The new guide
-  has 1,275 counted words and displays a six-minute read time.
-- Current UC and Common App first-year guidance was checked against their
-  official admissions pages for the article's application-process details.
-- No database write, migration, backfill, or other hand-run deploy step.
+- TypeScript and all `scripts/*.test.mjs` files pass after the review fix.
+- A direct `next build` and the live route verifier must pass before merge.
+- No database write, migration, backfill, or hand-run deploy step is required.
 
-## Remaining and found but not fixed
+## Remaining
 
-- Merge PR #95 after its Vercel check passes on this updated branch, then
-  confirm the guide and sitemap on production.
-- The pre-existing `public/blog-images/inspiration.webp` appears to carry a
-  Dreamstime preview watermark and has no recorded license provenance. It is
-  outside this PR and needs a separate rights review.
-- The category pill is hidden on phone widths for all guides by an existing
-  shared style. Several seller-entered school names on the engineering
-  collection do not resolve to a logo. Neither is changed here.
+Wait for a fresh Vercel check, merge PR #97, then verify the structured data,
+llms.txt, and main deployment on production. PRs #89, #92, #94, and #96 are
+separate review decisions; this branch does not alter them.

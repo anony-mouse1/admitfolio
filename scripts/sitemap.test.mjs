@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-// Checks that the sitemap and robots.txt agree with the guide registry, and
-// that neither can tell a crawler the site lives anywhere but the apex.
+// Checks that the sitemap, robots.txt and llms.txt agree with the guide and
+// collection registries, and that none of them can tell a crawler the site
+// lives anywhere but the apex.
 //
 // Pure node: no server, no browser, no database. The metadata routes are
 // transpiled and imported the way the other tests import lib/*.ts. Each
@@ -64,18 +65,29 @@ async function render(scenario, env) {
       ) + tag,
     );
     const robots = toDataUrl(relink(read('app/robots.ts'), '@/lib/site', site) + tag);
+    // llms.txt has the same origin hazard as the other two: it is a list of
+    // absolute URLs handed to a crawler, so it renders inside the same window.
+    const llms = toDataUrl(
+      relink(
+        relink(relink(read('app/llms.txt/route.ts'), '@/lib/guides', guides), '@/lib/collections', collections),
+        '@/lib/site',
+        site,
+      ) + tag,
+    );
     const registry = await import(guides);
     const collectionRegistry = await import(collections);
     const entries = (await import(sitemap)).default();
     const rules = (await import(robots)).default();
-    return { registry, collectionRegistry, entries, rules };
+    const llmsResponse = await (await import(llms)).GET();
+    const llmsText = await llmsResponse.text();
+    return { registry, collectionRegistry, entries, rules, llmsResponse, llmsText };
   } finally {
     apply(saved);
   }
 }
 
 const production = await render('production', { NEXT_PUBLIC_SITE_URL: PRODUCTION_ORIGIN, VERCEL_ENV: 'production' });
-const { entries, rules } = production;
+const { entries, rules, llmsResponse, llmsText } = production;
 const guides = [...production.registry.guides];
 const collections = [...production.collectionRegistry.collections];
 
@@ -369,7 +381,7 @@ assert.ok(!rules.rules.disallow.some((rule) => rule.startsWith('/purchase')), 'r
 assert.equal(rules.sitemap, `${PRODUCTION_ORIGIN}/sitemap.xml`, 'robots points at the sitemap');
 
 // Nothing rendered for production may mention localhost or a preview host.
-const rendered = JSON.stringify({ entries, rules });
+const rendered = JSON.stringify({ entries, rules, llmsText });
 assert.ok(!rendered.includes('localhost'), 'production output never mentions localhost');
 assert.ok(!rendered.includes('vercel.app'), 'production output never mentions a preview host');
 
@@ -377,15 +389,18 @@ assert.ok(!rendered.includes('vercel.app'), 'production output never mentions a 
 const fallback = await render('fallback', {});
 assert.deepEqual(fallback.entries, entries, 'an unset NEXT_PUBLIC_SITE_URL falls back to the apex');
 assert.deepEqual(fallback.rules, rules);
+assert.equal(fallback.llmsText, llmsText, 'and llms.txt falls back with it');
 
 // A trailing slash on the right origin is tolerated rather than doubled.
 const slashed = await render('trailing slash', { NEXT_PUBLIC_SITE_URL: `${PRODUCTION_ORIGIN}/`, VERCEL_ENV: 'production' });
 assert.deepEqual(slashed.entries, entries, 'a trailing slash on the origin is stripped');
+assert.equal(slashed.llmsText, llmsText, 'in llms.txt too');
 
 // Local builds and previews render their own origin, so the guard below is not
 // over-broad and local verification stays possible.
 const local = await render('local', { NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' });
 assert.ok(local.entries.every((entry) => entry.url.startsWith('http://localhost:3000/')), 'a local build renders its own origin');
+assert.ok(local.llmsText.includes('http://localhost:3000/essays'), 'and llms.txt renders it too');
 const previewOrigin = 'https://admitfolio-git-branch.vercel.app';
 const preview = await render('preview', { NEXT_PUBLIC_SITE_URL: previewOrigin, VERCEL_ENV: 'preview' });
 assert.ok(preview.entries.every((entry) => entry.url.startsWith(`${previewOrigin}/`)), 'a preview deploy renders its own origin');
@@ -400,8 +415,83 @@ for (const origin of ['http://localhost:3000', 'https://www.admitfolio.com', 'ht
 }
 
 // None of this reads the database.
-for (const file of ['app/sitemap.ts', 'app/robots.ts', 'lib/guides.ts', 'lib/site.ts']) {
+for (const file of ['app/sitemap.ts', 'app/robots.ts', 'app/llms.txt/route.ts', 'lib/guides.ts', 'lib/site.ts']) {
   assert.doesNotMatch(read(file), /prisma/i, `${file} does not touch the database`);
 }
+
+
+// ---- llms.txt ----
+// Served as plain text, and statically, for the same reasons robots.txt and
+// sitemap.xml are.
+assert.equal(llmsResponse.headers.get('content-type'), 'text/plain; charset=utf-8');
+assert.match(read('app/llms.txt/route.ts'), /export const dynamic = 'force-static';/, 'llms.txt is prerendered');
+
+// The shape llms.txt asks for: an H1, a one-line summary as a blockquote, then
+// H2 sections of markdown links.
+const llmsLines = llmsText.split('\n');
+assert.equal(llmsLines[0], '# Admitfolio', 'llms.txt opens with the site name as an H1');
+assert.match(llmsText, /^> .+$/m, 'and carries a one-line summary as a blockquote');
+assert.match(llmsText, /^## Essay collections$/m);
+assert.match(llmsText, /^## Guides$/m);
+
+// Every link in it, pulled back out of the rendered text.
+const llmsLinks = [...llmsText.matchAll(/\]\((https?:\/\/[^)]+)\)/g)].map((m) => m[1]);
+const llmsPaths = llmsLinks.map((link) => new URL(link).pathname);
+
+// It lists the hub, every collection, the guide index, every guide, and the two
+// legal pages. Built from the same registries the sitemap is, so a new guide or
+// collection appears in both or neither.
+assert.deepEqual(
+  [...llmsPaths].sort(),
+  [
+    '/essays',
+    '/guides',
+    '/privacy',
+    '/terms',
+    ...collections.map((collection) => `/essays/${collection.slug}`),
+    ...guides.map((guide) => `/guides/${guide.slug}`),
+  ].sort(),
+  'llms.txt links the hub, every collection, the guide index, every guide and the legal pages',
+);
+assert.equal(new Set(llmsPaths).size, llmsPaths.length, 'and links each page once');
+
+// Every URL is absolute, on the apex, and a page the sitemap also lists. A
+// crawler-facing file must not point anywhere private, at an API route, or at
+// a noindex page.
+const sitemapPaths = new Set(paths);
+for (const link of llmsLinks) {
+  assert.ok(link.startsWith(`${PRODUCTION_ORIGIN}/`), `${link} is on the apex`);
+  assert.doesNotMatch(new URL(link).pathname, /^\/(admin|api|purchase)(\/|$)/, `${link} is not private, an API route or noindex`);
+  assert.ok(sitemapPaths.has(new URL(link).pathname), `${link} is a page the sitemap also lists`);
+}
+
+// The descriptions are the ones the site already renders, not a second set
+// written for this file.
+for (const collection of collections) {
+  assert.ok(llmsText.includes(`[${collection.name}]`), `llms.txt names ${collection.slug} as the site does`);
+  assert.ok(llmsText.includes(collection.dek), `and describes it with the dek the page renders`);
+}
+for (const guide of guides) {
+  assert.ok(llmsText.includes(`[${guide.title}]`), `llms.txt names ${guide.slug} as the registry does`);
+  assert.ok(llmsText.includes(guide.description), `and describes it with the registry description`);
+}
+
+// Site copy, so the house rule applies: no em or en dashes.
+assert.doesNotMatch(llmsText, /[\u2014\u2013]/, 'llms.txt uses no em or en dashes');
+
+// No selling, and no claim that has to stay true on every future crawl. A
+// crawler reads this to learn what the site is and which URLs are worth
+// fetching. The prose is what this asserts on: the guide titles and
+// descriptions below it are the site's own rendered copy and are checked above.
+const llmsProse = llmsText.split('## Essay collections')[0];
+for (const word of ['verified', 'verification', 'plagiarism', 'plagiarize', 'original', 'authentic', 'trusted', 'best', 'leading', 'guarantee']) {
+  assert.doesNotMatch(llmsProse, new RegExp(`\\b${word}`, 'i'), `llms.txt must not claim to be ${word}`);
+}
+assert.doesNotMatch(llmsProse, /\b\d+\s+listings\b/, 'and must not quote a listing count that goes stale');
+
+// The two facts it does state, both of which are true of this codebase and
+// both of which a crawler needs.
+assert.match(llmsText, /The unit of sale is a listing, not an essay\./, 'llms.txt states the unit of sale');
+assert.match(llmsText, /home page renders its catalogue in the browser/, 'and warns that the homepage HTML holds no listings');
 
 console.log('sitemap tests passed');
