@@ -82,7 +82,7 @@ export default function EngineeringApplicationEssaysPage() {
             ]}
             summary={[
               'Most of the writing an engineering application asks for is set by individual colleges.',
-              'The why engineering answer needs what happened after the origin story.',
+              'Carry the why engineering answer past the origin story.',
               'Explain a project in three moves: what it does, what made it hard, what you decided.',
               'Check whether you are applying to a named major or to a college of engineering.',
             ]}
