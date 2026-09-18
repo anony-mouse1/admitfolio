@@ -45,7 +45,7 @@ No new component, no new CSS beyond one background colour.
 
 ### The read time, and the method behind it
 
-**6 min read, from 1,284 counted words.** Not estimated. See "Read time" below
+**6 min read, from 1,271 counted words.** Not estimated. See "Read time" below
 for why it went up rather than down.
 
 `f453223` corrected all seven existing read times downwards, one by more than
@@ -77,8 +77,7 @@ Quality 72 and 80 were compared at the real display crop (1082x540, the card at
 
 **"Match the existing seven" turned out not to be well defined.** They agree on
 format and on nothing else: all WebP, sRGB, no ICC, no EXIF, but 600x400 through
-1400x934, ratios 1.50 to 1.67, and 17.4 KB through 314.3 KB. The measurements
-are in `public/blog-images/SOURCES.md`.
+1400x934, ratios 1.50 to 1.67, and 17.4 KB through 314.3 KB.
 
 So: WebP to match the one thing they share, and **1200x800 because that is what
 `app/guides/page.tsx` already declares on the `<img>`**. This is the only file in
@@ -87,8 +86,7 @@ upscaled on a 2x display, where the card is 507 CSS px wide at 1440 and 360 at
 390. At 119 KB it is well under the 314 KB the directory already carries.
 
 The 4.79 MB source was moved out of the repo rather than committed: none of the
-other seven has an original here, and the Unsplash URL in `SOURCES.md` makes it
-re-fetchable.
+other seven has an original here, and the Unsplash URL makes it re-fetchable.
 
 Wired up, and the nullable type is gone:
 
@@ -100,9 +98,18 @@ Wired up, and the nullable type is gone:
   it can no longer fail. The two stricter ones stay, and both were re-checked by
   mutation: a declared photo must exist on disk, and every `cover` token must
   have a class on the index and a rule in the stylesheet.
-- `public/blog-images/SOURCES.md` is **new**, modelled on
-  `public/assets/schools/SOURCES.md`, recording source, photographer, URL,
-  licence, download date, and the before and after of the conversion.
+**Provenance is recorded in the commit message of `db8e05f`, and nowhere else.**
+A `public/blog-images/SOURCES.md` was written and then deleted on Ritvik's
+instruction, so the full record (Unsplash, Dominic Kurniawan Suryaputra,
+`r0U2y0HhdGE`, Unsplash License, downloaded 2026-09-18) now lives in git history
+and in this file. Git history is durable; this file is rewritten on every
+handover. If a provenance record is wanted somewhere permanent, it has to go
+somewhere other than here.
+
+Worth knowing about the file that was deleted: anything under `public/` is
+served. `https://admitfolio.com/assets/schools/SOURCES.md` answers **200**
+right now, so a blog-images equivalent would have published its contents,
+including the watermark note below, at a public URL.
 
 **`GuideCover` now takes its photo branch, which does not render `coverTitle`**,
 so the verifier's card assertions were rewritten: the photo is served as
@@ -123,43 +130,63 @@ production right now on the `/guides` card for
 A watermark like that is on a comp rather than a licensed download. The centre
 band of all eight files was checked at raised contrast and this is the only one.
 It predates this branch and it is **not touched here**: it is a licensing
-question, which under Ritvik's contract goes to Fatimah. Recorded in
-`public/blog-images/SOURCES.md` so it cannot be lost.
+question, which under Ritvik's contract goes to Fatimah.
+
+**This paragraph is now the only record of it in the repository.** It was also
+in the deleted `SOURCES.md`. Do not drop it from a future rewrite of this file
+without raising it first.
 
 Related: that commit, `57d5c5c`, records no source, photographer, licence or URL
 for any of the seven, and nothing else in the repo does either.
 
-### The stat block, left alone
+### The stat block
 
-Ritvik asked whether the other seven all put a real fact in theirs, and to
-delete this one if any of them omit the block.
+Ritvik supplied the copy. It now reads, verbatim:
 
-**All eight have one, so nothing was deleted. But the "real fact" premise only
-holds for two of seven.** What they actually hold:
+> Two questions run through almost every engineering supplement: why
+> engineering, and what did you build. Prepare both properly and most of your
+> list is answerable.
 
-| Guide | Stat block | Kind |
-|---|---|---|
-| `common-app-essay-word-count` | the personal essay accepts 250 to 650 words, and 650 is a limit not a target | **external fact** |
-| `uc-piq-examples` | UC gives eight PIQs, you choose four, up to 350 words each | **external fact** |
-| `college-essay-format` | use normal paragraphs, separate dialogue, skip decorative formatting, inspect the preview | advice |
-| `how-to-start-a-college-essay` | draft the clearest scene in the middle first, write the opening after | advice |
-| `how-to-take-inspiration` | notice one writing choice, close the example, turn it into a question | a method |
-| `why-this-college-essay-examples` | if you can swap the college name and it still works, the research is not specific enough | a test |
-| `common-app-essay-examples` | Admitfolio has hundreds of real application essays from verified students | a claim about us |
+The box itself is unchanged. What it held before restated the first paragraph of
+section 1, which was his objection.
 
-So five of seven put advice, a method, a test or an editorial line in the box.
-Neither of Ritvik's branches fired cleanly, so the block stays as written and
-the decision is his. His read of it is right either way: it does restate the
-first paragraph of section 1.
+**Two things to look at before this ships.**
 
-**No verifier asserts the block exists on every guide any more.**
+First, **it now restates the second paragraph of the intro** instead, which is
+about sixty words below it:
+
+> Why engineering and what you built are the two questions that run through most
+> of it. Both are worth preparing properly, because a strong answer to either
+> can be adapted across your whole list.
+
+Same two facts, same order, near enough the same clauses. That is the defect
+that was being fixed, moved from section 1 to the intro rather than removed.
+Cutting or reworking that intro paragraph would settle it, and it was left alone
+because it was not asked for.
+
+Second, **the new copy carries no bold label**, and all seven neighbours open
+with one: "The official format:", "The current Common App range:", "The fastest
+fix:", "A simple test:", "The best method:", "The short answer:", "Why we wrote
+this:". Nothing breaks, the CSS does not style `strong` at all, but the box
+reads plainer than the rest of the set. Screenshotted beside `uc-piq-examples`
+for comparison.
+
+What the other seven hold, which is what prompted the rewrite: only two carry an
+external fact (the Common App 250 to 650 range, and UC's eight PIQs). The other
+five hold advice, a method, a test, or a line about us.
+
+**No verifier asserts the block exists on every guide.**
 `scripts/guide-read-time.mjs` used to, through `need('articleStat')`, and would
 have failed outright on a guide that dropped it. It now counts zero for a
 missing block. Mutation checked: with the block removed the count fell from
 1,284 to 1,246 and the script still passed.
 `scripts/verify-engineering-guide.mjs` only ever included it in a selector list
-for the clipping sweep, which tolerates its absence, and its claim assertions
-are article-specific rather than about every guide.
+for the clipping sweep, which tolerates its absence.
+
+One of its nine claim assertions did depend on the old copy, so it was swapped
+for a phrase from the new one. The substance it was guarding, that each college
+adds its own writing on top of the Common App essay, is still asserted through
+the dek and through section 1.
 
 ## No catalogue statistics, and why
 
@@ -230,7 +257,7 @@ supplement. `how-to-take-inspiration` keeps its related-guides card, so
 
 ### Read time
 
-**6 min read, from 1,284 counted words.** It went up, not down: cutting the
+**6 min read, from 1,271 counted words.** It went up, not down: cutting the
 statistics removed about forty words, and the rewrites added seventy, because
 antithesis is a compressive shape and the sentences that replaced it are not.
 
@@ -304,7 +331,8 @@ already-paired guides were moved off it in #90.
 
 1. **Fatimah, through Ritvik: the watermark on `inspiration.webp`.** Live in
    production, licensing question, not this branch's to fix.
-2. **Ritvik: the stat block.** Left as written; his call whether to replace it.
+2. **Ritvik: the intro paragraph the stat block now duplicates**, and whether
+   the box wants a bold label like the other seven. Both are described above.
 3. **Ritvik: review, then push and open a PR.** Nothing is pushed.
 4. No env var, no migration, no backfill.
 
