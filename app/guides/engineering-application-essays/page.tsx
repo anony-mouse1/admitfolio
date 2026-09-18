@@ -7,13 +7,16 @@ import { collectionPathForGuide } from '@/lib/collections';
 import { formatGuideDate, guideBySlug, guideUrl } from '@/lib/guides';
 import styles from '../guides.module.css';
 
-// Every figure below comes from the public catalogue API, counted by
-// scripts/engineering-guide-figures.mjs. Re-run it before changing any of them,
-// and bump `modified` in lib/guides.ts when one moves: the stat block states
-// the date the counting was done, so the two have to agree.
+// No catalogue figures on this page, deliberately. An earlier draft opened with
+// counts off /api/listings: how many engineering listings, how many essays,
+// how the prompts split. They came out the day someone lists another
+// engineering essay, Google caches the old ones, and a reader who has never
+// heard of this site is being handed our inventory instead of an answer.
 //
-// Aggregates only, deliberately. No opening line, no teaser, no seller name and
-// no background tag from any listing appears on this page.
+// The claims those counts supported are all still here, stated as facts about
+// engineering applications rather than about what is currently for sale.
+// scripts/verify-engineering-guide.mjs asserts the removed phrasings cannot
+// come back.
 
 const guide = guideBySlug('engineering-application-essays');
 const title = 'Engineering Application Essays: What You Actually Have to Write';
@@ -51,8 +54,8 @@ export default function EngineeringApplicationEssaysPage() {
             <span className="pill"><span className="dot" />{guide.category}</span>
             <h1>Engineering application essays: what you actually have to write</h1>
             <p className={styles.dek}>
-              The personal statement is the part everyone plans for. It is a minority of the writing an
-              engineering application asks you to hand in.
+              Engineering programs usually ask for more writing than the Common App essay, and each college
+              decides for itself how much.
             </p>
             <div className={styles.byline}>
               <span>By the Admitfolio Editorial Team</span>
@@ -62,155 +65,156 @@ export default function EngineeringApplicationEssaysPage() {
           </header>
 
           <div className={styles.articleStat}>
-            <strong>Counted on September 18, 2026:</strong> the 116 essays in the Admitfolio engineering
-            collection are 28 Common App personal statements, 26 UC Personal Insight Questions, and 62
-            supplements or short answers.
+            <strong>Where the extra writing comes from:</strong> One Common App essay goes to every college on
+            your list. Each college can then add its own supplements and short answers, which appear in My
+            Colleges once you add that school.
           </div>
 
           <GuideArticleOverview
             sections={[
               { id: 'count-the-writing', label: 'Count the writing before you draft any of it' },
-              { id: 'why-engineering', label: 'Why engineering is not why this school' },
+              { id: 'why-engineering', label: 'Where the why engineering answer usually goes wrong' },
               { id: 'how-much-to-explain', label: 'Decide how much of the project to explain' },
-              { id: 'short-answers', label: 'Short answers are a different job' },
-              { id: 'which-engineering', label: 'Say which engineering, and check what you are applying to' },
-              { id: 'read-for-calibration', label: 'Read the ones whose school list looks like yours' },
+              { id: 'short-answers', label: 'Short answers, and where they pile up' },
+              { id: 'which-engineering', label: 'Which engineering, and what you are applying into' },
+              { id: 'read-for-calibration', label: 'Reading examples without inheriting the wrong shape' },
               { id: 'before-you-submit', label: 'Before you submit' },
             ]}
             summary={[
-              'Most of the writing is supplements and short answers, not the personal statement.',
-              'Answer why engineering with a problem you kept returning to, not an origin story.',
+              'Most of the writing an engineering application asks for is set by individual colleges.',
+              'The why engineering answer needs what happened after the origin story.',
               'Explain a project in three moves: what it does, what made it hard, what you decided.',
-              'Check whether you are applying to a major or to a college of engineering.',
+              'Check whether you are applying to a named major or to a college of engineering.',
             ]}
           />
 
           <div className={styles.articleBody}>
             <p>
-              Almost every piece of college essay advice is written about one essay, the Common App personal
-              statement. That essay is real and it matters. For an engineering applicant it is also not where
-              most of the work is.
+              Search for college essay advice and nearly all of it will be about the Common App personal
+              statement. Engineering applicants who plan around that one essay are usually caught out in
+              October, when the supplements for a full school list arrive at once.
             </p>
             <p>
-              The listings in the engineering collection on this site are whole applications rather than single
-              essays, so they show the shape of the job and not only its headline piece. The counts below come
-              from that collection. The rest is what to do about them.
+              Why engineering and what you built are the two questions that run through most of it. Both are
+              worth preparing properly, because a strong answer to either can be adapted across your whole
+              list.
             </p>
 
             <h2 id="count-the-writing">Count the writing before you draft any of it</h2>
             <p>
-              Sixteen of the 44 engineering listings contain no Common App personal statement at all. Seven of
-              those are UC Personal Insight Question sets, where there is no personal statement to write. The
-              other nine are supplements and short answers on their own, sent to programs that asked for them,
-              and the heaviest of them carries eight. The most common shape, 17 of the 44, is a personal
-              statement with supplements alongside it.
+              How much you have to write depends entirely on where you apply. A list of eight colleges might
+              carry two extra prompts or twenty, and you cannot tell which from the outside. One large
+              engineering program can ask for a why-engineering question, a why-us question and a run of short
+              answers, taking more words out of you on its own than the personal statement did.
             </p>
             <p>
-              You cannot estimate that total from the Common App&apos;s own screen. Common App tells students to
-              check each college&apos;s requirements inside the application, and its{' '}
-              <a href="https://www.commonapp.org/apply/first-year-students/">official first-year guide</a>{' '}
-              explains where to find them. Do that before you draft, on every school on your list, and write
-              down the prompt, the word limit and the deadline it belongs to.
+              Common App does not show you any of this up front. A college&apos;s writing requirements appear
+              once you add it in My Colleges, and Common App&apos;s own{' '}
+              <a href="https://www.commonapp.org/apply/first-year-students/">guide for first-year applicants</a>{' '}
+              sends students there and to each college&apos;s information page to find them. Add every school
+              early, including the ones you are still unsure about, and copy out each prompt with its word
+              limit and its deadline.
             </p>
             <div className={styles.callout}>
               <strong>Make the list before the draft</strong>
-              Every prompt, every limit, every deadline, on one page. The order you write in should come out of
-              that list, not out of which essay you are most anxious about.
+              Every prompt, every limit, every deadline, on one page. Then start with whichever answer the most
+              colleges can use.
             </div>
 
-            <h2 id="why-engineering">Why engineering is not why this school</h2>
+            <h2 id="why-engineering">Where the why engineering answer usually goes wrong</h2>
             <p>
-              If a program asks why engineering, or why this major, it is not asking the same thing as why this
-              college. The school question is about fit with a place, and our{' '}
-              <Link href="/guides/why-this-college-essay-examples">research method for that one</Link> covers
-              it. This question is about the subject, and it has to be answerable before you know which schools
-              you are applying to.
+              Sooner or later an engineering supplement will ask you why engineering. It is easy to confuse
+              with the why-this-college question, which wants research into a specific place and has{' '}
+              <Link href="/guides/why-this-college-essay-examples">a method of its own</Link>. Why engineering
+              is about the subject, and you should be able to answer it before you have a school list.
             </p>
             <p>
-              The weak version is an origin story and nothing else: the disassembled computer, the childhood
-              Lego, the science fair. The origin is not the problem. The problem is that the essay often stops
-              there, and an origin explains where an interest started rather than what it turned into.
+              The standard answer is an origin story: the computer you took apart, the Lego, the science fair.
+              Those are fine to write, and plenty of good essays open with one. What sinks the weak ones is
+              that they finish there too, leaving a reader who knows when you got interested and nothing about
+              what you have done since.
             </p>
             <p>
-              A stronger answer names a problem you kept returning to after the origin, and says what you did
-              about it. It does not need an impressive project. It needs one piece of evidence that the interest
-              survived contact with something difficult.
+              So carry the story forward. Name a problem you kept coming back to after the origin, and show
+              what you actually did about it. Modest evidence is enough here, as long as it shows the interest
+              surviving contact with something difficult. A build that failed twice will do. So will a course
+              you took outside school, or a question a teacher could not answer.
             </p>
 
             <h2 id="how-much-to-explain">Decide how much of the project to explain</h2>
             <p>
-              If there is a build in your essay, this is the question the draft is really stuck on. Explain too
-              much and the essay becomes documentation. Explain too little and the reader cannot tell what was
-              hard about it, which means they cannot tell what you did.
+              If your essay has a build in it, this is where the draft usually stalls. The instinct is to
+              explain the system, and a page of that reads as a spec sheet written for somebody who already
+              works in the field. Strip it back too far, though, and the writing no longer shows what was
+              difficult, which is the only reason a project is worth describing at all.
             </p>
             <p>
-              A budget that works: one sentence on what the thing does, one or two on the constraint that made
-              it difficult, and the rest on the decision you made and why. Technical detail earns its place when
-              it is what makes a decision legible, and not otherwise.
+              Try a budget. One sentence on what the thing does. One or two on the constraint that made it
+              hard. Everything after that on the decision you made and why you made it. Keep whatever technical
+              detail a reader needs in order to follow that decision, and let the rest go.
             </p>
             <p>
-              Test it on someone outside your field. Ask them two questions: what went wrong, and what did you
-              change. If they cannot answer the first, the explanation is too technical. If they cannot answer
-              the second, it is too vague. They do not need to understand the system.
-            </p>
-
-            <h2 id="short-answers">Short answers are a different job</h2>
-            <p>
-              Twenty-three of the 116 essays in the collection are short answers, and they sit in only eight
-              listings. The load is concentrated rather than spread: one listing carries six of them on its own.
-              If your school list includes programs that ask for short answers, that is where a weekend goes.
-            </p>
-            <p>
-              At fifty to a hundred and fifty words there is no room for a scene. Answer in the first clause,
-              give one piece of evidence, and stop. The opening move that works in a 650-word essay, entering a
-              moment already in motion, will spend a third of a short answer before it has said anything.
-            </p>
-            <p>
-              Do not move the best paragraph of your personal statement into one either. At a school that asked
-              for both, one reader has both in front of them.
+              Then hand it to someone outside your field and ask what went wrong and what you changed. What
+              you are listening for is the second answer, and whether it arrives without them having understood
+              the system at all. When it does not arrive, the draft has written up the project and left you out
+              of it.
             </p>
 
-            <h2 id="which-engineering">Say which engineering, and check what you are applying to</h2>
+            <h2 id="short-answers">Short answers, and where they pile up</h2>
             <p>
-              Engineering is not one major, and the collection shows it. Biomedical is the most common
-              discipline in it, then aerospace, then mechanical. Seven of the 44 listings are undeclared,
-              general or first-year engineering instead of a named discipline.
+              A few engineering programs, mostly large public universities running their own portals, attach a
+              run of short answers to the application, usually somewhere between fifty and two hundred words
+              each, on top of everything the Common App already wants. Find out early which colleges on your
+              list work this way. They are what quietly doubles the workload.
             </p>
             <p>
-              That last group is the one to be deliberate about. Some programs admit you to a specific major and
-              some admit you to a college of engineering and sort you later. Check which on the program&apos;s
-              own page, because it decides whether your essay should commit to a discipline or argue for a
-              direction. Committing anyway is a reasonable choice. It should be a choice.
+              At that length a scene will not fit. Put the answer in the opening clause and follow it with the
+              most specific piece of evidence you have. There is rarely room for a third sentence. Dropping the
+              reader into a moment already in motion works well in a 650-word essay, but here it burns a third
+              of the space before the answer arrives.
+            </p>
+            <p>
+              Resist the urge to lift your best personal-statement paragraph into one of these, because
+              wherever a college asked for both, the same reader has both open.
             </p>
 
-            <h2 id="read-for-calibration">Read the ones whose school list looks like yours</h2>
+            <h2 id="which-engineering">Which engineering, and what you are applying into</h2>
             <p>
-              Seventy-eight different colleges appear across the 44 listings, and 45 of them appear in more than
-              one, so the collection is not concentrated in a handful of famous programs. Start with the
-              listings whose schools overlap yours. Prompts vary between programs far more than general advice
-              about essays does, and an example written for a different prompt teaches you a shape you then
-              have to unlearn.
+              Engineering covers a dozen fields that share a name and not much else. Biomedical, aerospace and
+              mechanical applicants all meet the same prompt and have to fill it with completely different
+              material, so &quot;I want to study engineering&quot; leaves a reader knowing nothing they could
+              not already see on your form.
             </p>
             <p>
-              Eight of the listings carry UC Personal Insight Questions, six of them as complete sets of four.
-              If a UC is on your list, those four are the entire written application there, and they are worth
-              planning on their own terms. Our{' '}
-              <Link href="/guides/uc-piq-examples">guide to the eight PIQ prompts</Link> covers how to choose.
+              Before you commit on the page, find out what you are applying into. Programs differ here: some
+              admit you straight to a named major, others take you into a college of engineering and let you
+              declare later, and a few run an undeclared or first-year engineering route on purpose. The
+              program&apos;s own admissions page will say. If you are applying undeclared you can still name a
+              discipline, and you may well want to, but do it knowing the application is not asking you to.
+            </p>
+
+            <h2 id="read-for-calibration">Reading examples without inheriting the wrong shape</h2>
+            <p>
+              Engineering prompts differ enough from one program to the next that a strong example can teach
+              you the wrong shape. An essay built for a college that asked about a specific lab will not
+              transfer to a portal asking a run of blunt short answers. Look for writing that went to colleges
+              overlapping your own list, read that first, and study how each writer decided what to include.
             </p>
             <p>
-              Read them for the decisions rather than the sentences. Our guide to{' '}
-              <Link href="/guides/how-to-take-inspiration-from-college-essays">taking inspiration without copying</Link>{' '}
-              is the method for doing that.
+              The University of California is the clearest case. UC ignores the Common App entirely and asks
+              for four Personal Insight Questions of up to 350 words each, so a UC campus on your list means a
+              separate written application planned from scratch.{' '}
+              <Link href="/guides/uc-piq-examples">Choosing which four to answer</Link> is most of that work.
             </p>
 
             <h2 id="before-you-submit">Before you submit</h2>
             <ul>
-              <li>Every prompt on your list has a draft, and every draft is inside its own limit.</li>
-              <li>The why engineering answer names a problem, not only an origin.</li>
-              <li>A reader outside your field can say what went wrong and what you changed.</li>
-              <li>No short answer opens with a scene.</li>
-              <li>No paragraph appears in two pieces of writing going to the same college.</li>
-              <li>Each essay says which engineering, or leaves it open on purpose rather than by accident.</li>
+              <li>Every prompt on your list has a draft, and every draft sits inside its own limit.</li>
+              <li>The why engineering answer carries the story past its origin.</li>
+              <li>Someone outside your field can say what went wrong and what you changed.</li>
+              <li>Short answers reach the point inside their first clause.</li>
+              <li>No paragraph appears twice in anything going to the same college.</li>
+              <li>Where an essay leaves your discipline open, that was a decision you made.</li>
             </ul>
           </div>
 
@@ -221,11 +225,11 @@ export default function EngineeringApplicationEssaysPage() {
           ]} />
 
           <aside className={styles.articleCta}>
-            <h2>Read whole engineering applications, not one essay</h2>
+            <h2>See what an engineering application looked like</h2>
             <p>
-              The collection holds the personal statements, supplements and short answers that went out
-              together, from students who were admitted into engineering programs. Read them for the decisions,
-              then close the tab and write your own.
+              Admitfolio has personal statements, supplements and short answers that went out in the same
+              application, from students who were admitted into engineering programs. Study the choices they
+              made, then close the tab and write from your own.
             </p>
             <Link className="btn-primary" href={collectionPathForGuide('engineering-application-essays')}>
               Browse engineering essays →

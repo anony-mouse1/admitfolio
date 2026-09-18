@@ -48,7 +48,7 @@ export const guides = [
     imageAlt: null,
     published: '2026-09-18',
     modified: '2026-09-18',
-    readTime: '5 min read',
+    readTime: '6 min read',
     title: 'Engineering application essays: what you actually have to write',
     description:
       'What an engineering application asks for beyond the personal statement, and how to plan for the supplements and short answers.',

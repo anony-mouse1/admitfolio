@@ -37,29 +37,40 @@ const SECTIONS = [
   'read-for-calibration',
   'before-you-submit',
 ];
-// scripts/engineering-guide-figures.mjs is what these were counted from.
-const FIGURES = [
-  'the 116 essays in the Admitfolio engineering collection',
-  '28 Common App personal statements',
-  '26 UC Personal Insight Questions',
-  '62 supplements or short answers',
-  'Sixteen of the 44 engineering listings contain no Common App personal statement at all',
-  'Seven of those are UC Personal Insight Question sets',
-  'The other nine are supplements and short answers on their own',
-  'the heaviest of them carries eight',
-  'The most common shape, 17 of the 44',
-  'Twenty-three of the 116 essays in the collection are short answers',
-  'they sit in only eight listings',
-  'one listing carries six of them',
-  'Seven of the 44 listings are undeclared, general or first-year engineering',
-  'Seventy-eight different colleges appear across the 44 listings, and 45 of them appear in more than one',
-  'Eight of the listings carry UC Personal Insight Questions, six of them as complete sets of four',
-  'Biomedical is the most common discipline in it, then aerospace, then mechanical',
+// Claims the article has to keep making. Each one used to be carried by a
+// count off /api/listings and is now stated as a fact about engineering
+// applications, so this is what stops the substance going out with the
+// arithmetic.
+const CLAIMS = [
+  'usually ask for more writing than the Common App essay',
+  'Each college can then add its own supplements and short answers',
+  "A college's writing requirements appear once you add it in My Colleges",
+  'Sooner or later an engineering supplement will ask you why engineering',
+  'The standard answer is an origin story',
+  'mostly large public universities running their own portals',
+  'Biomedical, aerospace and mechanical applicants all meet the same prompt',
+  'some admit you straight to a named major, others take you into a college of engineering',
+  'four Personal Insight Questions of up to 350 words each',
 ];
-// Phrases that must never appear. The article is aggregates only: a listing's
-// own words, a seller, or a price would each be production data on a public
-// page, and a count with no date attached is a claim that cannot be rechecked.
-const FORBIDDEN = [/[—–]/, /\$\d/];
+// The catalogue figures that were cut, and the shapes they would come back in.
+// They go stale the day another engineering essay is listed, Google caches the
+// old ones, and a reader who has never heard of this site is being handed our
+// inventory instead of an answer.
+const NO_CATALOGUE_FIGURES = [
+  /\b\d+ listings?\b/i,
+  /\b\d+ (of the|different) \d+/i,
+  /\bof the \d+ (engineering )?listings\b/i,
+  /\b\d+ (essays|colleges|supplements|short answers|personal statements) (in|across|appear)/i,
+  /\bCounted on\b/i,
+  /\bin (the|our|this) (Admitfolio )?(engineering )?collection\b/i,
+  /\bthe collection (holds|shows|is)\b/i,
+  /\bSeventy-eight\b/i,
+  /\bTwenty-three\b/i,
+  /\bSixteen of\b/i,
+];
+// Site copy rules, and one of our own: no price, because a figure a seller
+// controls does not belong in an article a crawler caches.
+const FORBIDDEN = [/[\u2014\u2013]/, /\$\d/];
 
 const WIDTHS = [
   { label: '1440', width: 1440, height: 900, mobile: false },
@@ -102,13 +113,16 @@ pass(`all ${SECTIONS.length} section headings are in the raw HTML`);
 // Whitespace collapsed, because the source wraps mid-sentence. Still the
 // served document: this is the text a crawler that runs no JavaScript reads.
 const body = text(guideHtml);
-for (const figure of FIGURES) {
-  assert(body.includes(figure), `the figure "${figure}" is not in the served document`);
+for (const claim of CLAIMS) {
+  assert(body.includes(claim), `the claim "${claim}" is no longer in the served document`);
 }
-pass(`all ${FIGURES.length} catalogue figures are in the served text`);
+pass(`all ${CLAIMS.length} claims survive in the served text`);
 
-assert(body.includes('Counted on September 18, 2026'), 'the figures carry no date, so a reader cannot tell how old they are');
-pass('the figures are dated in the document');
+for (const pattern of NO_CATALOGUE_FIGURES) {
+  const found = pattern.exec(body);
+  assert(!found, `a catalogue figure is back in the copy: "${found && found[0]}" matches ${pattern}`);
+}
+pass('no catalogue count, and nothing shaped like one, is in the copy');
 
 for (const pattern of FORBIDDEN) {
   assert(!pattern.test(body), `the served copy matches the forbidden pattern ${pattern}`);
@@ -354,9 +368,14 @@ for (const viewport of WIDTHS) {
   assert(layout.ctaInside, `${viewport.label}: the call to action link sits outside its own block`);
   pass(`${viewport.label}: the call to action is visible and points at ${COLLECTION}`);
 
-  // Three in-body links, all to other articles. This is the article that gives
-  // uc-piq-examples its first inbound link from another guide.
-  const expectedBody = ['/guides/why-this-college-essay-examples', '/guides/uc-piq-examples', '/guides/how-to-take-inspiration-from-college-essays'];
+  // Two in-body links, both doing work the surrounding sentence needs: one
+  // separates why-engineering from why-this-college, the other hands off the UC
+  // application, which is a different application rather than a supplement. The
+  // third, a general "read examples properly" pointer, was cut as a link the
+  // related-guides block and the call to action were both already making. This
+  // is still the article that gives uc-piq-examples its first inbound link from
+  // another guide.
+  const expectedBody = ['/guides/why-this-college-essay-examples', '/guides/uc-piq-examples'];
   for (const href of expectedBody) {
     assert(layout.bodyLinks.includes(href), `${viewport.label}: the body does not link ${href}`);
   }
