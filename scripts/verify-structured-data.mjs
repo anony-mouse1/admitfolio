@@ -329,6 +329,33 @@ for (const collection of collections) {
   else ok(`${basePath}?listing= with an unknown id still serves the collection`);
 }
 
+// ---- /llms.txt ----
+// The body is rendered and asserted line by line in scripts/sitemap.test.mjs,
+// which calls the route directly, so this checks the one thing that test
+// cannot: that a directory named llms.txt actually registers as a route and
+// answers at the root as plain text. A route segment with a dot in it is the
+// kind of thing that works until a framework upgrade.
+const llms = await fetch(`${BASE}/llms.txt`, { redirect: 'manual' });
+const llmsBody = await llms.text();
+const llmsType = llms.headers.get('content-type') || '';
+if (llms.status !== 200) {
+  fail(`/llms.txt returned ${llms.status}`);
+} else if (!llmsType.startsWith('text/plain')) {
+  fail(`/llms.txt serves ${llmsType}, expected text/plain`);
+} else if (!llmsBody.startsWith('# Admitfolio')) {
+  fail('/llms.txt does not open with the site name');
+} else {
+  const links = [...llmsBody.matchAll(/\]\((https?:\/\/[^)]+)\)/g)].map((m) => m[1]);
+  ok(`/llms.txt serves ${llms.status} as ${llmsType} with ${links.length} links`);
+  // Every URL it hands a crawler has to resolve. A 404 in here sends every
+  // agent that reads it to a dead page.
+  for (const link of links) {
+    const res = await fetch(link, { redirect: 'manual', method: 'HEAD' });
+    if (res.status !== 200) fail(`/llms.txt links ${link}, which returns ${res.status}`);
+  }
+  ok('/llms.txt links only pages that return 200');
+}
+
 console.log('');
 if (failures.length) {
   console.log(`${failures.length} failure${failures.length === 1 ? '' : 's'}`);
