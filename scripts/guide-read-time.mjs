@@ -106,8 +106,12 @@ function articleWords(html, slug) {
   // the dek are the article; the other two are chrome and are subtracted.
   const header = need('articleHeader');
   const chrome = countWords(region(header, 'pill') || '') + countWords(region(header, 'byline') || '');
-  return countWords(header) - chrome
-    + countWords(need('articleStat'))
+  // The stat block is optional. Every article happens to carry one today, but
+  // it is a standout-fact box rather than part of the frame, and only two of
+  // them hold an external fact; the rest hold advice, a method or a test. An
+  // article that drops it should count zero for it, not fail to be counted.
+  const stat = countWords(region(html, 'articleStat') || '');
+  return countWords(header) - chrome + stat
     + countWords(need('articleToc'))
     + countWords(need('articleSummary'))
     + countWords(need('articleBody'));
