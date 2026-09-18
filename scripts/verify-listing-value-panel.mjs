@@ -132,6 +132,13 @@ async function measure(cdp, session, url, viewport, { hydrated }) {
       viewportH: window.innerHeight,
       // Two lines of a pasted prompt on a phone, three from 641px up.
       questionClamp: q('.d-value-q') ? getComputedStyle(q('.d-value-q')).webkitLineClamp : null,
+      // The bar's own geometry. Rounded top corners to match the cards above
+      // it; the bottom pair is deliberately left square.
+      footRadius: q('.d-foot-top') ? getComputedStyle(q('.d-foot-top')).borderRadius : null,
+      footRect: q('.d-foot-top') ? (() => {
+        const r = q('.d-foot-top').getBoundingClientRect();
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
+      })() : null,
       // Any word count anywhere in the panel. Null on every row today.
       wordsText: [...document.querySelectorAll('.d-value-meta')]
         .map((el) => el.textContent).filter((t) => /word/i.test(t)),
@@ -202,6 +209,10 @@ for (const testCase of CASES) {
       check(`${tag}: the price row is sticky on a phone and in flow on desktop`, () => {
         assert.equal(m.footPosition, vpName === '390' ? 'sticky' : 'static');
       });
+      check(`${tag}: the bar's top corners match the cards above it`, () => {
+        // 16px is what .d-value and .d-overview use. Top two only.
+        assert.equal(m.footRadius, vpName === '390' ? '16px 16px 0px 0px' : '0px');
+      });
       check(`${tag}: the seller question clamps tighter on a phone`, () => {
         if (m.questionClamp === null) return; // no "Other" row on this listing
         assert.equal(m.questionClamp, vpName === '390' ? '2' : '3');
@@ -248,7 +259,8 @@ for (const r of rows) {
   console.log(
     `${r.case.padEnd(40)} ${r.vp.padEnd(5)} ${(r.hydrated ? 'hydrated' : 'first paint').padEnd(12)} ` +
     `${String(r.panel?.height ?? '-').padStart(7)}  ${String(r.unlock?.top ?? '-').padStart(8)}  ` +
-    `${String(r.unlock?.bottom ?? '-').padStart(10)}  ${String(r.rows).padStart(4)}  ${r.footPosition}`,
+    `${String(r.unlock?.bottom ?? '-').padStart(10)}  ${String(r.rows).padStart(4)}  ${r.footPosition}` +
+    `  bar ${String(r.footRect?.top ?? '-')}-${String(r.footRect?.bottom ?? '-')} of ${r.viewportH}  r=${r.footRadius}`,
   );
 }
 console.log('');
