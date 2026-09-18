@@ -29,6 +29,7 @@ const coverClasses = {
   why: styles.coverWhy,
   format: styles.coverFormat,
   count: styles.coverCount,
+  engineering: styles.coverEngineering,
 } as const;
 
 function GuideCover({

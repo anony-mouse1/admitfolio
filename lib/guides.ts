@@ -13,21 +13,46 @@ export type Guide = {
   slug: string;
   // Shown as the pill on the article and on its related-guides card.
   category: string;
-  cover: 'inspiration' | 'common' | 'uc' | 'start' | 'why' | 'format' | 'count';
+  cover: 'inspiration' | 'common' | 'uc' | 'start' | 'why' | 'format' | 'count' | 'engineering';
   coverTitle: string;
-  image: string;
-  imageAlt: string;
+  // A photo for the index card, or null for the CSS cover keyed on `cover`
+  // above. GuideCover has always branched on this; every guide happened to
+  // have a photo, so the branch had never been taken. Both or neither: a photo
+  // with no alt text is the one combination that must not ship.
+  image: string | null;
+  imageAlt: string | null;
   // YYYY-MM-DD. `modified` feeds article:modified_time, the JSON-LD
   // dateModified, the "Updated" line on the article and the sitemap lastmod,
   // so bump it when the article's content changes.
   published: string;
   modified: string;
+  // "N min read", counted from the rendered article at 225 words a minute and
+  // rounded to the nearest minute, which is the method f453223 used when it
+  // corrected all seven of these downwards. Do not estimate one:
+  // `node scripts/guide-read-time.mjs` prints the number and fails if any
+  // entry here disagrees with the page it labels.
   readTime: string;
   title: string;
   description: string;
 };
 
 export const guides = [
+  {
+    slug: 'engineering-application-essays',
+    category: 'Engineering',
+    cover: 'engineering',
+    coverTitle: 'Count the writing first',
+    // No eighth cover photo exists, so this card takes the CSS cover the
+    // registry has carried a `cover` and `coverTitle` for since it was written.
+    image: null,
+    imageAlt: null,
+    published: '2026-09-18',
+    modified: '2026-09-18',
+    readTime: '5 min read',
+    title: 'Engineering application essays: what you actually have to write',
+    description:
+      'What an engineering application asks for beyond the personal statement, and how to plan for the supplements and short answers.',
+  },
   {
     slug: 'how-to-take-inspiration-from-college-essays',
     category: 'Essay examples',
