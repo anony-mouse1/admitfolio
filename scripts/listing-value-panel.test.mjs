@@ -214,16 +214,19 @@ check('a zero word count is not treated as a missing one', () => {
 
 /* --------------------------- per-essay price --------------------------- */
 
-check('per-essay price rounds to NEAREST, never down', () => {
-  // The direction that matters: Math.floor would advertise $16 for an essay
-  // that works out at $16.67.
-  assert.equal(perEssayPrice(listing([essay('a'), essay('b'), essay('c'), essay('d'), essay('e'), essay('f')], { price: 100 })), 17);
-  assert.notEqual(perEssayPrice(listing([essay('a'), essay('b'), essay('c'), essay('d'), essay('e'), essay('f')], { price: 100 })), 16);
+check('per-essay price rounds UP, never down and never to nearest', () => {
+  // $100 over 6 essays is $16.67. Floor would advertise $16, nearest $17, and
+  // both let a reader multiply back to less than the package price printed
+  // immediately above.
+  const six = [essay('a'), essay('b'), essay('c'), essay('d'), essay('e'), essay('f')];
+  assert.equal(perEssayPrice(listing(six, { price: 100 })), 17);
+  // $110 over 6 is $18.33, where nearest rounds DOWN to 18 and ceil does not.
+  assert.equal(perEssayPrice(listing(six, { price: 110 })), 19);
 });
 
-check('the measured worst case, $346 over 18 essays, prints $19', () => {
+check('the measured worst case, $346 over 18 essays, prints $20', () => {
   const essays = Array.from({ length: 18 }, (_, i) => essay(`p${i}`));
-  assert.equal(perEssayPrice(listing(essays, { price: 346 })), 19);
+  assert.equal(perEssayPrice(listing(essays, { price: 346 })), 20);
 });
 
 check('exact division is exact', () => {
@@ -231,8 +234,11 @@ check('exact division is exact', () => {
   assert.equal(perEssayPrice(listing([essay('a'), essay('b'), essay('c'), essay('d'), essay('e')], { price: 140 })), 28);
 });
 
-check('a half remainder rounds up, not down', () => {
+check('any remainder at all rounds up', () => {
   assert.equal(perEssayPrice(listing([essay('a'), essay('b')], { price: 45 })), 23);
+  // One cent over is still a whole dollar up: $41 over 20 is $2.05.
+  const twenty = Array.from({ length: 20 }, (_, i) => essay(`p${i}`));
+  assert.equal(perEssayPrice(listing(twenty, { price: 41 })), 3);
 });
 
 check('single essay gets no per-essay line', () => {
@@ -244,14 +250,16 @@ check('no price, no line', () => {
   assert.equal(perEssayPrice(listing([essay('a'), essay('b')], { price: 0 })), null);
 });
 
-check('the printed unit price is never below floor division', () => {
-  // The whole catalogue's price range, every plausible essay count.
+check('across the whole catalogue range, unit x count never falls below the price', () => {
+  // The property that matters, stated as the reader would check it: multiply
+  // the printed unit back up and you must not land under what you are charged.
+  // Every price the catalogue carries, every plausible essay count.
   for (let price = 20; price <= 346; price += 1) {
     for (let n = 2; n <= 18; n += 1) {
       const unit = perEssayPrice(listing(Array.from({ length: n }, (_, i) => essay(`p${i}`)), { price }));
-      assert.ok(unit >= Math.floor(price / n), `${price}/${n} gave ${unit}`);
-      // And never more than a dollar above the true figure.
-      assert.ok(unit <= Math.ceil(price / n), `${price}/${n} gave ${unit}`);
+      assert.ok(unit * n >= price, `${price} over ${n} printed ${unit}, which multiplies back to ${unit * n}`);
+      // And never gratuitously high: at most a dollar above the true figure.
+      assert.ok(unit - price / n < 1, `${price}/${n} gave ${unit}`);
     }
   }
 });

@@ -372,6 +372,10 @@ a { color: inherit; }
   border-radius: 50%; color: var(--accent); background: #fff; font-size: 18px; font-weight: 500;
 }
 @media (max-width: 640px) {
+  /* These two are dead and have been since the sheet became a full page: the
+     unscoped `.ov` and `.ov .sheet` further down this file are later and more
+     specific, so neither the rounded top corners nor the 92vh cap applies.
+     Left in place rather than removed with an unrelated change. */
   .ov { padding: 0; align-items: flex-end; }
   .sheet { border-radius: 24px 24px 0 0; max-height: 92vh; padding: 26px 20px 28px; }
   .d-foot { align-items: stretch; flex-direction: column; }
@@ -381,6 +385,33 @@ a { color: inherit; }
      row to four lines. Stacked it is two. */
   .d-value-list li { grid-template-columns: minmax(0, 1fr); }
   .d-value-meta { text-align: left; white-space: normal; }
+  /* Three lines of a seller's pasted prompt is 59px, and a listing can carry
+     four of these rows. Two lines on a phone, three from 641px up. */
+  .d-value-q { -webkit-line-clamp: 2; }
+
+  /* The price and the Unlock button pin to the bottom of the sheet.
+     .sheet is the scroll container (height: 100dvh, overflow-y: auto), so this
+     sticks against the sheet's own scrollport rather than the page.
+     WHY: the panel above is deliberately never collapsed, and the two longest
+     listings in the catalogue push 8 rows ahead of this row. Measured at 390,
+     in flow, the button landed at y=1163 and y=933 against an 844 viewport. A
+     buyer cannot act on what they cannot see, which is the same failure #88
+     shipped.
+     It is sticky rather than fixed, so it releases and scrolls away once its
+     own position in the document passes, leaving the seller and admit blocks
+     below it unobstructed. It is pinned for the whole of the decision: the
+     hook, the panel and the price. No negative bleed, because the sheet's
+     horizontal padding differs above and below 560px and coupling to it would
+     break silently at one of the two. */
+  .d-foot-top {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin-bottom: 0;
+    padding-bottom: 16px;
+    background: #fff;
+    box-shadow: 0 -10px 18px -6px rgba(20, 18, 15, 0.09);
+  }
 }
 
 /* Count on the left, sort on the right, above the grid. */

@@ -119,6 +119,19 @@ async function measure(cdp, session, url, viewport, { hydrated }) {
       // The old surface. It must be gone, not merely hidden.
       legacyDetails: document.querySelectorAll('.d-essay-details').length,
       legacyList: document.querySelectorAll('.d-essays').length,
+      // Sticky on a phone, in flow everywhere else. Read off the computed
+      // style rather than inferred from a rectangle, because a sticky element
+      // that happens not to be stuck yet measures exactly like one in flow.
+      footPosition: q('.d-foot-top') ? getComputedStyle(q('.d-foot-top')).position : null,
+      // Document order, which is the thing that must not change. Once the row
+      // is sticky its rectangle can sit ABOVE the panel it follows, so a
+      // geometric check would read as a regression when nothing moved.
+      panelPrecedesFoot: panel && q('.d-foot-top')
+        ? !!(panel.compareDocumentPosition(q('.d-foot-top')) & Node.DOCUMENT_POSITION_FOLLOWING)
+        : null,
+      viewportH: window.innerHeight,
+      // Two lines of a pasted prompt on a phone, three from 641px up.
+      questionClamp: q('.d-value-q') ? getComputedStyle(q('.d-value-q')).webkitLineClamp : null,
       // Any word count anywhere in the panel. Null on every row today.
       wordsText: [...document.querySelectorAll('.d-value-meta')]
         .map((el) => el.textContent).filter((t) => /word/i.test(t)),
@@ -183,9 +196,21 @@ for (const testCase of CASES) {
         assert.equal(m.legacyDetails, 0, '.d-essay-details still present');
         assert.equal(m.legacyList, 0, '.d-essays still present');
       });
-      check(`${tag}: panel sits above the Unlock button`, () => {
-        assert.ok(m.panel.bottom <= m.unlock.top, `panel bottom ${m.panel.bottom} > unlock top ${m.unlock.top}`);
+      check(`${tag}: the panel comes before the price row in the document`, () => {
+        assert.equal(m.panelPrecedesFoot, true);
       });
+      check(`${tag}: the price row is sticky on a phone and in flow on desktop`, () => {
+        assert.equal(m.footPosition, vpName === '390' ? 'sticky' : 'static');
+      });
+      check(`${tag}: the seller question clamps tighter on a phone`, () => {
+        if (m.questionClamp === null) return; // no "Other" row on this listing
+        assert.equal(m.questionClamp, vpName === '390' ? '2' : '3');
+      });
+      if (vpName !== '390') {
+        check(`${tag}: panel sits above the Unlock button`, () => {
+          assert.ok(m.panel.bottom <= m.unlock.top, `panel bottom ${m.panel.bottom} > unlock top ${m.unlock.top}`);
+        });
+      }
       check(`${tag}: no word count, every row is null today`, () => {
         assert.deepEqual(m.wordsText, []);
       });
@@ -202,10 +227,15 @@ for (const testCase of CASES) {
       });
       check(`${tag}: no clipped panel text`, () => assert.deepEqual(m.clipped, []));
 
-      // The one that matters. A phone viewport is 844 tall.
+      // The one that matters. A phone viewport is 844 tall, and half a button
+      // is not a button, so the whole rectangle has to be inside it.
       if (vpName === '390') {
-        check(`${tag}: UNLOCK ABOVE THE FOLD`, () => {
-          assert.ok(m.unlock.top < PHONE.height, `unlock button at y=${m.unlock.top}, below the ${PHONE.height} fold`);
+        check(`${tag}: UNLOCK FULLY ABOVE THE FOLD`, () => {
+          assert.ok(m.unlock.top >= 0, `unlock button at y=${m.unlock.top}, above the viewport`);
+          assert.ok(
+            m.unlock.bottom <= PHONE.height,
+            `unlock button spans ${m.unlock.top} to ${m.unlock.bottom}, past the ${PHONE.height} fold`,
+          );
         });
       }
     }
@@ -213,11 +243,12 @@ for (const testCase of CASES) {
 }
 
 console.log('');
-console.log('case                                     vp    state        panel h  unlock y  rows');
+console.log('case                                     vp    state        panel h  unlock y  unlock end  rows  position');
 for (const r of rows) {
   console.log(
     `${r.case.padEnd(40)} ${r.vp.padEnd(5)} ${(r.hydrated ? 'hydrated' : 'first paint').padEnd(12)} ` +
-    `${String(r.panel?.height ?? '-').padStart(7)}  ${String(r.unlock?.top ?? '-').padStart(8)}  ${String(r.rows).padStart(4)}`,
+    `${String(r.panel?.height ?? '-').padStart(7)}  ${String(r.unlock?.top ?? '-').padStart(8)}  ` +
+    `${String(r.unlock?.bottom ?? '-').padStart(10)}  ${String(r.rows).padStart(4)}  ${r.footPosition}`,
   );
 }
 console.log('');

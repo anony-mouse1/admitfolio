@@ -202,20 +202,22 @@ export function essayGroupMeta(group: EssayGroup, groupCount: number): string | 
 /**
  * What one essay in the package works out at, in whole dollars.
  *
- * Math.round, never Math.floor. Floor understates by up to 99 cents; nearest
- * understates by at most 49 and only when the remainder is under half. Null on
- * a single-essay listing, where "$20 an essay" under "$20" is noise, and null
- * when there is no price to divide.
+ * Math.ceil, deliberately, and neither floor nor round.
  *
- * The printed figure times the essay count does not have to equal the package
- * price and usually will not. $346 over 18 essays prints $19, and 18 x $19 is
- * $342. The line says what one essay works out at, not what the package costs,
- * and the package price is directly above it.
+ * This line sits directly under the package price on the same screen, so a
+ * reader can multiply it back. Rounding down means that arithmetic lands below
+ * the price they are about to pay: $346 over 18 essays rounds to $19, and
+ * 18 x $19 is $342, which reads as a $4 discrepancy on the checkout screen.
+ * Rounding up can only ever overstate the unit, never the total, and the total
+ * is the number that is actually charged.
+ *
+ * Null on a single-essay listing, where "$20 an essay" under "$20" is noise,
+ * and null when there is no price to divide.
  */
 export function perEssayPrice(l: PublicListing): number | null {
   const count = l.essays.length;
   if (count < 2 || l.price == null || l.price <= 0) return null;
-  return Math.round(l.price / count);
+  return Math.ceil(l.price / count);
 }
 
 // The first five schools, then a count. Five is a fixed number rather than a
