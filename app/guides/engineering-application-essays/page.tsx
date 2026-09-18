@@ -65,8 +65,8 @@ export default function EngineeringApplicationEssaysPage() {
           </header>
 
           <div className={styles.articleStat}>
-            <strong>The two questions:</strong> Two questions run through almost every engineering supplement:
-            why engineering, and what did you build. Prepare both properly and most of your list is answerable.
+            <strong>The two questions:</strong> They run through almost every engineering supplement: why
+            engineering, and what did you build. Prepare both properly and most of your list is answerable.
           </div>
 
           <GuideArticleOverview

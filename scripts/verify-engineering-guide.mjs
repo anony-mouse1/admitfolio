@@ -43,7 +43,7 @@ const SECTIONS = [
 // arithmetic.
 const CLAIMS = [
   'usually ask for more writing than the Common App essay',
-  'Two questions run through almost every engineering supplement',
+  'They run through almost every engineering supplement: why engineering, and what did you build',
   "A college's writing requirements appear once you add it in My Colleges",
   'Sooner or later an engineering supplement will ask you why engineering',
   'The standard answer is an origin story',
