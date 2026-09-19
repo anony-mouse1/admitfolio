@@ -306,13 +306,24 @@ try {
   // metadata on a payment.
   assert.deepEqual(sourceMetadata({ landingPage: '/', buyerIp: '9.9.9.9', listingId: 'other' }), { landingPage: '/' });
 
-  // THE ONE RITVIK ASKED ABOUT. Stripe rejects the whole sessions.create call
-  // over 500 characters, and /api/checkout turns that into a 502 the buyer
-  // reads as "Could not start checkout". An absurd referrer must truncate, not
-  // fail. Verified against the sandbox: 500 ok, 501 rejected.
+  // The API body is untrusted too. A modified client must not be able to put a
+  // full third-party URL, personal campaign value, or arbitrary page label into
+  // Stripe metadata even though the ordinary browser already sanitizes them.
   const absurd = 'https://example.com/' + 'a'.repeat(9_000);
-  const clamped = sourceMetadata({ landingReferrer: absurd });
-  assert.equal([...clamped.landingReferrer].length, SOURCE_VALUE_LIMIT);
+  assert.deepEqual(sourceMetadata({ landingReferrer: absurd }), {});
+  assert.deepEqual(
+    sourceMetadata({
+      landingPage: '/jane-doe-private-page',
+      landingReferrer: 'mail.example.com/inbox/private-thread',
+      landingUtm: 'source=newsletter&campaign=jane.doe@example.com',
+      checkoutPage: '/essays/engineering',
+    }),
+    {
+      landingPage: '/[other]',
+      landingUtm: 'source=newsletter&campaign=[redacted]',
+      checkoutPage: '/essays/engineering',
+    },
+  );
   assert.equal(MAX_METADATA_VALUE, 500, "Stripe's own limit, verified against the sandbox");
   assert.ok(SOURCE_VALUE_LIMIT < MAX_METADATA_VALUE, 'the clamp must sit well under the Stripe limit');
 
@@ -371,15 +382,14 @@ try {
   );
   assert.equal(MAX_SOURCE_VALUE, SOURCE_VALUE_LIMIT, 'client and server must clamp to the same length');
 
-  // Stripe counts Unicode CODE POINTS, not bytes and not UTF-16 units (500
-  // emoji at 2000 bytes are accepted; 501 CJK at 1503 bytes are not). Slicing
-  // by code point is also what stops a split surrogate reaching the API.
+  // Arbitrary values never reach the generic Stripe clamp. They become the
+  // fixed unknown-page bucket first, so even a hostile Unicode value is safe.
   const emoji = sourceMetadata({ landingPage: '\u{1F600}'.repeat(400) });
-  assert.equal([...emoji.landingPage].length, SOURCE_VALUE_LIMIT);
-  assert.ok(!/[\uD800-\uDBFF]$/.test(emoji.landingPage), 'never leave a split surrogate pair');
+  assert.equal(emoji.landingPage, '/[other]');
 
-  // Newlines would render as a broken row in the Dashboard panel.
-  assert.deepEqual(sourceMetadata({ landingPage: '  /essays\n\tengineering  ' }), { landingPage: '/essays engineering' });
+  // Newlines would render as a broken row in the Dashboard panel, and the
+  // resulting unknown route is bucketed instead of copied.
+  assert.deepEqual(sourceMetadata({ landingPage: '  /essays\n\tengineering  ' }), { landingPage: '/[other]' });
   assert.deepEqual(sourceMetadata({ landingPage: '   ' }), {});
 
   assert.deepEqual([...VISIT_SOURCE_KEYS], ['landingPage', 'landingReferrer', 'landingUtm', 'checkoutPage']);
