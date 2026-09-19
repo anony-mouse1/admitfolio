@@ -38,14 +38,6 @@ const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '
 const collectionSlug = process.env.COLLECTION_SLUG || 'common-app-personal-statement';
 const stripeKey = process.env.STRIPE_SECRET_KEY || '';
 
-// Read the clamp out of lib/commerce.ts rather than repeating it here. A
-// hardcoded copy would keep passing on the old number the day someone changes
-// the real one.
-const { readFileSync } = await import('node:fs');
-const clampSource = readFileSync(new URL('../lib/commerce.ts', import.meta.url), 'utf8');
-const SOURCE_VALUE_LIMIT = Number((clampSource.match(/SOURCE_VALUE_LIMIT\s*=\s*(\d+)/) || [])[1]);
-if (!Number.isInteger(SOURCE_VALUE_LIMIT)) throw new Error('could not read SOURCE_VALUE_LIMIT from lib/commerce.ts');
-
 if (!stripeKey.startsWith('sk_test_')) {
   throw new Error('STRIPE_SECRET_KEY must be a sandbox key (sk_test_). Refusing to run.');
 }
@@ -205,7 +197,12 @@ async function openAndMount(label) {
     `${label} hydration`,
   );
   await evaluate(HELPERS);
-  await evaluate("(() => { window.__fill('verify-probe@example.com'); window.__continue(); return 1; })()");
+  await evaluate("(() => { window.__fill('verify-probe@example.com'); return 1; })()");
+  // React commits the controlled input state after the change event. Clicking
+  // in the same evaluation can run startPayment against the previous empty
+  // state and produce no request, which makes this verifier race hydration.
+  await waitFor("document.querySelector('.buy-email-input.ok')", `${label} valid email state`);
+  await evaluate("(() => { window.__continue(); return 1; })()");
   await waitFor("window.__calls.length > 0", `${label} checkout request`);
   await pause(1500);
   const calls = await evaluate('window.__calls');
@@ -276,8 +273,9 @@ await pause(2000);
   results.push([at, id, metadata]);
   check(metadata.landingPage === `/essays/${collectionSlug}`, `${at}: landingPage is the collection (got ${JSON.stringify(metadata.landingPage)})`);
   check(metadata.checkoutPage === `/essays/${collectionSlug}`, `${at}: checkoutPage is the collection (got ${JSON.stringify(metadata.checkoutPage)})`);
-  // The referrer's query is dropped, its path is kept.
-  check(metadata.landingReferrer === 'www.google.com/search', `${at}: landingReferrer keeps the path and drops the query (got ${JSON.stringify(metadata.landingReferrer)})`);
+  // Only the referring host is retained. Paths can contain private document,
+  // inbox, intranet, or group-chat identifiers that do not belong in Stripe.
+  check(metadata.landingReferrer === 'www.google.com', `${at}: landingReferrer keeps only the host (got ${JSON.stringify(metadata.landingReferrer)})`);
   check(paymentIntent === null, `${at}: no PaymentIntent exists yet, because nothing was paid`);
   check(iframes === 1, `${at}: Stripe's payment form mounted, and nothing was paid`);
 }
@@ -365,9 +363,9 @@ await pause(2000);
 await pause(2000);
 
 // ---------------------------------------------------------------------------
-// 5. An absurdly long referrer. Stripe rejects the whole sessions.create call
-//    over 500 characters and /api/checkout turns that into a 502, so an
-//    unclamped referrer would be a buyer who cannot pay.
+// 5. An absurdly long referrer path. The browser must discard the path and send
+//    only the hostname, both to avoid copying private third-party URLs into
+//    Stripe and to keep an untrusted referrer from breaking checkout.
 // ---------------------------------------------------------------------------
 {
   const at = 'absurd referrer';
@@ -383,10 +381,9 @@ await pause(2000);
   const { id, metadata } = await metadataFor(calls[0].clientSecret);
   results.push([at, id, metadata]);
   check(
-    [...(metadata.landingReferrer || '')].length === SOURCE_VALUE_LIMIT,
-    `${at}: Stripe stored exactly ${SOURCE_VALUE_LIMIT} characters (got ${[...(metadata.landingReferrer || '')].length})`,
+    metadata.landingReferrer === 'example.com',
+    `${at}: Stripe stored only the hostname (got ${JSON.stringify(metadata.landingReferrer)})`,
   );
-  check(String(metadata.landingReferrer || '').startsWith('example.com/aaa'), `${at}: and it is the truncated referrer, not a placeholder`);
   check(iframes === 1, `${at}: Stripe's payment form still mounted`);
 }
 
