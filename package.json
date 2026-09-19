@@ -40,6 +40,7 @@
     "test:sitemap": "node scripts/sitemap.test.mjs",
     "test:structured-data": "node scripts/structured-data.test.mjs",
     "report:seller-flow-impact": "node scripts/report-seller-flow-migration-impact.mjs",
+    "report:admit-proof-coverage": "node --env-file=.env.local scripts/report-admit-proof-coverage.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
