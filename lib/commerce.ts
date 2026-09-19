@@ -192,6 +192,127 @@ export type ListingQuote = {
   essayCount: number;
 };
 
+// Where the buyer came from, as reported by their own browser. Every field is
+// optional and every field is untrusted, so nothing here is ever used for
+// money, access or fulfilment. See lib/visitSource.ts for what each one means.
+export type CheckoutSource = Partial<Record<VisitSourceKey, unknown>>;
+
+export const VISIT_SOURCE_KEYS = [
+  'landingPage',
+  'landingReferrer',
+  'landingUtm',
+  'checkoutPage',
+] as const;
+type VisitSourceKey = (typeof VISIT_SOURCE_KEYS)[number];
+
+// Stripe caps a metadata value at 500 Unicode code points and rejects the
+// ENTIRE sessions.create call when one is over, which /api/checkout turns into
+// a 502 the buyer reads as "Could not start checkout. Please try again."
+// Verified against the sandbox: 500 characters ok, 501 returns "Metadata values
+// can have up to 500 characters"; 50 keys ok, 51 rejected; key names cap at 40.
+//
+// These four values arrive from the buyer's browser, so a long referrer, a
+// stale client or a hostile one must not be able to break a purchase. Clamping
+// here rather than trusting the client is what makes that true: an absurd
+// referrer becomes a truncated referrer, never a failed checkout. The slice
+// counts code points, so it cannot leave a split surrogate pair behind.
+//
+// 400 rather than 500 is a backstop, not a margin over a measurement.
+// lib/visitSource.ts bounds each field at source: a path is at most 80
+// characters, a campaign string at most 145, and a referrer is a bare hostname
+// so at most 253. Nothing honest can reach 400. The clamp stays because this
+// value arrives in a request body from a browser, so a stale or hostile client
+// must produce a truncated field rather than a failed purchase. There is no
+// aggregate metadata cap to spend: 50 keys at 500 characters each was accepted
+// by the sandbox.
+export const MAX_METADATA_VALUE = 500;
+export const SOURCE_VALUE_LIMIT = 400;
+
+// The API request body is untrusted. The browser normally supplies one of
+// these paths, but accepting an arbitrary string here would let a modified
+// client put personal information into Stripe metadata. New public routes must
+// be added deliberately or they are grouped into /[other].
+const SOURCE_PAGE_PATHS = new Set([
+  '/', '/essays', '/guides', '/privacy', '/terms', '/purchase/success', '/purchase/[token]',
+  '/essays/uc-personal-insight-questions',
+  '/essays/common-app-personal-statement',
+  '/essays/engineering',
+  '/essays/business',
+  '/essays/biology',
+  '/essays/computer-science',
+  '/guides/engineering-application-essays',
+  '/guides/how-to-take-inspiration-from-college-essays',
+  '/guides/common-app-essay-examples',
+  '/guides/uc-piq-examples',
+  '/guides/how-to-start-a-college-essay',
+  '/guides/why-this-college-essay-examples',
+  '/guides/college-essay-format',
+  '/guides/common-app-essay-word-count',
+]);
+const OTHER_SOURCE_PAGE = '/[other]';
+const SOURCE_UTM_KEYS = ['source', 'medium', 'campaign'] as const;
+const SAFE_SOURCE_UTM_VALUE = /^[a-z0-9](?:[a-z0-9._-]{0,38}[a-z0-9])?$/;
+const SOURCE_CREDENTIAL_SHAPE = /^[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}$/;
+const SOURCE_IDENTIFIER_SHAPES = [
+  /[0-9a-f]{16,}/,
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+];
+
+function sourcePage(value: string): string {
+  return SOURCE_PAGE_PATHS.has(value) ? value : OTHER_SOURCE_PAGE;
+}
+
+function sourceReferrer(value: string): string {
+  const host = value.trim().toLowerCase();
+  if (!host || host.length > 253 || host.includes('/') || host.includes('@')) return '';
+  try {
+    const parsed = new URL(`https://${host}`);
+    return parsed.hostname === host && !parsed.port ? host : '';
+  } catch {
+    return '';
+  }
+}
+
+function sourceUtm(value: string): string {
+  const input = new URLSearchParams(value);
+  const parts: string[] = [];
+  for (const key of SOURCE_UTM_KEYS) {
+    const raw = input.get(key)?.trim().toLowerCase();
+    if (!raw) continue;
+    const safe = raw === '[redacted]' || (
+      SAFE_SOURCE_UTM_VALUE.test(raw)
+      && !SOURCE_CREDENTIAL_SHAPE.test(raw)
+      && !SOURCE_IDENTIFIER_SHAPES.some((shape) => shape.test(raw))
+    );
+    parts.push(`${key}=${safe ? raw : '[redacted]'}`);
+  }
+  return parts.join('&');
+}
+
+// Empty values are omitted rather than sent as "". A direct visit should show
+// two rows in the Stripe Dashboard's Metadata panel, not four with two blank.
+export function sourceMetadata(source: CheckoutSource | null | undefined): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (!source || typeof source !== 'object') return fields;
+  for (const key of VISIT_SOURCE_KEYS) {
+    const raw = source[key];
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.replace(/\s+/g, ' ').trim();
+    if (!trimmed) continue;
+    // Newlines and tabs render as a broken row in the Dashboard panel and have
+    // no business in a path or a host.
+    const normalized = key === 'landingPage' || key === 'checkoutPage'
+      ? sourcePage(trimmed)
+      : key === 'landingReferrer'
+        ? sourceReferrer(trimmed)
+        : sourceUtm(trimmed);
+    const points = [...normalized.replace(/\s+/g, ' ').trim()];
+    const value = points.slice(0, SOURCE_VALUE_LIMIT).join('');
+    if (value) fields[key] = value;
+  }
+  return fields;
+}
+
 // Admitfolio is a marketplace that pays sellers through Stripe Connect.
 // Managed Payments is Stripe's merchant-of-record product and does not support
 // Connect marketplaces, so every Checkout Session must opt out explicitly.
@@ -201,8 +322,16 @@ export function checkoutSessionParams(
   deliveryEmail: string,
   siteUrl: string,
   checkoutRecoveryEnabled = false,
+  source?: CheckoutSource | null,
 ) {
   const origin = siteUrl.replace(/\/$/, '');
+  // Mirrored onto the PaymentIntent as well as the Session, and that is the
+  // half that matters. A Checkout Session has no page in the Stripe Dashboard
+  // at all (a direct /checkout/sessions/<id> URL bounces to the home screen),
+  // so session metadata is only readable through the API or Workbench. The
+  // PaymentIntent is what Transactions > Payments > a payment opens, and its
+  // Metadata panel is where anyone will actually look.
+  const sourceFields = sourceMetadata(source);
   return {
     mode: 'payment' as const,
     ui_mode: 'embedded_page' as const,
@@ -249,12 +378,14 @@ export function checkoutSessionParams(
       amountCents: String(quote.amountCents),
       itemLabel: quote.itemLabel,
       buyerIp: buyerIp || '',
+      ...sourceFields,
     },
     payment_intent_data: {
       metadata: {
         checkoutVersion: CHECKOUT_VERSION,
         purchaseUnit: PURCHASE_UNIT,
         listingId: quote.listingId,
+        ...sourceFields,
       },
     },
     return_url: `${origin}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,

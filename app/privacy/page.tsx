@@ -25,7 +25,7 @@ export default function PrivacyPage() {
       </header>
 
       <h1>Privacy Policy</h1>
-      <p className="legal-date">Effective date: August 26, 2026</p>
+      <p className="legal-date">Effective date: September 19, 2026</p>
 
       <p>
         Admitfolio (&ldquo;Admitfolio,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) operates admitfolio.com, a
@@ -69,6 +69,13 @@ export default function PrivacyPage() {
         tools are designed to be privacy-friendly: they do not use cookies and do not track visitors across
         websites. Data is aggregated (for example, page views and country-level location) and visitor
         identifiers are anonymized and short-lived.
+      </p>
+      <p>
+        When you start checkout, we record which Admitfolio page you first visited, which page you started
+        checkout from, the referring website&apos;s domain, and limited campaign labels from the link you used.
+        This information is kept in session storage for the current browser tab and sent to Stripe with the
+        checkout so we can understand which pages and channels lead to purchases. We do not send the referring
+        website&apos;s full URL, and campaign values that may contain personal information are removed.
       </p>
       <p>
         Our hosting provider also keeps standard server logs (such as IP address, browser type, and pages
