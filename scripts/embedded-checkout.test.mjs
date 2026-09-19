@@ -502,8 +502,8 @@ assert.match(
 // Claims. Each one was checked against the live catalogue. Nothing here says an
 // acceptance letter was checked, because 195 of the 201 on file never were.
 assert.match(checkoutRendered, /The seller proved a college email/);
-assert.match(checkoutRendered, /A review panel read the essays/);
-assert.match(checkoutRendered, /A person made the final call/);
+assert.match(checkoutRendered, /A person reviewed the listing/);
+assert.match(checkoutRendered, /Automation did not publish it/);
 assert.match(checkoutRendered, /Your copy is yours/);
 assert.doesNotMatch(
   checkoutRendered,

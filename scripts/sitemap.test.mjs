@@ -19,7 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const PRODUCTION_ORIGIN = 'https://admitfolio.com';
-const STATIC_PATHS = ['/', '/guides', '/essays', '/privacy', '/terms'];
+const STATIC_PATHS = ['/', '/guides', '/legit', '/essays', '/privacy', '/terms'];
 
 function toDataUrl(source) {
   const output = ts.transpileModule(source, {
@@ -57,9 +57,14 @@ async function render(scenario, env) {
     // lib/collections.ts imports GuideSlug as a type only, so transpiling drops
     // that import and only lib/site.ts has to be relinked.
     const collections = toDataUrl(relink(read('lib/collections.ts'), './site', site) + tag);
+    const legit = toDataUrl(relink(read('lib/legit.ts'), './site', site) + tag);
     const sitemap = toDataUrl(
       relink(
-        relink(relink(read('app/sitemap.ts'), '@/lib/guides', guides), '@/lib/collections', collections),
+        relink(
+          relink(relink(read('app/sitemap.ts'), '@/lib/guides', guides), '@/lib/collections', collections),
+          '@/lib/legit',
+          legit,
+        ),
         '@/lib/site',
         site,
       ) + tag,
@@ -106,6 +111,21 @@ for (const slug of directories) {
   assert.ok(fs.existsSync(path.join(root, 'app/guides', slug, 'page.tsx')), `${slug} has a page`);
 }
 assert.equal(new Set(guides.map((guide) => guide.slug)).size, guides.length, 'slugs are unique');
+
+// /legit is a single hand-written page rather than a registry entry, so the
+// deepEqual on STATIC_PATHS below is the only thing holding it in the sitemap.
+// That would still pass if the route and the sitemap entry were removed
+// together, which is exactly how the site's answer to its third biggest search
+// query would quietly disappear. Assert the file too.
+assert.ok(
+  fs.existsSync(path.join(root, 'app/legit/page.tsx')),
+  '/legit is in the sitemap, so the page has to exist',
+);
+assert.equal(
+  (await import(toDataUrl(relink(read('lib/legit.ts'), './site', toDataUrl(read('lib/site.ts')))))).LEGIT_PATH,
+  '/legit',
+  'LEGIT_PATH is the path the sitemap and every link to it are built from',
+);
 
 // Registry values are well formed. A date has to round-trip, which catches a
 // day that does not exist in its month as well as a typo in the format.

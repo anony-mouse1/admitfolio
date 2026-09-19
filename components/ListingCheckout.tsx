@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import LogoBadge from '@/components/LogoBadge';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
+import { LEGIT_PATH } from '@/lib/legit';
 import { priceLabel, type CheckoutItem } from '@/lib/publicListing';
 import { schoolColor, schoolInfo } from '@/lib/schools';
 
@@ -245,13 +246,13 @@ export default function ListingCheckout({
         </li>
         <li>
           <div className="buy-proof-copy">
-            <strong>A review panel read the essays</strong>
-            <span>Every submission is screened before anyone sees it. Anything the panel is unsure about is held back.</span>
+            <strong>A person reviewed the listing</strong>
+            <span>A person reviews the listing and essay package before deciding whether it can be published.</span>
           </div>
         </li>
         <li>
           <div className="buy-proof-copy">
-            <strong>A person made the final call</strong>
+            <strong>Automation did not publish it</strong>
             <span>No listing goes live on an automated decision alone. Someone approved this one by hand.</span>
           </div>
         </li>
@@ -262,6 +263,14 @@ export default function ListingCheckout({
           </div>
         </li>
       </ol>
+      {/* The one link out of the payment screen, and deliberately the only one.
+          Someone who has got this far and stalled is asking whether the site is
+          real, and the four claims above are the short version of a page that
+          answers it in full. Opens in a new tab so an abandoned read does not
+          also abandon a checkout that is already halfway through. */}
+      <a className="buy-proof-more" href={LEGIT_PATH} target="_blank" rel="noopener noreferrer">
+        How we verify sellers, and what happens if there is a problem
+      </a>
     </>
   );
 

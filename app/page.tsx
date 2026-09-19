@@ -14,6 +14,7 @@ import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, sc
 import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
 import { organizationSchema, serializeJsonLd } from '@/lib/structuredData';
 import { COLLECTIONS_PATH, collectionPath, collections, listingsInCollection } from '@/lib/collections';
+import { LEGIT_PATH } from '@/lib/legit';
 import type { ListingPriceSave } from '@/components/seller/ListingPricePanel';
 import { PROFILE_TAGS } from '@/lib/site';
 import type { Anonymity } from '@/lib/anonymity';
@@ -2823,7 +2824,7 @@ export default function Page() {
             </div>
             <div>
               <div className="foot-col-title">Product</div>
-              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/essays">Essay collections</a><a href="/guides">Blog</a></div>
+              <div className="foot-links"><a href="#browse">Browse essays</a><a href="#how">How it works</a><a onClick={openSell}>Sell your essay</a><a href="/essays">Essay collections</a><a href="/guides">Blog</a><a href={LEGIT_PATH}>Is Admitfolio legit?</a></div>
             </div>
             <div>
               <div className="foot-col-title">Legal</div>
