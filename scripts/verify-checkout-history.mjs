@@ -147,8 +147,11 @@ await command('Runtime.enable');
 await command('Log.enable');
 await command('Page.addScriptToEvaluateOnNewDocument', { source: instrument });
 
+// 1440 and 390, the two widths this work is reviewed at. Desktop was 1280,
+// which is not a width anyone here measures against, and the sticky bar and the
+// checkout columns both have breakpoints between the two.
 const VIEWPORTS = {
-  desktop: { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false },
+  desktop: { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false },
   mobile: { width: 390, height: 844, deviceScaleFactor: 2, mobile: true },
 };
 

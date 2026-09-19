@@ -1,237 +1,75 @@
-# Handover: the checkout stack, one screen plus the Back button
+# Handover: the checkout Back button
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
-## Branches and bases
+## Branch and base
 
-The lower half of the stack has landed. One branch is left.
+Branch `ritvik/checkout-back-button`, PR #89. Rebased onto `main` at `a18fce4`,
+after #93, #95 and #97 merged.
 
-- **`ritvik/checkout-one-screen`** merged on 13 Sep as **PR #88**, merge commit
-  `1dd2bd9`. It did not merge as it stood here: one further commit went on it
-  first, `7d78774` "Fix checkout teardown and preserve funnel semantics", which
-  is **not on this branch**. See "The commit this branch does not have" below.
-  `main` has since taken **#90** on top (`3e88554`).
-- **`ritvik/checkout-back-button`**, open as **PR #89** against `main`, three
-  commits. It was rebased onto `c0abfa1`, the tip `ritvik/checkout-one-screen`
-  had at the time, because both branches rewrite the same part of
-  `components/ListingCheckout.tsx` and they cannot merge independently.
-  **Force-pushed 13 Sep** with `--force-with-lease`. The two pre-rebase commits
-  it replaced carried no work that is not in the three.
+## Why
 
-Both questions this section used to leave open are now closed. **#89 keeps
-`main` as its base, and that is correct.** `c0abfa1` is an ancestor of `main`,
-so the merge base is `c0abfa1` and the PR diff is this branch's three commits
-and nothing else. No retarget is needed.
+Closing checkout pushed a history entry where closing the detail sheet pops one.
+A visitor who unlocked a listing, closed checkout and pressed Back went forward
+into the payment screen they had just left.
 
-## The commit this branch does not have
+## What changed
 
-`7d78774` went onto `ritvik/checkout-one-screen` after this branch was rebased
-off it, so this branch is built on the version before it. It moves the
-`Checkout Email Submitted` event out of the blur handler and into the deliberate
-proceed handler, keeping the funnel stage comparable with the two-step numbers.
+- `closeBuy` pops the entry `openBuy` pushed instead of pushing a new one.
+- A checkout opened straight from a card returns to the catalogue, not to a
+  listing sheet that was never opened. The control says "Back to essays" on that
+  path and "Back to listing" on the sheet path.
+- A pasted `?checkout=` link has nothing to pop, so closing it replaces rather
+  than pushes.
+- `scripts/verify-checkout-history.mjs` drives Chrome over the DevTools protocol
+  and attributes every history write to its caller.
 
-**It is not lost by merging #89.** A three-way merge against current `main` was
-run to check: `components/ListingCheckout.tsx` and
-`scripts/embedded-checkout.test.mjs` both auto-merge, and the merged file
-reports the event once, from the proceed handler. The two branches changed
-different hunks.
+## Retest after the rebase, 2026-09-19
 
-**`HANDOVER.md` is the one conflict.** `main` carries the #90 handover at this
-path and this branch carries the checkout one, so the whole file collides. It is
-a conflict between two unrelated documents, not between two versions of the same
-work, and resolving it means choosing which handover `main` should hold, not
-reconciling anything. That is why #89 reads as conflicting on GitHub.
+Re-run from scratch against `main` at `a18fce4`. Nothing is carried over from
+the run recorded before the rebase.
 
-## Why the Back button work exists
+- 12 of 12 scenarios pass at 1440, and 12 of 12 at 390. The suite is run twice,
+  once at each width, so every scenario is exercised at both rather than only
+  the mobile pill scenario.
+- The desktop viewport in the script moved from 1280 to 1440, the width this
+  project reviews against.
+- First paint, before any JavaScript runs, checked by reading the served HTML
+  directly. A collection page at `?checkout=` serves the overlay already open
+  with the pill reading "Back to listing", and at `?listing=` serves the sheet
+  with the overlay closed. The homepage serves neither at either URL, which is
+  the known client-rendered homepage limitation and not something this branch
+  introduces or can fix.
+- One scenario aborted once on the first run with "Not attached to an active
+  page", a CDP detach rather than a product failure. It passed on every re-run
+  at both widths.
 
-Browse, open a listing, unlock, close checkout by any means, press Back, and
-Back took you forward into the payment screen.
+## The bug on main, still present
 
-`closeBuy` pushed a `?listing=` entry where `closeDetail` pops. The stack read
-browse, listing, checkout, listing, with the visitor on the last of those, so
-the entry behind them was the checkout they had just closed.
+Measured, not assumed. The same script against `main` at `a18fce4` fails
+**25 checks at 1440 and 25 at 390**.
 
-## Why the Codex commit exists
+Every one of the 25 is a homepage scenario. The three collection-page scenarios
+pass on `main`, because #88 already fixed that path when it merged. What is left
+for this branch to fix is the homepage only:
 
-Fatimah ran Codex over #88 and #89. Three findings, all reproduced in a browser
-before anything was changed, all fixed on `ritvik/checkout-one-screen`.
+- The card path labels itself "Back to listing" when no listing sheet was ever
+  opened.
+- The in-page back link, the x, Escape and the mobile pill each land three
+  entries deep instead of back where the visitor came from, and each leaves
+  `?listing=` on a path that never had a sheet.
+- A Back after any of those four goes forward into `?checkout=`, which is the
+  original complaint.
+- Closing a pasted `?checkout=` link pushes instead of replacing.
 
-**Reopening the dialog created a Stripe Checkout Session nobody asked for.**
-This is the "race" finding, and it is not a race: it is deterministic and it
-fires on every reopen. The reset that empties the field ran in an effect
-guarded on `open`, so closing left `mountedEmail` set. React runs a child's
-effects before its parent's, so the first commit after a reopen rendered with
-the previous address still there and `EmbeddedListingCheckout`'s mount effect
-fired before the reset cleared it. One frame, one real session, one Link SMS to
-anyone whose number is on a Link account, for a dialog whose email field the
-buyer could see was empty.
+## Verification
 
-The mount queue never saw a problem. It serialises Stripe objects and it did
-that correctly throughout: no `IntegrationError`, no hung card. It was never
-asked whether a session should exist at all, which is the question this bug
-turns on.
+- `npx tsc --noEmit` clean.
+- All 28 `test:*` scripts pass.
+- The history verifier needs a running dev server and a Chrome started with
+  `--remote-debugging-port`. It is not in `package.json` and not eligible for
+  `test:*`, which is pure.
 
-Measured on `npx next build` plus `npx next start`, 390x844: close and reopen
-spent **two sessions a round instead of one**, and the fourth round crossed the
-8 per minute per IP throttle on `/api/checkout`. The reset now runs during
-render, which re-renders before anything commits, so there is no frame to mount
-in.
+## What is left
 
-**A failed mount left nothing to try again with.** The dead mount stayed on
-screen, which kept `mounted` true, which is the one condition under which the
-Continue control does not render. "Could not load secure checkout. Please try
-again." had nothing behind it, and the throttle above is what makes that
-reachable. The mount is now dropped on failure and the control comes back
-saying **Try again**, with the address still in the field.
-
-**The control had a disabled state it should never have had.** `aria-disabled`
-announced "unavailable" about a button that took the click and answered every
-time, and the half opacity and default cursor said the same thing to everyone
-who could see it. Both are gone. It always does something: a valid address
-mounts the payment form, an empty or malformed one says why.
-
-Making the button honest was only half of it, so the field's message is now a
-live region (`role="alert"`) that the input points at with `aria-describedby`.
-It used to be a red line only sighted buyers could read. `aria-invalid` marks a
-bad **address** and not a failed request, since the field keeps its valid tick
-through a 429.
-
-**Not changed, deliberately.** Checkout Email Submitted still fires on blur with
-a valid address, unchanged since 7 Sep, so the two weeks of funnel numbers the
-whole PR is argued from stay comparable. Codex wanted it moved to the Continue
-click. The review panel copy is untouched; Fatimah confirmed she checked those
-by email before the upload flow existed, so the claim holds even where the
-database row is missing.
-
-## What the rebase conflicted on
-
-One place, in `components/ListingCheckout.tsx`: the order panel. #89 was written
-against the two-screen checkout, where that section is a logo, an eyebrow, an
-`h3`, an intro line and a `buy-summary` block. #88 replaced all of it with the
-one-row `buy-order-row`. The one-screen markup wins, and the only thing #89
-wanted in that hunk is the back control naming its real destination, so
-`← Back to listing` became `← {backLabel}`.
-
-`returnTo`, `backLabel` and the `modal-close` `aria-label` merged cleanly above
-the conflict. `app/page.tsx`, `components/CollectionBrowser.tsx` and
-`scripts/embedded-checkout.test.mjs` merged without conflict.
-
-## Verification completed
-
-Two by-hand browser scripts, both run against the rebased branch, both green.
-
-```
-npx next dev -p 3000
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
-  --remote-debugging-port=9223 --user-data-dir=/tmp/chrome-admitfolio about:blank
-node scripts/verify-checkout-history.mjs
-node scripts/verify-checkout-one-screen.mjs
-```
-
-Neither is in `package.json` and neither may go in `test:*`: they need a dev
-server and a browser, and `test:*` is pure. Neither ever clicks Pay.
-
-**`scripts/verify-checkout-history.mjs`**, from #89. `pushState`,
-`replaceState`, `back` and `forward` are wrapped in
-`Page.addScriptToEvaluateOnNewDocument`, so every write is attributed to the
-function that made it, and a mirrored stack makes the effect of a Back
-predictable. Twelve scenarios pass. Run against the pre-fix code first, where it
-reproduces the bug: `then browser Back` lands on `/?checkout=` with the dialog
-open.
-
-**`scripts/verify-checkout-one-screen.mjs`**, new. Both mounts (homepage and a
-collection page) at 390 and 1440, at landing, empty click, mid-type, mounted and
-reopen, plus the retry at both widths and the close-and-reopen gesture five
-times over. It counts Stripe sessions rather than trusting the DOM, by wrapping
-`createEmbeddedCheckoutPage`. One live `/api/checkout` call per run, cached in
-`sessionStorage`, because the throttle is 8 a minute and every call bills a real
-sandbox session.
-
-It also gates on hydration before clicking. A collection page server-renders the
-dialog, so the control is on screen and inert for about 230ms under `next dev`;
-clicking into that gap failed the script on something that is not what it
-measures. See "Found but not fixed".
-
-Also: `npx tsc --noEmit` clean, all 27 `test:*` pass, `pricing` and `name-leak`
-pass by hand, `npx next build` succeeds. Never `npm run build`; it applies
-migrations. Every new assertion in `scripts/embedded-checkout.test.mjs` was
-confirmed to fail when the thing it guards is broken, 14 mutations, 14 caught;
-so were the five browser checks, including putting the reset back into an effect,
-which brings the reopen bug back and takes the five-round gesture from 5 sessions
-to 10. No database write, no migration, no script. No email typed, no checkout
-completed.
-
-## What is left, and whose it is
-
-1. **Done: #88 merged, #89 force-pushed.** Nothing is unpushed. #89 stays
-   based on `main` and its diff is its own three commits.
-2. **Fatimah: #89 needs a review, and it conflicts on `HANDOVER.md` only.**
-   The resolution is a choice about which handover `main` keeps, not a merge of
-   the checkout work. Nobody has made that choice yet, so it was left alone.
-3. **Ritvik: the `7d78774` gap is checked but not re-tested in a browser.** The
-   merge was verified to keep the funnel fix by reading the merged file, not by
-   running the flow with both changes in place. Worth one pass before merge.
-4. No hand-run step. No migration, no backfill.
-
-## Found but not fixed
-
-Everything under here was verified, none of it was changed.
-
-- **A collection page ships the checkout dialog in its server-rendered HTML,**
-  so "Continue to payment" is on screen and inert until React attaches: about
-  230ms under `next dev`, less under `next start`, never zero. A buyer who taps
-  it in that window gets nothing and has no way to know why. Pre-existing on
-  both branches, and the homepage does not have it because its dialog waits on
-  a client fetch of the catalogue anyway.
-- **`releaseSlot`'s `setTimeout(0)` yield is not load-bearing.** Tested
-  directly against Stripe.js with a real client secret: create, mount, destroy
-  and create again in the same microtask turn is fine, and so is destroying an
-  instance that was created but never mounted. The only thing Stripe rejects is
-  **two live objects**, which is what the queue prevents. Harmless, but the
-  comment claims more than the yield does.
-- **Once a create throws, the page is finished.** Confirmed the same way: the
-  instance that was already alive is never handed back, so nothing can destroy
-  it, and every later `createEmbeddedCheckoutPage` on that page throws
-  "You cannot have multiple Embedded Checkout objects" for the life of the
-  document. Nothing currently reaches that state, but it is why the queue
-  matters.
-- **`EmbeddedListingCheckout`'s cancelled branch calls `instance.destroy()`
-  raw,** outside `releaseSlot` and outside any `try`. It does not set
-  `liveCheckout`, so if that destroy ever threw, the slot would leak and the
-  point above would follow. Latent, not live: destroy on an unmounted instance
-  was tested and does not throw.
-- **`detailPushedRef` is cleared by every popstate, including one that lands on
-  an entry `openDetail` pushed.** Back out of checkout to `?listing=`, then
-  close the sheet: the ref is already false, so `closeDetail` replaces instead
-  of popping and the next Back is a press that changes nothing visible. One
-  dead press, no wrong screen. The same `history.state` trick `openBuy` now
-  uses would fix it.
-- **`CollectionBrowser`'s `closeCheckout` does not clear `checkoutPushedRef`
-  before `history.back()`,** where `close` does. Harmless today, `onPop` clears
-  it, and the ref is only true when an entry really was pushed, so the `back()`
-  always lands. Asymmetric to read.
-- **`.ecard-unlock` is a `div` with an `onClick`,** no `role`, no `tabIndex`,
-  no key handler (`components/PublicListingCard.tsx:38`). The card around it is
-  a proper `role="button"` with Enter and Space. So a keyboard user can open a
-  listing but cannot unlock one from the catalogue. Pre-existing.
-- **Two links share `.home-see-more`** since the collections band shipped. The
-  band's goes to `/essays`, Featured's opens the catalogue in place. Styling
-  reuse, not a bug, but `document.querySelector('.home-see-more')` picks the
-  wrong one.
-- **Four layers patch `history.pushState` on every page:** this repo's callers
-  sit under Next's App Router, Vercel Analytics and Vercel Speed Insights.
-  Next's own `replaceState` runs immediately after each of our pushes and
-  spreads the existing state, which is why `{ checkout: id }` survives. That is
-  load-bearing for the Forward restore and is asserted.
-- **`openBuy` builds its URL from `new URL('/', origin)`,** so it drops the
-  hash. `#browse` is restored by the `back()` and nothing observable breaks,
-  but a shared or reloaded `?checkout=` link loses the catalogue view.
-
-## Environment
-
-Unchanged. `DATABASE_URL` points at the production Supabase project. Reads are
-authorized, writes are not. There is no `.env` and no `prisma/.env`; do not
-create one. Next 16.3's dev server appends a generated block to `AGENTS.md` on
-every `npx next dev` start; check `git status` for it and revert before
-committing. Ritvik's uncommitted `.gitignore` change is his and was left
-unstaged.
+Review and merge. No migration, backfill, database write or hand-run deploy step.
