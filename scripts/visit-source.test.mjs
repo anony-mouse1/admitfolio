@@ -43,6 +43,7 @@ try {
   const {
     LANDING_STORAGE_KEY,
     MAX_SOURCE_VALUE,
+    OTHER_PATH,
     pathLabel,
     readLanding,
     recordLanding,
@@ -92,8 +93,12 @@ try {
   const fromReadingPage = pathLabel(`https://admitfolio.com/purchase/${token}`);
   assert.equal(fromReadingPage, '/purchase/[token]');
   assert.ok(!fromReadingPage.includes(token), 'the access token must never survive into metadata');
-  // Miscased, so it 404s, but the 404 still renders inside the root layout.
-  assert.equal(pathLabel(`https://admitfolio.com/PURCHASE/${token}`), '/PURCHASE/[token]');
+  // Miscased, so it 404s, but the 404 still renders inside the root layout. The
+  // token is redacted first and the path then fails the route shape, so it ends
+  // up in the bucket. Either answer is safe; what matters is the token is gone.
+  const miscased = pathLabel(`https://admitfolio.com/PURCHASE/${token}`);
+  assert.equal(miscased, OTHER_PATH);
+  assert.ok(!miscased.includes(token), 'the access token must never survive into metadata');
   // A path segment that merely looks like a credential goes too, wherever it is.
   assert.equal(pathLabel(`https://admitfolio.com/anything/${token}`), '/anything/[token]');
 
@@ -101,20 +106,65 @@ try {
   assert.equal(pathLabel(''), '');
   assert.equal(pathLabel('javascript:alert(1)'), '');
 
-  // ---- referrerLabel: host plus path, never the query -----------------------
+  // ---- the landing page is whatever URL the visitor arrived on -------------
+  // A 404 on our own domain renders inside the root layout, where the landing
+  // is recorded, so the path is not guaranteed to be one of our routes. It is
+  // bounded to the shape our routes have, and anything else becomes a bucket.
+  assert.equal(pathLabel('https://admitfolio.com/Jane%20Doe%20lives%20at%2012%20Oak%20St'), OTHER_PATH);
+  assert.equal(pathLabel('https://admitfolio.com/a/b/c/d/e'), OTHER_PATH, 'more segments than any route has');
+  assert.equal(pathLabel(`https://admitfolio.com/${'z'.repeat(90)}`), OTHER_PATH, 'longer than any route is');
+  assert.equal(pathLabel('https://admitfolio.com/essays/'), '/essays', 'one spelling per page');
+  assert.equal(pathLabel('https://admitfolio.com//essays//engineering'), '/essays/engineering');
+  // Every real route still passes, which is the half that is easy to break.
+  for (const route of [
+    '/',
+    '/essays',
+    '/essays/uc-personal-insight-questions',
+    '/essays/common-app-personal-statement',
+    '/guides',
+    '/guides/how-to-take-inspiration-from-college-essays',
+    '/purchase/success',
+    '/privacy',
+    '/terms',
+  ]) {
+    assert.equal(pathLabel(`https://admitfolio.com${route}`), route, `${route} must survive intact`);
+  }
+  // This is a bound, not a proof, and the gap is deliberate rather than missed:
+  // a lowercase hyphenated 404 is indistinguishable from a route by shape alone.
+  assert.equal(
+    pathLabel('https://admitfolio.com/jane-doe-lives-at-12-oak-st'),
+    '/jane-doe-lives-at-12-oak-st',
+    'documented residual: closing this means importing the route registries into every page bundle',
+  );
+
+  // ---- referrerLabel: the HOST, and nothing else ---------------------------
+  // The path is dropped along with the query and the hash. A referrer URL is a
+  // page on somebody else's site: webmail, a shared document, an intranet, a
+  // private group chat. None of it is ours to copy into the Stripe Dashboard,
+  // and the host alone answers which channel earned the sale.
   assert.equal(referrerLabel('https://www.google.com/', 'https://admitfolio.com'), 'www.google.com');
   assert.equal(
     referrerLabel('https://www.reddit.com/r/ApplyingToCollege/comments/abc/def/', 'https://admitfolio.com'),
-    'www.reddit.com/r/ApplyingToCollege/comments/abc/def/',
+    'www.reddit.com',
   );
-  // The query is DROPPED rather than redacted. It is the part of a referrer
-  // most likely to carry someone else's personal data, and none of it answers
-  // "which site sent them".
   assert.equal(
-    referrerLabel('https://mail.example.com/inbox?msg=personal-thread-id&user=someone%40example.com', 'https://admitfolio.com'),
-    'mail.example.com/inbox',
+    referrerLabel('https://mail.example.com/mail/u/0/inbox/msg-4471?user=someone%40example.com', 'https://admitfolio.com'),
+    'mail.example.com',
   );
-  assert.equal(referrerLabel('https://www.bing.com/search?q=how+to+start+a+college+essay', 'https://admitfolio.com'), 'www.bing.com/search');
+  assert.equal(
+    referrerLabel('https://docs.example.com/document/d/1AbCdEfGhIjKlMnOp/edit', 'https://admitfolio.com'),
+    'docs.example.com',
+  );
+  assert.equal(
+    referrerLabel('https://wiki.acme-corp.example/teams/admissions/private-notes', 'https://admitfolio.com'),
+    'wiki.acme-corp.example',
+  );
+  // A search query is in the query string, which was already dropped, but the
+  // path is gone too so /search does not survive either.
+  assert.equal(referrerLabel('https://www.bing.com/search?q=how+to+start+a+college+essay', 'https://admitfolio.com'), 'www.bing.com');
+  // Nothing in a referrer may be capitalised into a second spelling of the same
+  // host, or the Dashboard splits one channel across two rows.
+  assert.equal(referrerLabel('https://WWW.Reddit.COM/r/x', 'https://admitfolio.com'), 'www.reddit.com');
   // Same origin says nothing about acquisition, and is where our own token
   // would arrive if Referrer-Policy: no-referrer were ever relaxed.
   assert.equal(referrerLabel(`https://admitfolio.com/purchase/${token}`, 'https://admitfolio.com'), '');
@@ -130,9 +180,48 @@ try {
     'source=newsletter&medium=email&campaign=ea-deadline',
   );
   assert.equal(utmLabel('https://admitfolio.com/?utm_source=reddit'), 'source=reddit');
+  assert.equal(utmLabel('https://admitfolio.com/?utm_source=google.com'), 'source=google.com');
+  // One spelling per channel, or the Dashboard splits it in two.
+  assert.equal(utmLabel('https://admitfolio.com/?utm_source=Newsletter'), 'source=newsletter');
   // A credential-shaped utm value is redacted by lib/redactAnalyticsUrl before
   // it is read, which is the whole reason utm is read off the redacted URL.
   assert.equal(utmLabel(`https://admitfolio.com/?utm_source=${token}`), 'source=[redacted]');
+
+  // ---- utm values are third-party text, so they are checked, not trusted ----
+  // These are not ours. Whoever built the link typed them, and mail platforms
+  // in particular expand a merge tag into a per-recipient identifier. None of
+  // that may reach Stripe metadata.
+  //
+  // The KEY survives every redaction. A campaign whose value is unsafe is still
+  // a campaign visit, and dropping the key would file it as organic, which is
+  // the opposite of what this feature is for.
+  assert.equal(
+    utmLabel('https://admitfolio.com/?utm_source=newsletter&utm_campaign=jane.doe@example.com'),
+    'source=newsletter&campaign=[redacted]',
+    'an email address in a campaign must never reach Stripe',
+  );
+  assert.equal(
+    utmLabel('https://admitfolio.com/?utm_campaign=Jane%20Doe%20Parent%20List'),
+    'campaign=[redacted]',
+    'nor a person\'s name',
+  );
+  assert.equal(
+    utmLabel('https://admitfolio.com/?utm_source=mailchimp&utm_medium=email&utm_campaign=sub_18f2a9c4b7e1d0a3f5c8b2e6d9a1f4c7'),
+    'source=mailchimp&medium=email&campaign=[redacted]',
+    'a per-recipient identifier is redacted while the channel survives',
+  );
+  assert.equal(
+    utmLabel('https://admitfolio.com/?utm_campaign=550e8400-e29b-41d4-a716-446655440000'),
+    'campaign=[redacted]',
+    'nor a uuid',
+  );
+  // 40 characters of campaign name is fine; 41 is not a campaign name.
+  assert.equal(utmLabel(`https://admitfolio.com/?utm_campaign=${'z'.repeat(40)}`), `campaign=${'z'.repeat(40)}`);
+  assert.equal(utmLabel(`https://admitfolio.com/?utm_campaign=${'z'.repeat(41)}`), 'campaign=[redacted]');
+  // The identifier heuristic over-redacts, on purpose and in the safe
+  // direction: a campaign name that is 16 or more characters drawn only from
+  // a-f and 0-9 is indistinguishable from a hex id, so it is treated as one.
+  assert.equal(utmLabel(`https://admitfolio.com/?utm_campaign=${'a'.repeat(16)}`), 'campaign=[redacted]');
 
   // ---- recordLanding: FIRST WRITE WINS -------------------------------------
   // This is the entire mechanism. VisitSource mounts on every route, so a
@@ -248,29 +337,38 @@ try {
   // The only route that looks unbounded is not: the token is redacted away.
   assert.equal(pathLabel(`https://admitfolio.com/purchase/${token}`).length, 17);
 
-  // The referrer is the one field with no ceiling, and it is what set the
-  // margin. A long r/ApplyingToCollege thread is an obvious traffic source for
-  // this product, not a contrived example, and it measured 192 characters.
+  // The referrer used to be the one field with no ceiling, which is what set
+  // the 400 margin. It is a bare hostname now, so it has the only ceiling a
+  // hostname can have, and that long forum thread reduces to 15 characters.
   const longRedditThread = referrerLabel(
     'https://old.reddit.com/r/ApplyingToCollege/comments/1abc2de/i_read_two_hundred_accepted_common_app_personal_statements_and_here_is_what_every_single_one_of_them_had_in_common_a_very_long_thread_title/?sort=confidence&limit=500',
     'https://admitfolio.com',
   );
-  assert.equal(longRedditThread.length, 192);
-  assert.ok(
-    longRedditThread.length < SOURCE_VALUE_LIMIT,
-    'a real forum thread referrer must survive the clamp intact, not arrive truncated',
-  );
-  assert.ok(
-    longRedditThread.length * 2 <= SOURCE_VALUE_LIMIT,
-    'and with enough room that a slightly longer thread title does not truncate either',
-  );
+  assert.equal(longRedditThread, 'old.reddit.com');
+  assert.ok(longRedditThread.length < SOURCE_VALUE_LIMIT);
 
-  // A long but plausible campaign, as a newsletter or a Reddit post would set.
-  const plausibleUtm = utmLabel(
-    'https://admitfolio.com/essays/common-app-personal-statement?utm_source=reddit-applyingtocollege&utm_medium=social-organic&utm_campaign=common-app-personal-statement-collection-launch-september-2026',
+  // Every field is now bounded before the clamp, so this is arithmetic rather
+  // than a measurement of what happened to turn up. The longest value any of
+  // them can produce is a 253 character hostname, and the clamp is a backstop
+  // against an untrusted client rather than a margin over a sample.
+  const worstUtm = utmLabel(
+    `https://admitfolio.com/?utm_source=${'z'.repeat(40)}&utm_medium=${'y'.repeat(40)}&utm_campaign=${'x'.repeat(40)}`,
   );
-  assert.equal(plausibleUtm.length, 125);
-  assert.ok(plausibleUtm.length < SOURCE_VALUE_LIMIT, 'a plausible campaign must survive intact');
+  assert.equal(worstUtm.length, 145, 'the longest campaign string the rules can emit');
+  assert.ok(worstUtm.length < SOURCE_VALUE_LIMIT);
+  assert.ok(
+    pathLabel(`https://admitfolio.com/${'z'.repeat(200)}`).length < SOURCE_VALUE_LIMIT,
+    'and an absurd path becomes a bucket rather than a long value',
+  );
+  // A long but plausible campaign still survives intact, which is the half that
+  // tightening the rules could easily have broken.
+  const plausibleUtm = utmLabel(
+    'https://admitfolio.com/essays/common-app-personal-statement?utm_source=reddit-applyingtocollege&utm_medium=social-organic&utm_campaign=common-app-collection-launch-2026',
+  );
+  assert.equal(
+    plausibleUtm,
+    'source=reddit-applyingtocollege&medium=social-organic&campaign=common-app-collection-launch-2026',
+  );
   assert.equal(MAX_SOURCE_VALUE, SOURCE_VALUE_LIMIT, 'client and server must clamp to the same length');
 
   // Stripe counts Unicode CODE POINTS, not bytes and not UTF-16 units (500

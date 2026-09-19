@@ -217,12 +217,14 @@ type VisitSourceKey = (typeof VISIT_SOURCE_KEYS)[number];
 // referrer becomes a truncated referrer, never a failed checkout. The slice
 // counts code points, so it cannot leave a split surrogate pair behind.
 //
-// 400 rather than 500 is a measured margin; lib/visitSource.ts shows the
-// numbers it came from. Briefly: the longest of the 20 public routes is 51
-// characters, a plausible campaign is 125, and the longest realistic referrer
-// measured was a 192 character r/ApplyingToCollege thread. 400 is double that
-// and still 100 short of the hard limit. There is no aggregate metadata cap to
-// spend: 50 keys at 500 characters each was accepted by the sandbox.
+// 400 rather than 500 is a backstop, not a margin over a measurement.
+// lib/visitSource.ts bounds each field at source: a path is at most 80
+// characters, a campaign string at most 145, and a referrer is a bare hostname
+// so at most 253. Nothing honest can reach 400. The clamp stays because this
+// value arrives in a request body from a browser, so a stale or hostile client
+// must produce a truncated field rather than a failed purchase. There is no
+// aggregate metadata cap to spend: 50 keys at 500 characters each was accepted
+// by the sandbox.
 export const MAX_METADATA_VALUE = 500;
 export const SOURCE_VALUE_LIMIT = 400;
 

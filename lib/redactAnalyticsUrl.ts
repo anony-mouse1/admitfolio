@@ -33,7 +33,10 @@ const PUBLIC_PURCHASE_SEGMENTS = new Set(['success']);
 // catches a token wherever it turns up, including routes added later.
 const CREDENTIAL_SHAPE = /^[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}$/;
 
-function looksLikeCredential(value: string): boolean {
+// Exported so lib/visitSource.ts can apply the same test to a campaign value
+// before that value is written into Stripe metadata. One definition of "this
+// looks like one of our signed tokens", not two that drift.
+export function looksLikeCredential(value: string): boolean {
   if (CREDENTIAL_SHAPE.test(value)) return true;
   try {
     const decoded = decodeURIComponent(value);

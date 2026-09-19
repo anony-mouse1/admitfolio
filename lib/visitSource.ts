@@ -16,7 +16,7 @@
 // the current page would credit the homepage every time and make the six
 // collection pages look worthless.
 
-import { redactAnalyticsUrl } from './redactAnalyticsUrl';
+import { looksLikeCredential, redactAnalyticsUrl } from './redactAnalyticsUrl';
 
 export const LANDING_STORAGE_KEY = 'admitfolio:landing';
 
@@ -27,31 +27,113 @@ export const LANDING_STORAGE_KEY = 'admitfolio:landing';
 // reads as "Could not start checkout". The slice below counts code points so it
 // can never leave a split surrogate pair behind.
 //
-// 400 is a measured margin, not a round number:
+// Since the privacy pass, every field is bounded by its own rule before it ever
+// reaches this clamp, so the arithmetic is exact rather than a measurement of
+// what happened to turn up:
 //
-//   our own paths     51 max, and bounded. The longest of the 20 public routes
-//                     is /guides/how-to-take-inspiration-from-college-essays.
-//                     Every route is enumerable, and the one that looks
-//                     unbounded, /purchase/<token>, redacts to 17 characters.
-//                     So landingPage and checkoutPage can never truncate.
-//   landingUtm        125 for a long but plausible campaign, 57 for a typical
-//                     newsletter send, 28 for plain organic.
-//   landingReferrer   the only genuinely unbounded field. A long
-//                     r/ApplyingToCollege thread measured 192, and that is an
-//                     obvious traffic source for this product rather than a
-//                     contrived example.
+//   landingPage       80, MAX_PATH_LENGTH, or 8 for the /[other] bucket.
+//   checkoutPage      the same.
+//   landingUtm        145. Three keys at a 40 character value each, plus
+//                     "source=", "&medium=" and "&campaign=".
+//   landingReferrer   253, a hostname's own limit. The path is gone.
 //
-// The referrer is what sets the floor, and 200 left it 8 characters of room.
-// 400 is double the longest thing measured and still 100 short of the hard
-// limit, so no discrepancy between how Node counts code points and how Stripe
-// counts them can turn an attribution field into a failed purchase. There is no
-// aggregate cap to spend: 50 keys at 500 characters each was accepted.
+// So the longest value any of these can now produce is 253, and 400 is a
+// backstop that nothing real can reach rather than a margin over a measurement.
+// It stays because the client is untrusted: a stale or hostile build can put
+// anything in the request body, and an absurd value must truncate rather than
+// fail a purchase. There is no aggregate cap to spend: 50 keys at 500
+// characters each was accepted.
 export const MAX_SOURCE_VALUE = 400;
 
 // The utm parameters worth carrying. source/medium/campaign answer "which
 // channel"; utm_content and utm_term are ad-level detail for ads this site
 // does not run, and every extra parameter is length spent on the one value.
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign'] as const;
+
+// What is written in place of a value that is not provably safe. Deliberately
+// not "drop the parameter": a redacted campaign still says the visit came from
+// a campaign, and losing that would quietly reclassify a campaign visit as
+// organic, which is the opposite of what this feature is for.
+export const REDACTED = '[redacted]';
+
+/**
+ * A campaign value we are willing to copy into Stripe metadata verbatim.
+ *
+ * utm values are not ours. They are typed by whoever built the link, and email
+ * platforms in particular use them as a place to stash a recipient identifier,
+ * so `utm_campaign=jane.doe@example.com` and `utm_source=sub_18f2a...` are both
+ * things that arrive in the wild. Passing them through would put a third
+ * party's personal data into the Stripe Dashboard, where every Dashboard user
+ * can read it and nobody expects to find it.
+ *
+ * So: lowercase alphanumerics, dot, underscore and hyphen, up to 40 characters,
+ * and it may not start or end with punctuation. That is the shape of every
+ * campaign name anyone actually writes (`newsletter`, `ea-deadline-nov`,
+ * `google.com`) and it excludes an email address, because `@` is not in the
+ * set. Anything outside it becomes REDACTED rather than being guessed at.
+ *
+ * Length is doing real work here too. 40 characters cannot hold much, and the
+ * credential check below closes the one shape that fits: our signed tokens have
+ * a 33 character minimum and would otherwise pass this pattern.
+ */
+const UTM_SAFE_VALUE = /^[a-z0-9](?:[a-z0-9._-]{0,38}[a-z0-9])?$/;
+
+/**
+ * Shapes that fit UTM_SAFE_VALUE but are obviously an identifier rather than a
+ * campaign name, and so are redacted anyway.
+ *
+ * Mail platforms put merge tags in utm_campaign, and what arrives is the
+ * expanded value: `sub_18f2a9c4b7e1d0a3f5c8b2e6d9a1f4c7` is 36 lowercase
+ * characters that pass the pattern above and identify exactly one recipient.
+ * A run of sixteen or more hex characters, or a uuid, is not something anybody
+ * names a campaign, so both are treated as identifiers.
+ *
+ * This is a heuristic and it is neither complete nor exact. It over-redacts a
+ * campaign name of 16 or more characters drawn only from a-f and 0-9, which is
+ * the safe direction to be wrong in, and it under-redacts an opaque id that
+ * happens to use the full alphabet, say `k7mqx2vplzrt9wnd`, which is
+ * indistinguishable from a short campaign slug. Length is all that bounds the
+ * second case.
+ */
+const IDENTIFIER_SHAPES = [
+  /[0-9a-f]{16,}/,
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+];
+
+function looksLikeIdentifier(value: string): boolean {
+  return IDENTIFIER_SHAPES.some((shape) => shape.test(value));
+}
+
+/**
+ * A path segment on one of our own URLs.
+ *
+ * Our routes are lowercase kebab-case, and the redactor above has already
+ * replaced anything credential-shaped with a `[token]` style bucket, so both
+ * shapes are allowed and nothing else is. The bound matters because a landing
+ * page is whatever URL the visitor arrived on, and a 404 on our own domain
+ * renders inside the root layout where the landing is recorded. Without this,
+ * `admitfolio.com/<anything someone chose to put here>` would be copied into
+ * Stripe metadata as a landing page.
+ *
+ * This is a bound, not a proof. A lowercase hyphenated 404 path still gets
+ * through, and closing that completely means checking the path against the
+ * route registries, which would pull lib/collections.ts and lib/guides.ts into
+ * the bundle of every page on the site, because this records on every route.
+ * That cost is not worth the remaining sliver, but the sliver is real and is
+ * written down here rather than left for someone to rediscover.
+ */
+const SAFE_PATH_SEGMENT = /^(?:\[[a-z]+\]|[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
+// Three segments and 80 characters. The longest public route is
+// /guides/how-to-take-inspiration-from-college-essays at 51 characters and two
+// segments, so this is headroom rather than a limit anything real reaches.
+const MAX_PATH_SEGMENTS = 3;
+const MAX_PATH_LENGTH = 80;
+
+// What an unrecognised path becomes. Visibly a bucket in the Dashboard, so a
+// route added later that somehow fails the shape shows up as this rather than
+// silently disappearing.
+export const OTHER_PATH = '/[other]';
 
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -98,21 +180,47 @@ function clamp(value: string): string {
 export function pathLabel(rawHref: string): string {
   const safe = redactAnalyticsUrl(rawHref);
   if (!safe) return '';
+  let pathname: string;
   try {
-    return clamp(new URL(safe).pathname);
+    pathname = new URL(safe).pathname;
   } catch {
     return '';
   }
+  return safePath(pathname);
 }
 
 /**
- * The site that sent them, as host plus path.
+ * A pathname bounded to the shape our own routes have, or OTHER_PATH.
  *
- * The query string is dropped rather than redacted. A referrer query is the
- * part most likely to carry someone else's personal data, a webmail message id
- * or an internal tool's search terms, and none of it answers "which site sent
- * them". The path does: a Reddit thread or a specific article is exactly the
- * kind of referrer worth knowing about.
+ * See SAFE_PATH_SEGMENT for why this exists and what it does not cover.
+ */
+export function safePath(pathname: string): string {
+  const collapsed = pathname.replace(/\/{2,}/g, '/');
+  const trimmed = collapsed.length > 1 ? collapsed.replace(/\/$/, '') : collapsed;
+  if (trimmed === '/' || trimmed === '') return '/';
+  if (trimmed.length > MAX_PATH_LENGTH) return OTHER_PATH;
+  const segments = trimmed.split('/').slice(1);
+  if (segments.length > MAX_PATH_SEGMENTS) return OTHER_PATH;
+  if (!segments.every((segment) => SAFE_PATH_SEGMENT.test(segment))) return OTHER_PATH;
+  return trimmed;
+}
+
+/**
+ * The site that sent them. The HOST, and nothing else.
+ *
+ * This used to be host plus path, on the argument that a specific Reddit
+ * thread or article is the referrer worth knowing about. That argument was
+ * wrong about what a referrer path actually contains. It is a URL on somebody
+ * else's site, chosen by them, and the paths that show up in practice include
+ * webmail (`mail.example.com/mail/u/0/inbox/...`), shared documents
+ * (`docs.example.com/document/d/<id>`), company intranets and private group
+ * chats. None of that is ours to copy into the Stripe Dashboard, where every
+ * Dashboard user can read it, and no consent anyone gave us covers it.
+ *
+ * The host answers the question this feature exists to answer. "reddit.com
+ * sent them" is which channel earned the sale; which thread is a detail we do
+ * not need badly enough to take everything else that comes with it. The query
+ * and the hash were already dropped and remain dropped.
  *
  * A same-origin referrer is dropped too. next.config.js sets
  * `Referrer-Policy: no-referrer`, so our own pages cannot produce one today,
@@ -129,15 +237,22 @@ export function referrerLabel(rawReferrer: string, currentOrigin: string): strin
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
   if (url.origin === currentOrigin) return '';
-  const path = url.pathname === '/' ? '' : url.pathname;
-  return clamp(`${url.hostname}${path}`);
+  return clamp(url.hostname.toLowerCase());
 }
 
 /**
  * The campaign parameters on the landing URL, compacted into one value.
  *
- * Read off the REDACTED url, not the raw one: redactAnalyticsUrl allows utm_*
- * values through by name, and replaces one that is credential-shaped.
+ * Read off the redacted url, not the raw one: redactAnalyticsUrl allows utm_*
+ * values through by name, and replaces one that is credential-shaped. That is
+ * necessary and not sufficient. A credential has a recognisable shape; a
+ * recipient's email address in `utm_campaign` does not, and used to pass
+ * straight through to Stripe. Every value is now checked against
+ * UTM_SAFE_VALUE and becomes REDACTED if it does not fit.
+ *
+ * The parameter is still listed when its value is redacted, because the fact
+ * that a campaign brought this buyer is itself the attribution, and dropping
+ * the key would file the visit as organic.
  */
 export function utmLabel(rawHref: string): string {
   const safe = redactAnalyticsUrl(rawHref);
@@ -146,8 +261,11 @@ export function utmLabel(rawHref: string): string {
     const params = new URL(safe).searchParams;
     const parts: string[] = [];
     for (const key of UTM_KEYS) {
-      const value = params.get(key)?.trim();
-      if (value) parts.push(`${key.slice(4)}=${value}`);
+      const raw = params.get(key)?.trim();
+      if (!raw) continue;
+      const value = raw.toLowerCase();
+      const safe = UTM_SAFE_VALUE.test(value) && !looksLikeCredential(value) && !looksLikeIdentifier(value);
+      parts.push(`${key.slice(4)}=${safe ? value : REDACTED}`);
     }
     return clamp(parts.join('&'));
   } catch {
