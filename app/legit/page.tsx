@@ -4,7 +4,8 @@ import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { COLLECTIONS_PATH } from '@/lib/collections';
 import { GUIDES_PATH } from '@/lib/guides';
 import { legitUrl } from '@/lib/legit';
-import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
+import { CONTACT_EMAIL } from '@/lib/site';
+import { organizationSchema, serializeJsonLd } from '@/lib/structuredData';
 import guide from '@/app/guides/guides.module.css';
 import styles from './legit.module.css';
 
@@ -22,28 +23,6 @@ import styles from './legit.module.css';
 // Same shape as an article under app/guides/: metadata with a canonical and an
 // OpenGraph card, the shared GuideHeader and GuideFooter, and the guides CSS
 // module for the article frame.
-//
-// ----------------------------------------------------------------------------
-// PLACEHOLDERS. Two things on this page are deliberately unwritten. Neither is
-// a guess waiting to be checked; both are somebody else's decision.
-//
-//   1. PARTNERSHIPS. One sentence about working on plagiarism-detection
-//      integrations now sits at the end of "What happens if someone copies one",
-//      added on Ritvik's instruction and in his wording. It names no company,
-//      gives no date, and is conditional, so it describes work in progress
-//      rather than something that exists today.
-//
-//      STILL OPEN, and this is the part Fatimah has to settle: partnership work
-//      is out of scope under Ritvik's contract without her written approval, and
-//      she has not given it. The sentence is in the PR for her to approve, cut
-//      or reword, and it is called out in the PR description rather than left to
-//      be found in the diff. Do not grow it, and never name a service.
-//
-//   2. WHO SUPPORT ROUTES TO. The support copy says "the team" and names nobody,
-//      which is correct either way. Still open: whether Fatimah wants a named
-//      owner or a stated response time on this page. Adding a response time is a
-//      commitment to a buyer, so it is hers to make, not something to infer from
-//      how fast replies happen to go out today.
 //
 // No FAQ schema on purpose. Google restricted FAQ rich results to government and
 // health sites, so FAQPage markup on this page would render nothing in the
@@ -63,29 +42,6 @@ export const metadata: Metadata = {
 };
 
 export default function LegitPage() {
-  // Organization, not FAQPage. This is the one piece of structured data the
-  // site has no version of anywhere, and it is what lets Google attach a name,
-  // a description and a support address to the brand rather than assembling
-  // them from whatever page it happened to crawl.
-  //
-  // No `logo`: there is no logo file in public/, and a logo URL that 404s is
-  // worse than no logo property at all.
-  const organizationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'Admitfolio',
-    url: SITE_URL,
-    description:
-      'A marketplace where verified college students sell the admissions essays that got them in, for applicants to read as examples.',
-    email: CONTACT_EMAIL,
-    contactPoint: {
-      '@type': 'ContactPoint',
-      contactType: 'customer support',
-      email: CONTACT_EMAIL,
-      availableLanguage: 'English',
-    },
-  };
-
   return (
     <div className={guide.page}>
       <GuideHeader />
@@ -103,22 +59,19 @@ export default function LegitPage() {
           </header>
 
           <div className={guide.articleStat}>
-            <strong>The short answer:</strong> a real student with a confirmed college email wrote every essay
-            on this site, a person approved each listing by hand, and your copy arrives by email within a
-            minute and stays readable for a year.
+            <strong>The short answer:</strong> sellers confirm a college email, a person approves each listing
+            before it is published, and a reading link is sent by email after payment and stays usable for a
+            year.
           </div>
 
           <div className={guide.articleBody}>
             <h2 id="verification">How a seller gets verified</h2>
             <p>
-              Nobody can list an essay here by signing up and uploading a file. Four things happen first.
+              Signing up and uploading a file does not publish a listing. Three checks happen first.
             </p>
 
-            {/* The wording in steps 1, 2 and 3 is the checkout proof panel's own,
-                from components/ListingCheckout.tsx. Those claims were already
-                checked against the database once, and a buyer who reads this page
-                and then reaches the payment screen should meet the same sentences
-                rather than two descriptions of the same process. */}
+            {/* Keep this aligned with the checkout proof panel. These are the
+                claims supported by the current code and reviewed listing records. */}
             <ol className={styles.steps}>
               <li>
                 <div>
@@ -131,28 +84,18 @@ export default function LegitPage() {
               </li>
               <li>
                 <div>
-                  <strong>They sent the acceptance letter</strong>
+                  <strong>A person reviewed the listing</strong>
                   <span>
-                    A seller who claims an admission uploads the acceptance letter for that school, and it is
-                    read before the listing can be approved.
+                    A person reviews the listing and essay package before deciding whether it can be published.
                   </span>
                 </div>
               </li>
               <li>
                 <div>
-                  <strong>A review panel read the essays</strong>
+                  <strong>Automation does not publish it</strong>
                   <span>
-                    Every submission is screened before anyone sees it. Anything the panel is unsure about is
-                    held back rather than published.
-                  </span>
-                </div>
-              </li>
-              <li>
-                <div>
-                  <strong>A person made the final call</strong>
-                  <span>
-                    No listing goes live on an automated decision alone. Someone reads the screening, looks at
-                    the listing, and approves or rejects it by hand.
+                    Automated screening can assist the review, but no listing goes live on an automated
+                    decision alone.
                   </span>
                 </div>
               </li>
@@ -166,8 +109,8 @@ export default function LegitPage() {
             </p>
             <ul>
               <li>
-                <strong>A reading link by email.</strong> It arrives in under a minute. If it is not there,
-                check spam before you write to us.
+                <strong>A reading link by email.</strong> It is sent after payment. If it is not there, check
+                spam before you write to us.
               </li>
               <li>
                 <strong>A year of access.</strong> The link keeps working for twelve months from the day you
@@ -190,8 +133,8 @@ export default function LegitPage() {
               both.
             </p>
             <p>
-              If you have lost your reading link, say so and include the email address you bought with. A lost
-              link can be resent, case by case, depending on the circumstances.
+              If you have lost your reading link, say so and include the email address you bought with. The team
+              can review the purchase and help you recover access.
             </p>
 
             <h2 id="what-these-are-for">What these essays are for</h2>
@@ -223,26 +166,12 @@ export default function LegitPage() {
               it should not be can be traced back to the person who bought it.
             </div>
             <p>
-              That code is on every page, in the footer and across the middle of the sheet. It survives a
-              screenshot, a re-export and a photograph of a screen. It does not stop a copy being made, it
-              identifies one after the fact.
+              The protected reader adds the purchase-linked mark across every page. It can help trace a
+              redistributed screenshot or file, but no watermark can prevent copying.
             </p>
             <p>
-              The second thing is about admissions rather than about us. Colleges do compare submitted essays,
-              and they do rescind offers over plagiarism. That can happen after an offer is made, after a
-              student has enrolled, and in some cases years later, because a degree can be revoked long after
-              the application that earned it.
-            </p>
-            <p>
-              If a copy bought here is passed around or submitted as someone&apos;s own, there are
-              consequences, and we act on it.{' '}
-              {/* ONE SENTENCE. Ritvik's wording, and it stays this size. No company is named, no
-                  date is given, and the conditional ("would mean") is what keeps it a statement
-                  about work in progress rather than a claim about something that exists today.
-                  scripts/verify-legit-page.mjs asserts this sentence is present and that no
-                  detection service is named anywhere on the page, so neither half can drift. */}
-              We are working on integrations with plagiarism detection services, which would mean essays
-              bought here can be checked against submitted work.
+              Submitting another person&apos;s writing as your own is plagiarism and can jeopardize an
+              application or enrollment. These essays are examples to learn from, not text to submit.
             </p>
 
             <h2 id="faq">Questions people ask before they buy</h2>
@@ -251,12 +180,9 @@ export default function LegitPage() {
           <div className={styles.faq}>
             <h3>Is Admitfolio legit?</h3>
             <p>
-              It is a working marketplace, and the students behind the listings are who they say they are.
-              Selling here means
-              confirming a .edu address with a code, sending the acceptance letter for the school you claim,
-              and having your essays read and then approved by a person. Nothing is published on an automated
-              decision. Payment runs through Stripe&apos;s own checkout, so your card details go to Stripe and
-              never touch this site.
+              It is a working marketplace. Sellers confirm access to a .edu address, and a person approves each
+              listing before publication. Nothing is published on an automated decision alone. Payment runs
+              through Stripe&apos;s own checkout, so your card details go to Stripe and never touch this site.
             </p>
 
             <h3>Is Admitfolio free?</h3>
@@ -278,7 +204,7 @@ export default function LegitPage() {
 
             <h3>What happens after I pay?</h3>
             <p>
-              A receipt and a reading link arrive by email in under a minute. The link opens the essays in your
+              A receipt and reading link are sent by email after payment. The link opens the essays in your
               browser and keeps working for a year. Each page is stamped with a code tied to your purchase. You
               do not need to make an account, so keep that email. If it has not arrived, check spam first, then
               write to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
@@ -294,7 +220,7 @@ export default function LegitPage() {
             <Link className="btn-primary" href={COLLECTIONS_PATH}>Browse the essay collections →</Link>
           </aside>
         </article>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationSchema()) }} />
       </main>
       <GuideFooter />
     </div>

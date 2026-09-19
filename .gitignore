@@ -32,6 +32,8 @@ essays/
 # Local tooling & throwaway
 .claude/
 .codex/
+.impeccable/
+CLAUDE.local.md
 index-indigo.html
 
 # Next.js

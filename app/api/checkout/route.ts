@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { stripe, SITE_URL } from '@/lib/stripe';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
-import { checkoutSessionParams, quoteListing } from '@/lib/commerce';
+import { checkoutSessionParams, quoteListing, type CheckoutSource } from '@/lib/commerce';
 import { clientIpFromHeaders } from '@/lib/requestIp';
 import { marketplaceIsLaunched } from '@/lib/launch';
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Too many attempts. Please wait a minute.' }, { status: 429 });
   }
 
-  let body: { listingId?: string; deliveryEmail?: string };
+  let body: { listingId?: string; deliveryEmail?: string; source?: CheckoutSource };
   try {
     body = await req.json();
   } catch {
@@ -75,6 +75,14 @@ export async function POST(req: Request) {
         deliveryEmail,
         SITE_URL,
         process.env.STRIPE_CHECKOUT_RECOVERY_ENABLED === '1',
+        // Which page earned the sale, reported by the buyer's browser. It is
+        // attribution, never money or access, so a missing, empty or nonsense
+        // value is an attribution gap and nothing more. checkoutSessionParams
+        // clamps every field to 400 characters before Stripe sees it, so no
+        // value that arrives here can fail the create call. The Referer header
+        // is not an alternative: next.config.js sends `Referrer-Policy:
+        // no-referrer`, so this request carries none.
+        body?.source,
       ),
     );
     if (!session.client_secret) {

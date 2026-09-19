@@ -30,31 +30,17 @@ const LEGIT = '/legit';
 const CLAIMS = [
   ['heading', 'Is Admitfolio legit?'],
   ['edu email confirmed by a code', 'confirmed by a code sent to it'],
-  ['acceptance letter, present tense', 'uploads the acceptance letter for that school'],
-  ['review panel screens submissions', 'Every submission is screened before anyone sees it'],
-  // The step that carried "191 of the 192" until Ritvik cut it: a documented
-  // number that could only go stale, on a page whose job is being believable.
-  // This sentence is the stronger claim anyway, and it is true of all 192:
-  // zero listings were approved on an automated decision.
-  ['a person makes the final call', 'No listing goes live on an automated decision alone'],
-  ['reading link speed', 'It arrives in under a minute'],
+  ['a person reviews the listing', 'A person reviews the listing and essay package'],
+  ['automation does not publish alone', 'no listing goes live on an automated decision alone'],
+  ['reading link delivery', 'It is sent after payment'],
   ['one year of access', 'keeps working for twelve months'],
   ['per-buyer watermark', 'stamped for you at the moment you open it'],
   ['support address', 'hello@admitfolio.com'],
   ['refunds route to support', 'Refunds and any problem with'],
-  ['a lost link can be resent', 'A lost link can be resent, case by case'],
+  ['support can recover access', 'help you recover access'],
   ['what the essays are for', 'They are reading material'],
   ['the file carries a code', 'Every copy carries a code tied to the purchase'],
-  ['colleges compare essays', 'Colleges do compare submitted essays'],
-  ['colleges rescind offers', 'they do rescind offers over plagiarism'],
-  ['and do it years later', 'in some cases years later'],
-  ['consequences, not a penalty schedule', 'consequences, and we act on it'],
-  // Conditional and unnamed on purpose. "would mean" is what separates this
-  // from a claim that the integration exists today, so the whole clause is
-  // pinned here rather than a fragment of it.
-  ['detection work is in progress, not in place',
-    'We are working on integrations with plagiarism detection services, which would mean essays '
-    + 'bought here can be checked against submitted work.'],
+  ['copying warning', 'Submitting another person&#x27;s writing as your own is plagiarism'],
   ['faq: is it legit', '<h3>Is Admitfolio legit?</h3>'],
   ['faq: is it free', '<h3>Is Admitfolio free?</h3>'],
   ['faq: is it cheating', '<h3>Is buying a college essay cheating?</h3>'],
@@ -75,6 +61,12 @@ const FORBIDDEN = [
   ['claims a plagiarism check runs', 'plagiarism check'],
   ['promises copying is caught', 'will be caught'],
   ['claims these essays are in a corpus', 'database of essays'],
+  ['claims every seller uploaded proof', 'acceptance letter'],
+  ['promises sub-minute delivery', 'under a minute'],
+  ['claims an unapproved detection partnership', 'plagiarism detection services'],
+  ['claims universal college comparison', 'Colleges do compare submitted essays'],
+  ['claims degree revocation', 'degree can be revoked'],
+  ['claims every submission is screened', 'Every submission is screened'],
   ['em dash in site copy', '\u2014'],
   // Google restricted FAQ rich results to government and health sites, so
   // FAQPage markup here renders nothing and only adds a surface to get wrong.
@@ -279,7 +271,7 @@ for (const width of WIDTHS) {
 
   assert(probe.h1 === 'Is Admitfolio legit?', `${width.label}: wrong h1 ${probe.h1}`);
   assert(probe.h1Visible, `${width.label}: the heading has no height`);
-  assert(probe.steps === 4, `${width.label}: ${probe.steps} verification steps, expected 4`);
+  assert(probe.steps === 3, `${width.label}: ${probe.steps} verification steps, expected 3`);
   assert(probe.stepsAllVisible, `${width.label}: a verification step is not visible`);
   assert(probe.faq === 4, `${width.label}: ${probe.faq} FAQ questions, expected 4`);
   assert(probe.faqAllVisible, `${width.label}: an FAQ question is not visible`);
@@ -290,7 +282,7 @@ for (const width of WIDTHS) {
   assert(realErrors().length === 0, `${width.label}: console errors ${realErrors().join(' | ')}`);
 
   console.log(
-    `${width.label}: h1 + 4 steps + 4 questions render, article ${probe.articleWidth}px, `
+    `${width.label}: h1 + 3 steps + 4 questions render, article ${probe.articleWidth}px, `
     + `no overflow, no clipped text, no console errors`,
   );
   // The nav is printed rather than asserted, because what it records is a
