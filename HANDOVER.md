@@ -1,36 +1,46 @@
-# Handover: legitimacy page
+# Handover: Ritvik PR review complete
 
-Read `AGENTS.md` first. This file records only the current work in flight.
+Read `AGENTS.md` first. This file records only the current state.
 
 ## Branch and base
 
-Branch `ritvik/legitimacy-page`, PR #94. Current `main`, including PRs #89,
-#92 and #96, was merged before final review.
+`main` after PRs #89, #92, #94 and #96 were reviewed, corrected where needed,
+and merged on Sep 19 2026.
 
-## What changed
+## What landed
 
-- Added a static `/legit` page, included it in the sitemap, and linked it from
-  both footers, collection pages, and the checkout trust panel.
-- Added a focused layout module and a browser verifier for the page at desktop
-  and phone widths.
-- Kept Organization JSON-LD on the shared, escaped structured-data helper.
-- Corrected claims that the PR audit itself showed were unsupported. The page
-  no longer says every seller uploaded an acceptance letter, promises delivery
-  in under a minute, claims every submission was automatically screened, or
-  announces an unapproved plagiarism-detection partnership.
-- The page now states only what current code and reviewed records support:
-  sellers confirm a `.edu` address, a person approves each published listing,
-  automation does not publish alone, links are sent after payment, and the
-  purchase-linked watermark helps trace redistributed copies.
+- Checkout Back and close actions return to the surface that opened checkout.
+- Listing detail panels show the complete package before the Unlock click, with
+  a phone-safe sticky action area.
+- Checkout records privacy-bounded landing and campaign attribution in Stripe.
+  The checkout API sanitizes browser input again, and the privacy policy
+  discloses what is recorded.
+- `/legit` answers the site's trust questions, is linked from relevant public
+  surfaces, and is included in the sitemap.
+- Unsupported public claims were removed from `/legit` and the checkout trust
+  panel. The site does not claim every seller uploaded an acceptance letter,
+  promise sub-minute delivery, imply every submission was automatically
+  screened, or announce a plagiarism-detection partnership.
 
-## Verification
+## Verification completed
 
-- Run TypeScript and every pure `scripts/*.test.mjs` test.
-- Run `scripts/verify-legit-page.mjs` against a local server and browser at
-  390px and 1440px.
-- Inspect the visible page before merge.
+- TypeScript and every pure `scripts/*.test.mjs` test passed on the combined
+  branches.
+- A direct production build passed. `/legit` is statically rendered.
+- Production verification ran on application commit
+  `50f11e84ffbb1ff8cb9229fc02ae1bc64ff32bb8`.
+- Checkout history passed all 12 production scenarios.
+- The listing value panel passed 432 production checks across six catalogue
+  shapes at 390px and 1440px.
+- `/legit` passed its production HTML, sitemap, link, claim, desktop, and phone
+  checks with no overflow, clipped text, or console errors.
 
 ## What is left
 
-Review, push, merge, and verify `/legit` and the sitemap on production. No
-migration, backfill, database write, or other hand-run deploy step is required.
+No current Ritvik-authored PR remains open. No migration, backfill, production
+database write, or other hand-run deploy step is required.
+
+Full Stripe sandbox checkout creation could not be repeated locally because the
+checked-out `.env` contains a placeholder test secret and no publishable test
+key. The attribution logic is covered by server-boundary and privacy regression
+tests, and its Vercel preview and production deployment both passed.
