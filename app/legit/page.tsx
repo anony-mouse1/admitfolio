@@ -262,9 +262,9 @@ export default function LegitPage() {
             <h3>Is Admitfolio free?</h3>
             <p>
               Browsing is free and needs no account. You can see every listing, the school it was written for,
-              the prompt each essay answers, how many essays are in the package, the price, and the real
-              opening line of the writing itself. The essays themselves are paid, because a student wrote each
-              one and is paid when it sells. The{' '}
+              the prompt each essay answers, how many essays are in the package, and the price. Most listings
+              also show the real opening line of the writing itself. The essays themselves are paid, because a
+              student wrote each one and is paid when it sells. The{' '}
               <Link href={GUIDES_PATH}>guides</Link> are free.
             </p>
 
@@ -288,8 +288,8 @@ export default function LegitPage() {
           <aside className={guide.articleCta}>
             <h2>See what is actually on sale</h2>
             <p>
-              Every listing shows its school, its prompts and its real opening line before you pay. Read a few
-              and judge for yourself.
+              Every listing shows its school and its prompts before you pay, and most show the real opening
+              line of the writing too. Read a few and judge for yourself.
             </p>
             <Link className="btn-primary" href={COLLECTIONS_PATH}>Browse the essay collections →</Link>
           </aside>
