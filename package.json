@@ -40,6 +40,7 @@
     "test:sitemap": "node scripts/sitemap.test.mjs",
     "test:structured-data": "node scripts/structured-data.test.mjs",
     "test:visit-source": "node scripts/visit-source.test.mjs",
+    "test:listing-value-panel": "node scripts/listing-value-panel.test.mjs",
     "report:seller-flow-impact": "node scripts/report-seller-flow-migration-impact.mjs",
     "backfill:listing-schools": "node --env-file=.env scripts/backfill-listing-target-schools.mjs",
     "db:push": "prisma db push",

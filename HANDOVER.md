@@ -4,8 +4,8 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch `ritvik/checkout-attribution`, PR #92. Rebased onto `main` at `a18fce4`,
-after #93, #95 and #97 merged.
+Branch `ritvik/checkout-attribution`, PR #92. Merged current `main`, including
+PRs #89 and #96, after both branches were reviewed and merged.
 
 ## Why
 
@@ -20,7 +20,7 @@ produced it.
   buyer pressed Unlock on.
 - Four fields: `landingPage`, `landingReferrer`, `landingUtm`, `checkoutPage`.
 
-## The privacy pass, from Codex's review
+## Privacy and trust-boundary pass
 
 The review was right. Two of the four fields were carrying third-party data.
 
@@ -56,21 +56,14 @@ rather than reimplemented.
 - Nothing else. Channel, medium, campaign, landing page and checkout page all
   still answer the question the feature exists for.
 
-## Residual, written down rather than left to be rediscovered
-
-A lowercase hyphenated 404 path is indistinguishable by shape from a real route,
-so `admitfolio.com/jane-doe-lives-at-12-oak-st` would still be recorded as a
-landing page. Closing that means checking the path against the route registries,
-which pulls `lib/collections.ts` and `lib/guides.ts` into the bundle of every
-page, because the landing is recorded on every route. That cost did not look
-worth the remaining sliver. Ritvik's call if he disagrees.
-
-The identifier heuristic under-redacts an opaque id that uses the full alphabet,
-for example `k7mqx2vplzrt9wnd`. Length is all that bounds that case.
+The checkout API sanitizes the four fields again instead of trusting the
+browser. Unknown pages become `/[other]`, referrers are reduced to a hostname,
+and UTM values outside the narrow allowlist become `[redacted]`. The privacy
+policy now discloses the collection and the Stripe transfer.
 
 ## Verification
 
-- `npx tsc --noEmit` clean, all 29 `test:*` pass.
+- `npx tsc --noEmit` clean, all pure `scripts/*.test.mjs` tests pass.
 - Every new rule was checked by breaking what it guards: restoring the referrer
   path, passing utm values through raw, dropping a redacted key instead of
   keeping it, and removing the path bound each failed with their own message.
@@ -81,4 +74,5 @@ for example `k7mqx2vplzrt9wnd`. Length is all that bounds that case.
 
 ## What is left
 
-Review and merge. No migration, backfill, database write or hand-run deploy step.
+Review and merge. PR #94 still requires a separate claims and conflict review.
+No migration, backfill, database write, or hand-run deploy step is required.
