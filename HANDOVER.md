@@ -20,7 +20,7 @@ Listing view to unlock is the biggest raw drop in the funnel.
   essay, grouped on prompt and question text.
 - On a phone the price and Unlock button are pinned to the bottom of the sheet,
   so the button is reachable no matter how long the panel is.
-- Word counts are captured during review and shown per row when present.
+- A row shows its length when the essay has one recorded. No essay does today.
 
 ## The header change, from Codex's review
 
@@ -64,38 +64,31 @@ environment variable it needs. Without it the script silently skipped every
 case while still reporting success, which is how it looked like it took no
 arguments.
 
-## The production word count update, for Fatimah to decide
+## The word count work is no longer here
 
-Two separate things, and only one of them is the backfill.
+`lib/essayWordCount.ts`, `scripts/backfill-essay-word-counts.mjs` and their
+tests were lifted out of this branch onto `ritvik/essay-word-counts`, based on
+`main` at `a18fce4`.
 
-1. **`scripts/backfill-essay-word-counts.mjs` has not been run and stays
-   unrun.** This is the thing that was asked to be left out. No change.
+They shipped here on the reading that only the backfill was a production write
+and the capture was not. `ensureEssayWordCounts` calls
+`prisma.essay.updateMany` against production, so both halves write, and
+Fatimah's "leave the production word count update out for now" covers both.
+This PR is the panel and nothing else, which is what she reviewed.
 
-2. **The capture in `lib/essayWordCount.ts` does write to production**, and
-   this is not what "not a production write" described. `ensureEssayWordCounts`
-   calls `prisma.essay.updateMany` to fill `Essay.wordCount`. It is reached from
-   `lib/reviewRunner.ts`, so it runs on every listing that passes through review
-   after the deploy, from three entry points: a seller finalizing a draft, the
-   review cron picking up a pending listing, and the admin approval path. It is
-   not limited to listings created after the deploy.
-
-   It fills blanks only. The `updateMany` matches `wordCount: null`, so an
-   existing value is never overwritten.
-
-   It is also visible. Once a row has a count, the panel prints "N words" on
-   that row, so listings reviewed after the deploy show lengths while older ones
-   do not, until something fills the rest. The thing that would fill the rest is
-   the backfill in point 1.
-
-The note is in `lib/essayWordCount.ts` as well, at the top, so it is read by
-whoever touches that file next.
+What stays is `EssayGroup.words` and the "N words" branch in `essayGroupMeta`.
+That is display code for `Essay.wordCount`, which is already a schema column
+and is already published by `/api/listings` on `main`. Every row is null today,
+so the panel prints no word count anywhere, which is asserted rather than
+assumed: the verifier checks `wordsText` is empty on all six cases at both
+viewports, and a read of the live catalogue found no essay with a count.
 
 ## Verification
 
-- `npx tsc --noEmit` clean, all 30 `test:*` pass.
+- `npx tsc --noEmit` clean, all 29 `test:*` pass.
 - 432 panel checks against a production build, 0 failed.
 
 ## What is left
 
-Fatimah's decision on point 2 above, then review and merge. No migration. The
-backfill is a hand-run step that is deliberately not being run.
+Review and merge. No migration, backfill, database write or hand-run deploy
+step. The word count work is a separate decision on its own branch.

@@ -90,7 +90,7 @@ const BUCKET = 'essays';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export async function download(path) {
+async function download(path) {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing');
   }
@@ -106,7 +106,7 @@ export async function download(path) {
 
 // Rebuild reading order from item positions: pdfjs emits in content-stream
 // order, which is not reading order in plenty of generators.
-export function itemsToLines(items) {
+function itemsToLines(items) {
   const rows = new Map();
   for (const it of items) {
     if (!it.str) continue; // keep whitespace-only items, they ARE the spaces
@@ -151,7 +151,7 @@ function isRunningHead(t) {
 
 const median = (xs) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : 0);
 
-export function linesToBlocks(lines) {
+function linesToBlocks(lines) {
   if (!lines.length) return [];
   const gaps = lines.slice(1).map((l, i) => lines[i].y - l.y);
   const medGap = median(gaps);
@@ -193,7 +193,7 @@ const COMMON_APP = [
   'Describe a topic, idea, or concept you find so engaging that it makes you lose all track of time. Why does it captivate you? What or who do you turn to when you want to learn more?',
   "Share an essay on any topic of your choice. It can be one you've already written, one that responds to a different prompt, or one of your own design.",
 ];
-export const KNOWN_PROMPTS = [...UC_PIQS, ...COMMON_APP];
+const KNOWN_PROMPTS = [...UC_PIQS, ...COMMON_APP];
 
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -206,7 +206,7 @@ function shingles(s, n = 5) {
 
 // Symmetric, so it catches both "this block is the whole prompt" and "this block
 // is a retyped fragment of it".
-export function shingleMatch(a, b) {
+function shingleMatch(a, b) {
   const A = shingles(a), B = shingles(b);
   if (!A.size || !B.size) return 0;
   let hit = 0;

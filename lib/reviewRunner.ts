@@ -7,7 +7,6 @@ import {
 } from '@/lib/review';
 import { applyListingDecision } from '@/lib/listingDecision';
 import { ensureListingOpeningLine } from '@/lib/openingLine';
-import { ensureEssayWordCounts } from '@/lib/essayWordCount';
 import { listingProofKeys } from '@/lib/admitProof';
 import { REVIEW_MODEL } from '@/lib/config';
 
@@ -79,28 +78,6 @@ export async function reviewListing(listingId: string): Promise<ReviewOutcome> {
       console.error(`opening-line extraction failed for listing ${listing.id}:`, opening.error);
     }
     const pdfs = await fetchEssayPdfsBase64(listing);
-
-    // Length, from the same buffers that were just downloaded for the panel.
-    //
-    // What is stored here is deliberately not fed into the request built below.
-    // buildUserContent reads `wordCount` off the listing snapshot taken at the
-    // top of this function, so the prompt the model sees is unchanged, and its
-    // "claimed word count" line keeps meaning what it says rather than quietly
-    // starting to report a figure we computed ourselves.
-    //
-    // Best effort. ensureEssayWordCounts never throws and has its own time
-    // budget, so a slow or corrupt PDF leaves wordCount null and the review
-    // carries on. This whole function already runs inside waitUntil, after the
-    // seller's finalize response has been sent.
-    const counts = await ensureEssayWordCounts(
-      pdfs.map((pdf) => ({ essayId: pdf.essayId, question: pdf.question, bytes: pdf.bytes })),
-    );
-    if (counts.failed || counts.skipped) {
-      console.log(
-        `[wordcount] ${listing.id}: stored ${counts.stored}, failed ${counts.failed}, skipped ${counts.skipped}`,
-      );
-    }
-
     const proofKeys = listingProofKeys(listing.admitTags, listing.targetSchool);
     const proofRows = await prisma.admitProof.findMany({
       where: {
