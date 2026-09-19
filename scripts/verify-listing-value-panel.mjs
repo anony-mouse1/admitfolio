@@ -7,7 +7,18 @@
 // `test:*` script is pure. Run it against a production build:
 //
 //   npx next build && npx next start -p 3100
-//   BASE=http://localhost:3100 node scripts/verify-listing-value-panel.mjs
+//   BASE=http://localhost:3100 COLLECTIONS='{"<listingId>":"<slug>", ...}' \
+//     node --experimental-websocket scripts/verify-listing-value-panel.mjs
+//
+// COLLECTIONS maps each id in CASES to the collection page that carries it. It
+// is an input rather than a constant so the ids below do not also have to
+// hardcode a slug, but it was undocumented, which made the script look like it
+// took no arguments and silently SKIP every case. Build it by filtering
+// /api/listings through listingsInCollection from lib/collections.ts.
+//
+// Chrome must be listening on 9222:
+//   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+//     --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-verify --headless=new
 //
 // The question it exists to answer is the one #88 got wrong: does the Unlock
 // button stay above the fold on a phone. The panel is deliberately never
@@ -257,7 +268,14 @@ for (const testCase of CASES) {
       });
       check(`${tag}: per-essay price only on multi-essay listings`, () => {
         if (testCase.essays === 1) assert.equal(m.perEssay, null);
-        else assert.match(m.perEssay || '', /^\$\d+ an essay$/);
+        else assert.match(m.perEssay || '', /^works out at \$\d+ an essay$/);
+      });
+      // Nothing on the sheet may offer a single essay from a package. The unit
+      // of purchase is a listing, and "9 essays" over "$21 an essay" read like
+      // a menu.
+      check(`${tag}: the heading says the set is sold together`, () => {
+        if (testCase.essays === 1) assert.equal(m.headCount, 'One essay');
+        else assert.equal(m.headCount, `All ${testCase.essays} essays, sold together`);
       });
       check(`${tag}: no horizontal overflow`, () => {
         assert.ok(m.docScrollWidth <= m.innerWidth, `${m.docScrollWidth} > ${m.innerWidth}`);

@@ -1,5 +1,29 @@
 import 'server-only';
 import { prisma } from '@/lib/prisma';
+// WHAT THIS WRITES, AND WHEN. Read this before merging.
+//
+// ensureEssayWordCounts below performs a real write against the production
+// database: prisma.essay.updateMany, filling Essay.wordCount. It is reached
+// from lib/reviewRunner.ts, so it runs on every listing that passes through
+// review after this deploys, which is three entry points: a seller finalizing a
+// draft, the review cron picking up a pending listing, and the admin approval
+// path. It is not limited to listings created after the deploy.
+//
+// It is guarded to fill blanks only. The updateMany matches `wordCount: null`,
+// so a value that already exists is never overwritten and two paths reaching
+// the same listing cannot fight.
+//
+// It is also not invisible. Once a row has a count, essayGroupMeta in
+// lib/publicListing.ts prints "N words" on that row of the listing sheet, so
+// listings reviewed after the deploy will show lengths while older ones do not,
+// until something fills the rest.
+//
+// scripts/backfill-essay-word-counts.mjs is what would fill the rest. It is
+// deliberately unrun. Fatimah asked to leave the production word count update
+// out for now, and that decision is about the backfill; this capture is a
+// separate question and is called out in the pull request so it is not merged
+// by accident.
+
 import {
   itemsToLines,
   linesToBlocks,

@@ -169,7 +169,14 @@ export default function ListingDetail({
             The biggest raw drop in the funnel is listing view to unlock. */}
         <div className="d-value" aria-label="What you get">
           <div className="d-value-head">
-            <span className="d-value-count">{count === 1 ? 'One essay' : `${count} essays`}</span>
+            {/* "All N essays, sold together", not "N essays".
+                The panel used to head a nine essay listing with "9 essays" and
+                then print "$21 an essay" under the price, and the two together
+                read like a menu you could order one item from. The unit of
+                purchase is a listing (AGENTS.md), so the heading says so before
+                the per-essay figure appears anywhere on screen. A single essay
+                listing has nothing to disambiguate and keeps its old line. */}
+            <span className="d-value-count">{count === 1 ? 'One essay' : `All ${count} essays, sold together`}</span>
             {/* "from their X application" rather than "written for X". 109 of
                 192 listings contain a Common App personal statement, and that
                 one essay goes to every college on the seller's list, so "written
@@ -219,7 +226,12 @@ export default function ListingDetail({
           <div className="d-price">
             {priceLabel(listing.price)}
             <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
-            {unit != null && <small>${unit} an essay</small>}
+            {/* "works out at", because this is arithmetic on the price above
+                rather than a price anything can be bought at. The figure earns
+                its place: it is what makes a $189 package legible next to a $40
+                single. Removing it would cost the comparison; printing it bare
+                offered a purchase that does not exist. */}
+            {unit != null && <small>works out at ${unit} an essay</small>}
           </div>
           <button className="d-unlock-btn" type="button" onClick={onUnlock}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
