@@ -214,6 +214,12 @@ const SCHOOLS: School[] = [
   { domain: 'pba.edu', short: 'Palm Beach Atlantic', keys: ['palm beach atlantic'] },
   { domain: 'pitt.edu', short: 'Pitt', keys: ['university of pittsburg'] },
   { domain: 'illinois.edu', short: 'UIUC', keys: ['university of illinous urbana champaign'] },
+  // Fordham and Trinity College Dublin had logo files in lib/schoolLogos.ts
+  // but no entry here, so their cards fell back to a monogram. Not a bare
+  // 'trinity college' key: that is also a different school in Hartford.
+  { domain: 'fordham.edu', short: 'Fordham', keys: ['fordham'] },
+  { domain: 'tcd.ie', short: 'Trinity College Dublin', keys: ['trinity college dublin'] },
+  { domain: 'arizona.edu', short: 'Arizona', keys: ['university of arizona'] },
 ];
 
 // Canonical labels for seller-facing school pickers. Sellers can still enter a

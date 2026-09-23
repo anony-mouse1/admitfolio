@@ -31,7 +31,15 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // Not a page: the homepage fetches this file and renders it through an
+      // iframe srcDoc, so it has to stay served, but Google indexed it at its
+      // own URL. A header rather than a robots meta tag, because the file's
+      // markup ends up inside the homepage. Not a robots.txt block either:
+      // Google would stop recrawling it, never see the noindex, and keep it.
+      { source: '/hero-loop-embed.html', headers: [{ key: 'X-Robots-Tag', value: 'noindex' }] },
+    ];
   },
 };
 
