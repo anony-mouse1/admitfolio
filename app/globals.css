@@ -520,6 +520,10 @@ a { color: inherit; }
 .ecard-price .w { font-size: 12.5px; color: var(--faint); }
 .ecard-unlock { font-size: 13px; font-weight: 600; color: #fff; background: var(--accent); padding: 8px 17px; border-radius: 999px; transition: filter .2s; }
 .ecard-unlock:hover { filter: brightness(0.92); }
+/* The homepage renders Unlock as a button, the collection pages as a span
+   inside the card's link. Undo what a button brings with it, so both look the
+   same as the div this used to be. */
+button.ecard-unlock { -webkit-appearance: none; appearance: none; margin: 0; font-family: inherit; line-height: inherit; text-align: inherit; cursor: pointer; }
 
 /* ---- Releasing soon / notify banner ---- */
 .notify-banner {
