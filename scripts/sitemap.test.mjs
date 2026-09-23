@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
@@ -399,6 +400,21 @@ assert.ok(rules.rules.disallow.includes('/api'), 'robots blocks /api');
 assert.ok(rules.rules.allow.includes('/api/listings'), 'robots keeps /api/listings fetchable for the homepage render');
 assert.ok(!rules.rules.disallow.some((rule) => rule.startsWith('/purchase')), 'robots does not block /purchase');
 assert.equal(rules.sitemap, `${PRODUCTION_ORIGIN}/sitemap.xml`, 'robots points at the sitemap');
+
+// public/hero-loop-embed.html is a fragment the homepage fetches, not a page,
+// and Google indexed it. It carries a noindex header, and robots.txt has to
+// leave it crawlable or Google never reads that header.
+assert.match(homepage, /fetch\('\/hero-loop-embed\.html'\)/, 'the homepage still loads the hero embed');
+const nextConfig = createRequire(import.meta.url)(path.join(root, 'next.config.js'));
+const embedRobots = (await nextConfig.headers())
+  .filter((rule) => rule.source === '/hero-loop-embed.html')
+  .flatMap((rule) => rule.headers)
+  .find((header) => header.key.toLowerCase() === 'x-robots-tag');
+assert.match(embedRobots?.value || '', /\bnoindex\b/, 'the hero embed is served with a noindex header');
+assert.ok(
+  !rules.rules.disallow.some((rule) => '/hero-loop-embed.html'.startsWith(rule)),
+  'robots does not block the hero embed, so its noindex can be read',
+);
 
 // Nothing rendered for production may mention localhost or a preview host.
 const rendered = JSON.stringify({ entries, rules, llmsText });
