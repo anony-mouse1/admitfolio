@@ -16,6 +16,15 @@ const entries = [...mapBody.matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)].map((match) 
 assert.equal(entries.length, 75, 'every previously supported school must remain self-hosted');
 assert.equal(new Set(entries.map(({ domain }) => domain)).size, entries.length, 'logo domains must be unique');
 
+// A logo only renders for a school lib/schools.ts resolves to that domain.
+// Fordham and Trinity College Dublin were in this manifest with no table entry,
+// so their cards showed a monogram next to artwork that existed.
+const schoolsTable = await readFile(path.join(root, 'lib/schools.ts'), 'utf8');
+const tableDomains = new Set([...schoolsTable.matchAll(/domain:\s*'([^']+)'/g)].map((match) => match[1]));
+for (const { domain } of entries) {
+  assert.ok(tableDomains.has(domain), `${domain} has a logo but no lib/schools.ts entry, so the logo can never show`);
+}
+
 const sourcesByDomain = new Map(entries.map(({ domain, source }) => [domain, source]));
 assert.equal(sourcesByDomain.get('stanford.edu'), '/assets/schools/stanford.svg');
 assert.equal(sourcesByDomain.get('duke.edu'), '/assets/schools/duke.webp');
