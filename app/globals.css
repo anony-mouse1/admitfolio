@@ -3303,3 +3303,20 @@ a.ecard-link:hover { text-decoration: none; }
    was still two across. */
 @media (max-width: 900px) { .home-collections-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .home-collections-grid { grid-template-columns: 1fr; } }
+
+/* ===== Error pages =====
+   app/error.tsx and app/global-error.tsx, both through components/ErrorScreen. */
+.error-screen {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 48px 20px; text-align: center; background: var(--bg); color: var(--ink);
+}
+.error-screen .logo { margin-bottom: 44px; }
+.error-screen h1 {
+  margin: 0; font-family: var(--serif); font-size: clamp(34px, 6vw, 52px);
+  font-weight: 700; letter-spacing: -0.02em; line-height: 1.08;
+}
+.error-screen p { margin: 16px 0 0; max-width: 34ch; font-size: 17px; line-height: 1.55; color: var(--muted); }
+.error-screen-actions { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.error-screen-actions .btn-primary,
+.error-screen-actions .btn-ghost { padding: 14px 26px; font-family: inherit; font-size: 15px; }
