@@ -231,6 +231,9 @@ a { color: inherit; }
   backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center;
   padding: 28px; animation: overlayIn .2s ease;
 }
+/* The sheet takes focus itself when it opens, so a screen reader announces it.
+   It is the whole overlay, and a ring round the viewport would read as an error. */
+.ov:focus { outline: none; }
 .sheet {
   background: #fff; border-radius: 24px; width: 100%; max-width: 720px; max-height: 100%;
   overflow-y: auto; padding: 30px 34px 34px; position: relative; animation: sheetIn .25s ease;
@@ -524,6 +527,15 @@ a { color: inherit; }
    inside the card's link. Undo what a button brings with it, so both look the
    same as the div this used to be. */
 button.ecard-unlock { -webkit-appearance: none; appearance: none; margin: 0; font-family: inherit; line-height: inherit; text-align: inherit; cursor: pointer; }
+/* Keyboard focus on a card and on Unlock. The browser's default was a 1px
+   blue line pressed against the button's own dark border, which disappeared
+   on the burgundy. A 3px ring with a gap reads as a halo, not as the button. */
+.catalog-card:focus-visible,
+.ecard-unlock:focus-visible,
+.d-unlock-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
 
 /* ---- Releasing soon / notify banner ---- */
 .notify-banner {

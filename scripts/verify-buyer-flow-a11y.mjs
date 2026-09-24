@@ -9,6 +9,9 @@
 //     --remote-debugging-port=9223 --user-data-dir=/tmp/chrome-admitfolio about:blank
 //   node scripts/verify-buyer-flow-a11y.mjs
 //
+// ONLY=1 or ONLY=2 runs one numbered section below, and WIDTH=1440 or
+// WIDTH=390 one width, instead of all of them.
+//
 // The app URL must be localhost, not 127.0.0.1: Next's dev server serves
 // /_next/static only to the origin it was started on.
 //
@@ -24,17 +27,24 @@
 const chromePort = process.env.CHROME_DEBUG_PORT || '9223';
 const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const collectionSlug = process.env.COLLECTION_SLUG || 'common-app-personal-statement';
+const only = process.env.ONLY || '';
+const runs = (section) => !only || only === section;
 
 const WIDTHS = [
   { label: '1440', width: 1440, height: 900, mobile: false },
   { label: '390', width: 390, height: 844, mobile: true },
-];
+].filter((w) => !process.env.WIDTH || w.label === process.env.WIDTH);
 
 const failures = [];
 const notes = [];
 function check(condition, message) {
   if (condition) notes.push(`  ok    ${message}`);
-  else { failures.push(message); notes.push(`  FAIL  ${message}`); }
+  else {
+    failures.push(message);
+    notes.push(`  FAIL  ${message}`);
+    // Printed as it happens too, so a later timeout cannot hide it.
+    console.log(`  FAIL  ${message}`);
+  }
 }
 
 const target = await (await fetch(`http://localhost:${chromePort}/json/new?about:blank`, { method: 'PUT' })).json();
@@ -104,10 +114,22 @@ async function press(key, { shift = false } = {}) {
   await settle(120);
 }
 
+// The sheet and checkout slide in, and a click measured mid-slide misses.
+// Only their own animations count: the page behind has loops that never end.
+async function waitForStill() {
+  await waitFor(`(() => {
+    const running = document.getAnimations()
+      .filter((a) => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('.buy-overlay, .ov'))
+      .filter((a) => a.effect.getTiming().iterations !== Infinity && a.playState === 'running');
+    return running.length === 0 || running.map((a) => a.animationName || a.transitionProperty).join(', ');
+  })()`, 'sheet and checkout animations to finish');
+}
+
 // A real click at the centre of the element, after scrolling it into view.
 // The site scrolls smoothly, so the scroll is instant here and the point is
 // measured afterwards, and the element has to be the one actually under it.
 async function clickSelector(expression) {
+  await waitForStill();
   const point = await evaluate(`(() => {
     const el = ${expression};
     if (!el) return null;
@@ -149,12 +171,17 @@ async function loadHomepage(width) {
 await command('Runtime.enable');
 await command('Log.enable');
 await command('Page.enable');
+// A headless tab that is not in front has its animations paused, so the sheet
+// and checkout never finish sliding in. Focus emulation keeps :focus-visible
+// and focus events behaving as they do in a window the visitor is using.
+await command('Page.bringToFront');
+await command('Emulation.setFocusEmulationEnabled', { enabled: true });
 
 /* ---------------------------------------------------------------------------
    1. Unlock on a homepage card
    ------------------------------------------------------------------------- */
 
-for (const width of WIDTHS) {
+for (const width of runs('1') ? WIDTHS : []) {
   const at = `@${width.label}`;
   await loadHomepage(width);
 
@@ -178,6 +205,8 @@ for (const width of WIDTHS) {
     await press('Tab');
     const landed = await evaluate(`document.activeElement === document.querySelector('.catalog-card .ecard-unlock')`);
     check(landed, `${at} Tab from a card reaches that card's Unlock`);
+    const ring = await evaluate(`(() => { const s = getComputedStyle(document.activeElement); return s.outlineStyle + ' ' + s.outlineWidth + ' ' + s.outlineOffset; })()`);
+    check(ring === 'solid 3px 3px', `${at} the focused Unlock shows the 3px ring with a gap (${ring})`);
     await press(key);
     const state = await evaluate(STATE);
     check(state.checkoutOpen, `${at} ${name} on Unlock opens checkout`);
@@ -202,6 +231,108 @@ for (const width of WIDTHS) {
   state = await evaluate(STATE);
   check(state.sheetOpen && !state.checkoutOpen, `${at} clicking the card body opens the listing, not checkout`);
 }
+
+/* ---------------------------------------------------------------------------
+   2. The listing sheet takes focus
+   ------------------------------------------------------------------------- */
+
+const IN_SHEET = `(() => {
+  const a = document.activeElement;
+  const ov = document.querySelector('.ov');
+  return {
+    inside: !!ov && !!a && ov.contains(a),
+    onSheet: a === ov,
+    unlock: !!a && a.classList.contains('d-unlock-btn'),
+    label: a ? a.tagName.toLowerCase() + '.' + String(a.className).split(' ')[0] + ' ' + (a.textContent || '').trim().slice(0, 24) : 'none',
+  };
+})()`;
+
+const SHEET_PAGES = [
+  { name: 'homepage', load: loadHomepage, card: `document.querySelector('.catalog-card')` },
+  {
+    name: 'collection page',
+    load: async (width) => {
+      await load(`/essays/${collectionSlug}`, width);
+      await waitFor(`document.querySelectorAll('a.ecard-link').length >= 1`, 'collection cards');
+      await settle(800);
+    },
+    card: `document.querySelector('a.ecard-link')`,
+  },
+];
+
+for (const width of runs('2') ? WIDTHS : []) {
+  const at = `@${width.label}`;
+  for (const page of SHEET_PAGES) {
+    for (const mode of ['keyboard', 'mouse']) {
+      const how = `${at} ${mode}, ${page.name}:`;
+      await page.load(width);
+      await evaluate(`(window.__card = ${page.card}, true)`);
+      if (mode === 'keyboard') {
+        await evaluate(`window.__card.focus()`);
+        await press('Enter');
+      } else {
+        await clickSelector(`window.__card.querySelector('.ecard-hook, .ecard-head')`);
+      }
+      await waitFor(`!!document.querySelector('.ov .d-unlock-btn')`, 'the listing sheet');
+      await waitForStill();
+
+      const opened = await evaluate(IN_SHEET);
+      check(opened.inside, `${how} focus moves into the sheet when it opens (on ${opened.label})`);
+
+      // Tab reaches the sheet's own Unlock, and every stop on the way is in the sheet.
+      const stops = await evaluate(`[...document.querySelectorAll('.ov a[href], .ov button')].filter((el) => el.getClientRects().length > 0).length`);
+      let reached = false;
+      const path = [];
+      for (let i = 0; i < stops + 1 && !reached; i++) {
+        await press('Tab');
+        const w = await evaluate(IN_SHEET);
+        path.push(w);
+        reached = w.unlock;
+      }
+      check(reached, `${how} Tab reaches the sheet's Unlock (after ${path.length} presses)`);
+      check(path.every((w) => w.inside), `${how} every Tab stop on the way is inside the sheet`);
+      const ring = await evaluate(`(() => { const s = getComputedStyle(document.activeElement); return s.outlineStyle + ' ' + s.outlineWidth + ' ' + s.outlineOffset; })()`);
+      check(ring === 'solid 3px 3px', `${how} the sheet's Unlock shows the 3px ring with a gap (${ring})`);
+
+      // Two full laps in each direction never leave the sheet.
+      for (const shift of [false, true]) {
+        const lap = [];
+        for (let i = 0; i < stops * 2 + 1; i++) {
+          await press('Tab', { shift });
+          lap.push(await evaluate(IN_SHEET));
+        }
+        const escaped = lap.find((w) => !w.inside);
+        check(!escaped, `${how} ${shift ? 'Shift+Tab' : 'Tab'} stays inside the sheet for two laps${escaped ? ` (reached ${escaped.label})` : ''}`);
+      }
+
+      // Unlock from the sheet by keyboard, close checkout, and land back on Unlock.
+      if (mode === 'keyboard') {
+        await evaluate(`document.querySelector('.ov .d-unlock-btn').focus()`);
+        await press('Enter');
+        await waitFor(`!!document.querySelector('.buy-overlay.open')`, 'checkout to open');
+        await waitForStill();
+        await press('Escape');
+        await waitFor(`!document.querySelector('.buy-overlay.open')`, 'checkout to close');
+        await settle(400);
+        const back = await evaluate(IN_SHEET);
+        check(back.unlock, `${how} closing checkout puts focus back on the sheet's Unlock (on ${back.label})`);
+      }
+
+      // Closing the sheet hands focus back to the card that opened it.
+      if (mode === 'keyboard') await press('Escape');
+      else await clickSelector(`[...document.querySelectorAll('.ov .sheet-x')].find((el) => el.getClientRects().length > 0)`);
+      await waitFor(`!document.querySelector('.ov')`, 'the sheet to close');
+      await settle(300);
+      check(await evaluate(`document.activeElement === window.__card`), `${how} closing the sheet returns focus to the card`);
+    }
+  }
+}
+
+// Nothing above may have started a payment.
+check(
+  (await evaluate(`performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/checkout')).length`)) === 0,
+  'no request reached /api/checkout, so no Stripe session was created',
+);
 
 /* ------------------------------------------------------------------------ */
 
