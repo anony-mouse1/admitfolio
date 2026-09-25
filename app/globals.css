@@ -1573,27 +1573,6 @@ footer { background: #1b1a17; color: #cfccc4; }
 .dash-rev-row.net .dash-rev-label { color: var(--ink); font-weight: 700; }
 .dash-rev-row.net .dash-rev-value { color: var(--accent); font-size: 18px; }
 
-/* ---- Per-essay breakdown table ---- */
-.dash-table {
-  background: #fff; border: 1px solid var(--card-line); border-radius: 16px;
-  overflow: hidden; box-shadow: 0 1px 3px rgba(20,18,15,0.04);
-}
-.dash-table-head, .dash-table-row {
-  display: grid; grid-template-columns: 1fr 64px 78px 100px; gap: 8px;
-  padding: 12px 20px; align-items: center;
-}
-.dash-table-head {
-  border-bottom: 1px solid var(--line);
-  font-size: 11px; font-weight: 700; color: var(--faint);
-  text-transform: uppercase; letter-spacing: 0.07em;
-}
-.dash-table-row { border-bottom: 1px solid #f5f3ee; }
-.dash-table-row:last-child { border-bottom: none; }
-.dash-table-essay { font-size: 13.5px; font-weight: 600; color: var(--ink); }
-.dash-table-school { font-size: 11.5px; color: var(--faint); margin-top: 2px; }
-.dash-table-num { font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--ink); }
-.dash-table-rev { font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--accent); }
-
 /* ---- Listings management ---- */
 .dash-status-group { margin-top: 26px; }
 .dash-status-group:first-child { margin-top: 0; }
