@@ -3,17 +3,13 @@
 import { useState } from 'react';
 import styles from './SellerApplicationsWorkspace.module.css';
 import type { SellerApplicationListing } from './sellerApplicationsCore';
+import { checkPrice, MAX_ESSAY_PRICE, MAX_PACKAGE_PRICE, MIN_PRICE } from '@/lib/pricing';
 
 export type ListingPriceSave = {
   listingId: string;
   packagePrice?: number;
   essayPrices?: Record<string, number>;
 };
-
-// Whole dollars, matching the Int columns behind packagePrice and Essay.price.
-const MAX_PACKAGE_PRICE = 399;
-const MAX_ESSAY_PRICE = 99;
-const WHOLE_DOLLARS = 'Whole dollars only, no cents.';
 
 /**
  * The price editor for one listing, rendered inside the row it belongs to.
@@ -39,27 +35,24 @@ export default function ListingPricePanel({
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // A package price is checked as it is typed, like the sell wizard. Per-essay
+  // rows are checked on save, where the failing row is named by its message.
+  const typedCheck = isPackage && pkgInput.trim() !== '' ? checkPrice(pkgInput, 'package') : null;
+  const shownError = error || (typedCheck && !typedCheck.ok ? typedCheck.error : '');
 
-  function priceProblem(value: string): string | null {
-    const amount = parseFloat(value);
-    if (isNaN(amount) || amount < listing.priceFloor) return `Minimum for your tier is $${listing.priceFloor}.`;
-    if (!Number.isInteger(amount)) return `${WHOLE_DOLLARS} Round to the nearest dollar.`;
-    if (amount > max) return `The most you can charge is $${max}.`;
-    return null;
-  }
-
+  // The same rule the server applies, so a refusal shows here before a request.
   async function save() {
     const payload: ListingPriceSave = { listingId: listing.id };
     if (isPackage) {
-      const problem = priceProblem(pkgInput);
-      if (problem) { setError(problem); return; }
-      payload.packagePrice = parseFloat(pkgInput);
+      const check = checkPrice(pkgInput, 'package');
+      if (!check.ok) { setError(check.error); return; }
+      payload.packagePrice = check.price;
     } else {
       const prices: Record<string, number> = {};
       for (const essay of listing.essays) {
-        const problem = priceProblem(essayInputs[essay.id] || '');
-        if (problem) { setError(problem); return; }
-        prices[essay.id] = parseFloat(essayInputs[essay.id]);
+        const check = checkPrice(essayInputs[essay.id] || '', 'essay');
+        if (!check.ok) { setError(check.error); return; }
+        prices[essay.id] = check.price;
       }
       payload.essayPrices = prices;
     }
@@ -88,21 +81,23 @@ export default function ListingPricePanel({
         <div className={styles.priceRow}>
           <input
             type="number"
-            min={listing.priceFloor}
+            min={MIN_PRICE}
             max={max}
             step={1}
+            inputMode="numeric"
             value={pkgInput}
+            aria-invalid={shownError ? true : undefined}
             aria-label="Package price in dollars"
             onChange={(event) => { setPkgInput(event.target.value); setError(''); }}
           />
-          <span>{`$${listing.priceFloor} to $${max}, whole dollars`}</span>
+          <span>{`$${MIN_PRICE} to $${max}, whole dollars`}</span>
         </div>
       ) : (
         listing.essays.map((essay) => (
           <div className={styles.priceRow} key={essay.id}>
             <input
               type="number"
-              min={listing.priceFloor}
+              min={MIN_PRICE}
               max={max}
               step={1}
               value={essayInputs[essay.id] || ''}
@@ -117,7 +112,7 @@ export default function ListingPricePanel({
         ))
       )}
 
-      {error && <div className={styles.panelError} role="alert">{error}</div>}
+      {shownError && <div className={styles.panelError} role="alert">{shownError}</div>}
 
       <div className={styles.panelActions}>
         <button className={styles.primaryButton} type="button" disabled={saving} onClick={() => void save()}>

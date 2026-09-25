@@ -7,7 +7,7 @@ import { normalizeAnonymity } from '@/lib/anonymity';
 import { schoolKey } from '@/lib/admitProof';
 import { sameSchool } from '@/lib/schools';
 import { findSameSchoolConflict } from '@/lib/essayDuplication';
-import { packageFloor, schoolTier, TIER } from '@/lib/pricing';
+import { checkPrice } from '@/lib/pricing';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
 import { reviewListing } from '@/lib/reviewRunner';
@@ -49,6 +49,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (state.essays.length === 0 || state.essays.some((essay) => !essay.prompt)) {
     return NextResponse.json({ error: 'Add the prompt for every essay.' }, { status: 400 });
   }
+  // The same limits the form shows (lib/pricing checkPrice). The draft keeps
+  // the price exactly as typed, so a non-whole amount is refused here rather
+  // than rounded on the way in.
+  const priceCheck = checkPrice(state.packagePrice, 'package');
+  if (!priceCheck.ok) return NextResponse.json({ error: priceCheck.error }, { status: 400 });
+  const packagePrice = priceCheck.price;
 
   // sourceListing handling survives the removal of the seller-facing revise
   // path on purpose. That route is gone, so no new revision drafts can be
@@ -69,14 +75,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const essayHashes = essayFiles.map((file) => file!.contentHash!);
   if (new Set(essayHashes).size !== essayHashes.length) {
     return NextResponse.json({ error: 'The same essay file was added more than once.' }, { status: 400 });
-  }
-
-  const priceFloor = packageFloor(schoolTier(state.targetSchool), state.essays.length);
-  if (state.packagePrice == null || state.packagePrice < priceFloor) {
-    return NextResponse.json(
-      { error: `Your ${TIER[schoolTier(state.targetSchool)].label} package floor is $${priceFloor}. You can charge that or more.` },
-      { status: 400 },
-    );
   }
 
   // Reusing a file across packages for DIFFERENT colleges is allowed: one
@@ -138,7 +136,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           admitTags: JSON.stringify(state.admits),
           anonymity: normalizeAnonymity(state.anonymity),
           pricingMode: 'package',
-          packagePrice: state.packagePrice,
+          packagePrice,
           teaser: state.teaser || null,
           sellerNote: state.sellerNote || null,
           status: 'pending',

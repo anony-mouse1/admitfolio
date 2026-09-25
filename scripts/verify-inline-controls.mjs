@@ -33,9 +33,12 @@ assert(!/function ListingCard\(/.test(page), 'ListingCard is replaced by the inl
 
 // The panel keeps what ListingCard used to show, and the batch 2 price rules.
 assert(/listing\.sales/.test(panel) && /Added \{added\}/.test(panel), 'the panel must keep the sales count and added date');
-assert(/Number\.isInteger\(amount\)/.test(panel), 'whole dollars only');
+// Whole dollars now lives in the shared rule both the panel and the server use.
+const pricingLib = fs.readFileSync(new URL('../lib/pricing.ts', import.meta.url), 'utf8');
+assert(/Number\.isInteger\(amount\)/.test(pricingLib), 'whole dollars only');
 assert(/step=\{1\}/.test(panel), 'price inputs stay whole-dollar stepped');
-assert(/listing\.priceFloor/.test(panel), 'the tier floor is resolved server-side and honoured here');
+assert(/const check = checkPrice\(pkgInput, 'package'\);\s*if \(!check\.ok\) \{ setError\(check\.error\); return; \}/.test(panel), 'Save applies the same price rule as the server');
+assert((panel.match(/min=\{MIN_PRICE\}/g) || []).length === 2 && !/min=\{(?!MIN_PRICE)/.test(panel), 'both price inputs (package and per essay) start at the $10 minimum');
 
 // Item 22: refetch, never patch by a key the save just invalidated.
 const saveBody = page.slice(page.indexOf('async function saveApplicationOutcome'), page.indexOf('function editWorkspaceListing'));

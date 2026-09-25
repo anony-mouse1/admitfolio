@@ -27,10 +27,13 @@ export type SellerDraftState = {
 const text = (value: unknown, max: number) =>
   String(value ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, max);
 
+// Kept exactly as typed, not rounded. Rounding here is what let a seller who
+// typed $12.50 be listed at $13 without a word: finalize now refuses a
+// non-whole price, and it can only do that if the draft still holds one.
 const finiteMoney = (value: unknown): number | null => {
   if (value === '' || value == null) return null;
   const amount = Number(value);
-  return Number.isFinite(amount) && amount >= 0 ? Math.round(amount) : null;
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
 };
 
 export function sanitizeSellerDraftState(value: unknown): SellerDraftState {

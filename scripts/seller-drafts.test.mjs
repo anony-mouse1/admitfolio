@@ -24,7 +24,9 @@ const state = draft.sanitizeSellerDraftState({
 assert.equal(state.currentUniversity, 'University of Washington');
 assert.deepEqual(state.admits, ['Stanford', 'UC Berkeley']);
 assert.equal(state.anonymity, 'revealOnPurchase');
-assert.equal(state.packagePrice, 24);
+// Kept exactly as typed. Finalize refuses a non-whole price, so rounding it
+// here would let $24.40 through as $24.
+assert.equal(state.packagePrice, 24.4);
 assert.equal(state.essays[0].question, 'A question');
 assert.equal(state.essays[0].sourceEssayId, 'essay-original');
 assert.equal(state.essays[0].sourceFileName, 'original.pdf');
