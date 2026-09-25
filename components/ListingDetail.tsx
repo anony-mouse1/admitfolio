@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useRef } from 'react';
 import LogoBadge from '@/components/LogoBadge';
 import { schoolColor, schoolInfo, schoolShortName } from '@/lib/schools';
 import {
@@ -58,6 +59,15 @@ function ValueTick() {
   );
 }
 
+// What sequential focus can land on inside the sheet.
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// The control that opened the sheet, so closing can hand focus back to it.
+// Module scope, not a ref: opening another listing from inside the sheet
+// remounts it (both pages key it on the listing id), and the card that opened
+// the first one is still the right place to come back to.
+let returnFocusTo: HTMLElement | null = null;
+
 /* What the seller is promised, in the seller's own terms. Never a name.
    'anonymous' means never named, even to the buyer, so saying "anonymous until
    purchase" for that case would be a promise the product does not keep. */
@@ -95,6 +105,58 @@ export default function ListingDetail({
   onOpenListing: (id: string) => void;
   onUnlock: () => void;
 }) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // The sheet is an overlay on the page, so a keyboard has to be moved into it.
+  // Before this, focus stayed on the card behind and Tab walked the catalogue
+  // underneath, never reaching the sheet's own Unlock.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body && !overlay.contains(active)) {
+      returnFocusTo = active;
+    }
+    overlay.focus({ preventScroll: true });
+    return () => {
+      const target = returnFocusTo;
+      returnFocusTo = null;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    };
+  }, []);
+
+  // Checkout covers the sheet and makes it inert, which drops focus from the
+  // Unlock that opened it. When checkout closes, put focus back on that Unlock
+  // rather than leaving it on the page behind.
+  const wasObscured = useRef(obscured);
+  useEffect(() => {
+    const active = document.activeElement;
+    if (wasObscured.current && !obscured && (!active || active === document.body)) {
+      overlayRef.current?.querySelector<HTMLElement>('.d-unlock-btn')?.focus({ preventScroll: true });
+    }
+    wasObscured.current = obscured;
+  }, [obscured]);
+
+  // Tab and Shift+Tab wrap inside the sheet instead of leaving it.
+  const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const overlay = overlayRef.current;
+    if (event.key !== 'Tab' || !overlay) return;
+    const focusable = [...overlay.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (el) => el.tabIndex >= 0 && el.getClientRects().length > 0,
+    );
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === overlay)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }, []);
+
   const head = headlineSchool(listing);
   const info = schoolInfo(head);
   const label = info ? info.short : schoolShortName(head);
@@ -124,12 +186,15 @@ export default function ListingDetail({
 
   return (
     <div
+      ref={overlayRef}
       className="ov"
       role="dialog"
       aria-modal="true"
       aria-hidden={obscured || undefined}
       inert={obscured || undefined}
       aria-label={`${label} listing`}
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
