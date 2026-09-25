@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import styles from './SellerApplicationsWorkspace.module.css';
 import type { SellerApplicationListing } from './sellerApplicationsCore';
+import PriceGuidance from './PriceGuidance';
 import { checkPrice, MAX_ESSAY_PRICE, MAX_PACKAGE_PRICE, MIN_PRICE } from '@/lib/pricing';
+import type { PricedListing } from '@/lib/similarPrices';
 
 export type ListingPriceSave = {
   listingId: string;
@@ -22,10 +24,13 @@ export default function ListingPricePanel({
   listing,
   onClose,
   onSave,
+  catalogPrices = null,
 }: {
   listing: SellerApplicationListing;
   onClose: () => void;
   onSave: (payload: ListingPriceSave) => Promise<string | null>;
+  /** The public catalogue, for the similar-listings range. Null until loaded. */
+  catalogPrices?: PricedListing[] | null;
 }) {
   const isPackage = listing.pricingMode === 'package';
   const max = isPackage ? MAX_PACKAGE_PRICE : MAX_ESSAY_PRICE;
@@ -113,6 +118,17 @@ export default function ListingPricePanel({
       )}
 
       {shownError && <div className={styles.panelError} role="alert">{shownError}</div>}
+
+      {/* Package listings only: per-essay listings cannot be bought, so
+          neither what they earn nor a package price range applies to them. */}
+      {isPackage && (
+        <PriceGuidance
+          price={pkgInput}
+          essayCount={listing.essays.length}
+          catalog={catalogPrices}
+          excludeListingId={listing.id}
+        />
+      )}
 
       <div className={styles.panelActions}>
         <button className={styles.primaryButton} type="button" disabled={saving} onClick={() => void save()}>

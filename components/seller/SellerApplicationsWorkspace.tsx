@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import styles from './SellerApplicationsWorkspace.module.css';
 import ListingPricePanel, { type ListingPriceSave } from './ListingPricePanel';
+import type { PricedListing } from '@/lib/similarPrices';
 import {
   anonymitySummary,
   applicationDecisionLabel,
@@ -44,6 +45,8 @@ export type SellerApplicationsWorkspaceProps = {
   activeListingId?: string | null;
   onCloseListingControls?: () => void;
   onSaveListingPrice?: (payload: ListingPriceSave) => Promise<string | null>;
+  /** The public catalogue, for the price panel's similar-listings range. */
+  catalogPrices?: PricedListing[] | null;
 };
 
 const FILTER_LABELS: Record<SellerListingFilter, string> = {
@@ -105,6 +108,7 @@ export default function SellerApplicationsWorkspace({
   activeListingId = null,
   onCloseListingControls,
   onSaveListingPrice,
+  catalogPrices = null,
 }: SellerApplicationsWorkspaceProps) {
   const [filter, setFilter] = useState<SellerListingFilter>('all');
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -303,6 +307,7 @@ export default function SellerApplicationsWorkspace({
                             listing={listing}
                             onClose={onCloseListingControls}
                             onSave={onSaveListingPrice}
+                            catalogPrices={catalogPrices}
                           />
                         )}
                       </div>

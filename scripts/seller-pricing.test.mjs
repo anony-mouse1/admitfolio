@@ -1,4 +1,5 @@
-// Seller-set prices: the $10 minimum, the caps and whole dollars only.
+// Seller-set prices: the $10 minimum, the caps, whole dollars only, the
+// earnings line and the similar-listings range.
 //
 // The three routes that save a price are run for real here, with the form
 // bypassed: each handler is transpiled and called directly with a raw request
@@ -80,6 +81,8 @@ const load = async (relative) => import(pathToFileURL(link(path.join(root, relat
 
 try {
   const pricing = await load('lib/pricing.ts');
+  const { splitRevenueCents } = await load('lib/commerce.ts');
+  const { similarPriceRange } = await load('lib/similarPrices.ts');
   const { sanitizeSellerDraftState } = await load('lib/sellerDraft.ts');
   const listingPrice = await load('app/api/seller/listing-price/route.ts');
   const submitListing = await load('app/api/submit-listing/route.ts');
@@ -124,6 +127,28 @@ try {
   assert.equal(pricing.recommendedPackagePrice(3, 1), 20);
   assert.equal(pricing.recommendedEssayPrice(2), 22);
   assert.equal(checkPrice(pricing.recommendedPackagePrice(1, 3) - 50, 'package').ok, true, 'a price under the recommendation is allowed');
+
+  // ---- Earnings: the checkout split, shown before Stripe's fee -------------
+  const earned = (dollars) => splitRevenueCents(dollars * 100).sellerEarningsCents;
+  const earnings = {};
+  for (const [price, cents] of [[10, 600], [11, 660], [25, 1500], [76, 4560], [399, 23940]]) {
+    assert.equal(earned(price), cents, `$${price} should earn ${cents} cents`);
+    earnings[`$${price}`] = `$${(cents / 100).toFixed(2)}`;
+  }
+
+  // ---- Similar listings -----------------------------------------------------
+  const catalog = [
+    ...[20, 30, 30, 30, 35, 40, 40, 80].map((price, i) => ({ id: `one-${i}`, price, essayCount: 1 })),
+    ...[40, 50, 60].map((price, i) => ({ id: `three-${i}`, price, essayCount: 3 })),
+    { id: 'five-0', price: 90, essayCount: 5 },
+    { id: 'five-1', price: 110, essayCount: 5 },
+    { id: 'one-null', price: null, essayCount: 1 },
+  ];
+  assert.deepEqual(similarPriceRange(catalog, 1), { essayCount: 1, count: 8, min: 20, max: 80, middle: { low: 30, high: 40 } });
+  assert.deepEqual(similarPriceRange(catalog, 3), { essayCount: 3, count: 3, min: 40, max: 60, middle: null }, 'three listings: a range but no middle');
+  assert.deepEqual(similarPriceRange(catalog, 3, 'three-0'), { essayCount: 3, count: 2, min: null, max: null, middle: null }, 'the listing being edited is not compared with itself');
+  assert.deepEqual(similarPriceRange(catalog, 5), { essayCount: 5, count: 2, min: null, max: null, middle: null }, 'two listings are too few for a range');
+  assert.equal(similarPriceRange(catalog, 7).count, 0);
 
   // ---- Drafts keep the price as typed, so finalize can refuse cents --------
   assert.equal(sanitizeSellerDraftState({ packagePrice: '12.50' }).packagePrice, 12.5);
@@ -229,6 +254,7 @@ try {
   routeResults.push(['finalize', 'package', '10', passed.status, 'passed price check']);
 
   console.table(routeResults.map(([route, mode, price, status, result]) => ({ route, mode, price, status, result })));
+  console.log('earnings (splitRevenueCents):', JSON.stringify(earnings));
   console.log('seller pricing tests passed');
 } finally {
   delete globalThis.__sellerPricingTest;

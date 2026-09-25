@@ -9,6 +9,8 @@ import ListingCheckout from '@/components/ListingCheckout';
 import MatchFinder from '@/components/MatchFinder';
 import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/components/seller';
 import { checkPrice, MAX_ESSAY_PRICE, MAX_PACKAGE_PRICE, MIN_PRICE, recommendedEssayPrice, recommendedPackagePrice, schoolTier, SELLER_SHARE } from '@/lib/pricing';
+import type { PricedListing } from '@/lib/similarPrices';
+import PriceGuidance from '@/components/seller/PriceGuidance';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
@@ -533,6 +535,14 @@ export default function Page() {
       })
       .catch(() => setPubState('error'));
   }, []);
+  // What the pricing screens compare a price against. Null until the catalogue
+  // has loaded, so a failed load shows no range rather than an empty one.
+  const catalogPrices = useMemo<PricedListing[] | null>(
+    () => (pubState === 'ready'
+      ? pubListings.map((l) => ({ id: l.id, price: l.price, essayCount: l.essays.length }))
+      : null),
+    [pubListings, pubState],
+  );
 
   useEffect(() => {
     if (!LAUNCHED) return;
@@ -3189,6 +3199,7 @@ export default function Page() {
               <div className="field-hint" id="packagePriceHint">
                 Any whole-dollar price from ${MIN_PRICE} to ${MAX_PACKAGE_PRICE}. One price covers every essay in this listing.
               </div>
+              <PriceGuidance price={packagePrice} essayCount={essayRows.length} catalog={catalogPrices} />
             </div>
 
             <div className="field">
@@ -3709,6 +3720,7 @@ export default function Page() {
               activeListingId={activeListingControlId}
               onCloseListingControls={() => setActiveListingControlId(null)}
               onSaveListingPrice={saveListingPrice}
+              catalogPrices={catalogPrices}
             />
           </section>
 
