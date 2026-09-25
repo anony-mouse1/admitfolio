@@ -23,7 +23,7 @@ try {
     fs.writeFileSync(path.join(outDir, path.basename(file, '.ts') + '.js'), output);
   }
 
-  const { schoolTier, priceAllowedAtFloor } = require(path.join(outDir, 'pricing.js'));
+  const { schoolTier } = require(path.join(outDir, 'pricing.js'));
 
   for (const school of [
     'Wisconsin',
@@ -36,7 +36,7 @@ try {
     'Miami',
     'Southern California',
   ]) {
-    assert.equal(schoolTier(school), 2, `${school} should keep its Tier 2 floor`);
+    assert.equal(schoolTier(school), 2, `${school} should keep its Tier 2 recommendation`);
   }
 
   for (const school of [
@@ -53,12 +53,8 @@ try {
   assert.equal(schoolTier('Penn State'), 3, 'Penn State must not resolve as UPenn');
   assert.equal(schoolTier('University of Pennsylvania'), 1);
   assert.equal(schoolTier('University of Washington'), 2);
-
-  assert.equal(priceAllowedAtFloor(30, 30, 23), true, 'a price at the new floor is allowed');
-  assert.equal(priceAllowedAtFloor(23, 30, 23), true, 'the exact existing price is grandfathered');
-  assert.equal(priceAllowedAtFloor(24, 30, 23), false, 'a changed price below the new floor is rejected');
-  assert.equal(priceAllowedAtFloor(20, 30, 23), false, 'a lower price below the new floor is rejected');
-  assert.equal(priceAllowedAtFloor(23, 30, null), false, 'new listings do not receive grandfathering');
+  // The $10 minimum, caps and whole-dollar rule are covered by
+  // scripts/seller-pricing.test.mjs, which also runs the routes.
 
   console.log('pricing tests passed');
 } finally {

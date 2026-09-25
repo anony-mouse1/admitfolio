@@ -161,8 +161,15 @@ assert(stepped === 4, `All four price inputs must be whole-dollar stepped, found
 assert((page.match(/max=\{MAX_PACKAGE_PRICE\}/g) || []).length === 1, 'the wizard package input must be capped');
 assert((page.match(/max=\{MAX_ESSAY_PRICE\}/g) || []).length === 1, 'the wizard essay input must be capped');
 assert((pricePanel.match(/max=\{max\}/g) || []).length === 2, 'both dashboard price inputs must be capped');
-assert(/MAX_PACKAGE_PRICE = 399/.test(pricePanel) && /MAX_ESSAY_PRICE = 99/.test(pricePanel), 'the panel must use the same caps as the wizard');
-assert(/Number\.isInteger/.test(page) && /Number\.isInteger/.test(pricePanel), 'A price with cents must be rejected before submit');
+// The caps and the whole-dollar rule live once, in lib/pricing, and both
+// screens import them, so they cannot drift apart again.
+const pricingLib = fs.readFileSync(new URL('../lib/pricing.ts', import.meta.url), 'utf8');
+assert(/MAX_PACKAGE_PRICE = 399/.test(pricingLib) && /MAX_ESSAY_PRICE = 99/.test(pricingLib), 'the caps must be defined once in lib/pricing');
+for (const [name, source] of [['the wizard', page], ['the panel', pricePanel]]) {
+  assert(!/const MAX_(PACKAGE|ESSAY)_PRICE =/.test(source), `${name} must import the caps, not redeclare them`);
+  assert(/checkPrice\(/.test(source), `${name} must check prices with the shared rule`);
+}
+assert(/Number\.isInteger\(amount\)/.test(pricingLib), 'A price with cents must be rejected before submit');
 
 const view = fs.readFileSync(new URL('../lib/sellerDashboardView.ts', import.meta.url), 'utf8');
 assert(/rows\.some\(isAdminApprovedListing\)/.test(view), 'Seller-wide verification must read the unmapped rows');

@@ -1,5 +1,9 @@
-// Smart pricing engine - shared by the sell wizard (client) and the seller
-// price-edit API (server), so floors can't be bypassed with a direct request.
+// Pricing rules, shared by the sell wizard and dashboard editor (client) and
+// every route that saves a price (server), so the form and a direct request are
+// held to exactly the same limits.
+//
+// Sellers choose their own price. The school tier only sets a recommended
+// price, shown as a suggestion. The hard limits are MIN_PRICE and the two caps.
 
 import { schoolInfo } from './schools';
 
@@ -53,18 +57,39 @@ export const SELLER_SHARE = SELLER_SHARE_BPS / 10_000;
 // revenue promise to preserve. Rows created by prototypes also use 60/40.
 export const UNSNAPSHOTTED_SELLER_SHARE_BPS = SELLER_SHARE_BPS;
 
-export const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
-export const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
+// Recommended prices. These were hard floors until sellers were allowed to set
+// their own price; the numbers are unchanged and are now only a suggestion.
+export const recommendedPackagePrice = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
+export const recommendedEssayPrice = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
 
-// A seller who submitted under the floor in force at the time can keep that
-// exact price. Any change must meet today's floor. This prevents a school alias
-// correction from trapping an existing listing in the price editor.
-export function priceAllowedAtFloor(price: number, floor: number, currentPrice: number | null): boolean {
-  return price >= floor || (currentPrice != null && currentPrice < floor && price === currentPrice);
-}
+// Prices are whole dollars (Listing.packagePrice and Essay.price are Int
+// columns). A non-whole amount is refused rather than rounded, so a seller who
+// types $12.50 is told, instead of silently being charged out at $13.
+export const MIN_PRICE = 10;
+export const MAX_PACKAGE_PRICE = 399;
+export const MAX_ESSAY_PRICE = 99;
+export const WHOLE_DOLLARS_ONLY = 'Whole dollars only, no cents.';
 
-// Best (lowest-numbered) tier among a seller's admit schools; null without admits.
-export function admitsTier(admits: string[]): 1 | 2 | 3 | null {
-  if (!admits.length) return null;
-  return admits.map(schoolTier).reduce((a, b) => (a < b ? a : b)) as 1 | 2 | 3;
+export type PriceKind = 'package' | 'essay';
+export type PriceCheck = { ok: true; price: number } | { ok: false; error: string };
+
+export function checkPrice(value: unknown, kind: PriceKind): PriceCheck {
+  const max = kind === 'package' ? MAX_PACKAGE_PRICE : MAX_ESSAY_PRICE;
+  const amount = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  if (!Number.isFinite(amount)) {
+    return { ok: false, error: kind === 'package' ? 'Set a package price.' : 'Set a price for every essay.' };
+  }
+  if (!Number.isInteger(amount)) return { ok: false, error: `${WHOLE_DOLLARS_ONLY} Round to the nearest dollar.` };
+  if (amount < MIN_PRICE) return { ok: false, error: `The lowest price you can set is $${MIN_PRICE}.` };
+  if (amount > max) {
+    return {
+      ok: false,
+      error: kind === 'package'
+        ? `The most you can charge for one listing is $${max}.`
+        : `The most you can charge for one essay is $${max}.`,
+    };
+  }
+  return { ok: true, price: amount };
 }

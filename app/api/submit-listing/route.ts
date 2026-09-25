@@ -4,7 +4,7 @@ import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
 import { makeUploadToken } from '@/lib/uploadToken';
 import { currentSeller } from '@/lib/sellerAuth';
-import { packageFloor, perEssayFloor, schoolTier, TIER } from '@/lib/pricing';
+import { checkPrice } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { normalizeAnonymity } from '@/lib/anonymity';
 import { sameSchool } from '@/lib/schools';
@@ -79,9 +79,8 @@ export async function POST(req: Request) {
   const teaser = String(body?.teaser || '').trim().slice(0, 90) || null;
   const appliedMajors = String(body?.appliedMajors || '').trim().slice(0, 120) || null;
 
-  // The tier is fixed by the seller's admits and its floor is enforced here,
-  // not just in the wizard UI - a direct request can't undercut it. Admits are
-  // required server-side too: with none, no tier (and no floor) would apply.
+  // Admits are required server-side too: the listing's college must be one of
+  // them.
   const admitTags = (Array.isArray(body?.admitTags) ? body.admitTags : [])
     .slice(0, 20)
     .map((t) => String(t).trim().slice(0, 80))
@@ -97,31 +96,21 @@ export async function POST(req: Request) {
   if (!applicationSystem) {
     return NextResponse.json({ error: 'Choose the application system for these essays.' }, { status: 400 });
   }
-  const tier = schoolTier(targetSchool);
 
-  // Prices must be real finite numbers - NaN slips past `<` comparisons.
-  const asPrice = (v: unknown): number | null => {
-    if (v == null) return null;
-    const n = Math.round(Number(v));
-    return Number.isFinite(n) ? n : null;
-  };
-  const packagePrice = asPrice(body?.packagePrice);
-  const essayPrices = essays.map((e) => asPrice(e?.price));
+  // The same limits the form shows (lib/pricing checkPrice), enforced here so a
+  // direct request cannot get round them. A non-whole amount is refused, never
+  // rounded. Only the prices this pricing mode stores are checked.
+  let packagePrice: number | null = null;
+  const essayPrices: (number | null)[] = essays.map(() => null);
   if (pricingMode === 'package') {
-    const floor = packageFloor(tier, essays.length);
-    if (packagePrice == null || packagePrice < floor) {
-      return NextResponse.json(
-        { error: `Your ${TIER[tier].label} package floor is $${floor}. You can charge that or more.` },
-        { status: 400 },
-      );
-    }
+    const check = checkPrice(body?.packagePrice, 'package');
+    if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
+    packagePrice = check.price;
   } else {
-    const floor = perEssayFloor(tier);
-    if (essayPrices.some((p) => p == null || p < floor)) {
-      return NextResponse.json(
-        { error: `Each essay's floor at ${TIER[tier].label} is $${floor}. You can charge that or more.` },
-        { status: 400 },
-      );
+    for (const [index, essay] of essays.entries()) {
+      const check = checkPrice(essay?.price, 'essay');
+      if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
+      essayPrices[index] = check.price;
     }
   }
 

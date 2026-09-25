@@ -34,7 +34,7 @@ assert.equal(listingStatusTone('removed'), 'closed');
 
 const listing = (id, status) => ({
   id, status, title: `${id} essays`, essayCount: 1, wordCount: null, priceCents: null,
-  anonymity: 'anonymous', pricingMode: 'package', packagePrice: null, priceFloor: 1,
+  anonymity: 'anonymous', pricingMode: 'package', packagePrice: null,
   sales: 0, createdAt: '2026-01-01T00:00:00.000Z', essays: [],
 });
 const applications = [{

@@ -8,7 +8,9 @@ import ListingDetail from '@/components/ListingDetail';
 import ListingCheckout from '@/components/ListingCheckout';
 import MatchFinder from '@/components/MatchFinder';
 import { SellerApplicationsWorkspace, type SellerApplicationRecord } from '@/components/seller';
-import { TIER, admitsTier, packageFloor, perEssayFloor, schoolTier, SELLER_SHARE } from '@/lib/pricing';
+import { checkPrice, MAX_ESSAY_PRICE, MAX_PACKAGE_PRICE, MIN_PRICE, recommendedEssayPrice, recommendedPackagePrice, schoolTier, SELLER_SHARE } from '@/lib/pricing';
+import type { PricedListing } from '@/lib/similarPrices';
+import PriceGuidance from '@/components/seller/PriceGuidance';
 import { schoolKey } from '@/lib/admitProof';
 import { nationalUniversityRank, SCHOOL_OPTIONS, schoolInfo, schoolShortName, schoolColor, sameSchool } from '@/lib/schools';
 import { CONTACT_EMAIL, SITE_URL } from '@/lib/site';
@@ -283,13 +285,6 @@ const listingTitle = (l: SellerListing) => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => '$' + round2(n).toFixed(2);
-// Whole dollars only. Listing.packagePrice and Essay.price are Int columns, so
-// the server rounds anything finer and a seller who typed 29.50 was saved as 30
-// with nothing said. The caps are the wizard's, which the dashboard price
-// editors previously did not apply at all.
-const MAX_PACKAGE_PRICE = 399;
-const MAX_ESSAY_PRICE = 99;
-const wholeDollarHint = 'Whole dollars only, no cents.';
 
 // A listing with no package price is unpriced, not free. /api/listings filters
 // those rows out today, so this is a guard rather than a live case, but the
@@ -540,6 +535,14 @@ export default function Page() {
       })
       .catch(() => setPubState('error'));
   }, []);
+  // What the pricing screens compare a price against. Null until the catalogue
+  // has loaded, so a failed load shows no range rather than an empty one.
+  const catalogPrices = useMemo<PricedListing[] | null>(
+    () => (pubState === 'ready'
+      ? pubListings.map((l) => ({ id: l.id, price: l.price, essayCount: l.essays.length }))
+      : null),
+    [pubListings, pubState],
+  );
 
   useEffect(() => {
     if (!LAUNCHED) return;
@@ -717,23 +720,23 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDraftId, sellStep, sellerDraftSnapshot]);
 
-  // Auto-apply the tier floor to prices (mirrors applyTierToPrices).
+  // Prefill the recommended price, and keep it in step with the tier and essay
+  // count until the seller types their own. It used to raise any lower price
+  // back up to the tier floor; sellers now set their own price from MIN_PRICE,
+  // so a price they chose is never overwritten.
+  const autoPackagePriceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!suggestedTier) return;
-    const pf = packageFloor(suggestedTier, essayRows.length);
+    const recommended = String(recommendedPackagePrice(suggestedTier, essayRows.length));
     setPackagePrice((prev) => {
-      const cur = parseFloat(prev);
-      if (!prev || isNaN(cur) || cur < pf) return String(pf);
-      return prev;
+      if (prev !== '' && prev !== autoPackagePriceRef.current) return prev;
+      autoPackagePriceRef.current = recommended;
+      return recommended;
     });
-    const ef = perEssayFloor(suggestedTier);
-    setEssayRows((prev) =>
-      prev.map((row) => {
-        const c = parseFloat(row.price);
-        if (!row.price || isNaN(c) || c < ef) return { ...row, price: String(ef) };
-        return row;
-      }),
-    );
+    const essayRecommended = String(recommendedEssayPrice(suggestedTier));
+    setEssayRows((prev) => (prev.some((row) => !row.price)
+      ? prev.map((row) => (row.price ? row : { ...row, price: essayRecommended }))
+      : prev));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedTier, essayRows.length]);
 
@@ -1202,13 +1205,11 @@ export default function Page() {
   }, [applicationType, essayRows.length]);
 
   const admitNames = admits.slice(0, 3).join(', ') + (admits.length > 3 ? '…' : '');
-
-  function handlePackagePriceBlur() {
-    if (!suggestedTier) return;
-    const pf = packageFloor(suggestedTier, essayRows.length);
-    const cur = parseFloat(packagePrice);
-    if (isNaN(cur) || cur < pf) setPackagePrice(String(pf));
-  }
+  const recommendedListingPrice = suggestedTier ? recommendedPackagePrice(suggestedTier, essayRows.length) : null;
+  // Shown under the input as the seller types. An empty box is not an error
+  // until they try to submit.
+  const packagePriceCheck = checkPrice(packagePrice, 'package');
+  const packagePriceError = packagePrice.trim() !== '' && !packagePriceCheck.ok ? packagePriceCheck.error : '';
 
   async function handleSubmitListing() {
     const rows = essayRows;
@@ -1242,14 +1243,12 @@ export default function Page() {
       : rows.some((r) => !r.file)) msg = 'Upload a PDF for every essay.';
     else if (rows.some((r) => r.file && r.file.size > 4 * 1024 * 1024)) msg = 'Each PDF must be 4MB or smaller.';
     else if (rows.some((r) => r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf')) msg = 'Essays must be PDF files.';
-    else if (separate && rows.some((r) => !r.price.trim())) msg = 'Set a price for every essay.';
-    else if (!separate && !packagePrice.trim()) msg = 'Set a package price.';
-    else if (!separate && !Number.isInteger(parseFloat(packagePrice))) msg = `${wholeDollarHint} Round to the nearest dollar.`;
-    else if (separate && rows.some((r) => !Number.isInteger(parseFloat(r.price)))) msg = `${wholeDollarHint} Round to the nearest dollar.`;
-    else if (!separate && parseFloat(packagePrice) > MAX_PACKAGE_PRICE) msg = `The most you can charge for one listing is $${MAX_PACKAGE_PRICE}.`;
-    else if (separate && rows.some((r) => parseFloat(r.price) > MAX_ESSAY_PRICE)) msg = `The most you can charge for one essay is $${MAX_ESSAY_PRICE}.`;
-    else if (suggestedTier && !separate && parseFloat(packagePrice) < packageFloor(suggestedTier, rows.length)) msg = `Your ${TIER[suggestedTier].label} floor is $${packageFloor(suggestedTier, rows.length)}. You can charge that or more.`;
-    else if (suggestedTier && separate && rows.some((r) => parseFloat(r.price) < perEssayFloor(suggestedTier))) msg = `Each essay's floor at ${TIER[suggestedTier].label} is $${perEssayFloor(suggestedTier)}. You can charge that or more.`;
+    // The same rule the server applies: MIN_PRICE up to the cap, whole dollars.
+    // The recommended price is only a suggestion and is not checked here.
+    else {
+      const checks = separate ? rows.map((r) => checkPrice(r.price, 'essay')) : [checkPrice(packagePrice, 'package')];
+      for (const check of checks) if (!check.ok) { msg = check.error; break; }
+    }
 
     if (msg) {
       setDetailsErr(msg);
@@ -3123,7 +3122,7 @@ export default function Page() {
                         }} />
                         <span className="fname">{row.fileName || 'Upload essay PDF'}</span>
                       </label>
-                      <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={1} max={MAX_ESSAY_PRICE} step={1} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
+                      <div className="price-wrap essay-price-wrap"><span>$</span><input type="number" className="essay-price" min={MIN_PRICE} max={MAX_ESSAY_PRICE} step={1} placeholder="13" value={row.price} onChange={(e) => updateEssayRow(i, { price: e.target.value })} /></div>
                     </div>
                   );
                 })}
@@ -3144,34 +3143,63 @@ export default function Page() {
               <div className="field-hint">Shown on your public listing card to draw readers in. You can skip it.</div>
             </div>
 
-            {/* Smart pricing: the tier is fixed by the admits, not chosen */}
+            {/* Pricing: the tier recommends a price, the seller sets their own */}
             <div className="field">
-              <label>Your price tier</label>
-              {suggestedTier ? (
-                <div className="tier-fixed">
-                  <div className="tf-row">
-                    <span className="tf-badge">{TIER[suggestedTier].label}</span>
-                    <span className="tf-floor">price floor: ${packageFloor(suggestedTier, essayRows.length)}</span>
-                  </div>
-                  <div className="field-hint">
-                    We suggest <b>{TIER[suggestedTier].label}</b> based on your admits (<b>{admitNames}</b>).
-                    Your tier is set automatically and fixes the minimum price above. You can always charge more.
-                  </div>
-                </div>
-              ) : (
-                <div className="tier-fixed">
-                  <div className="field-hint">💡 Add the schools you got into above and we&apos;ll set your tier and price floor automatically.</div>
-                </div>
-              )}
+              <div className="price-rec">
+                {suggestedTier ? (
+                  <>
+                    <div className="price-rec-row">
+                      <span className="price-rec-value">Recommended: ${recommendedListingPrice}</span>
+                      {packagePrice !== String(recommendedListingPrice) && (
+                        <button
+                          type="button"
+                          className="price-rec-use"
+                          onClick={() => {
+                            autoPackagePriceRef.current = String(recommendedListingPrice);
+                            setPackagePrice(String(recommendedListingPrice));
+                            setDetailsErr('');
+                          }}
+                        >
+                          Use ${recommendedListingPrice}
+                        </button>
+                      )}
+                    </div>
+                    <div className="field-hint">
+                      Based on your admits (<b>{admitNames}</b>) and {essayRows.length} {essayRows.length === 1 ? 'essay' : 'essays'}.
+                      {' '}A suggestion, not a minimum. You can charge anything from ${MIN_PRICE}.
+                    </div>
+                  </>
+                ) : (
+                  <div className="field-hint">💡 Add the schools you got into above and we&apos;ll recommend a price. You can charge anything from ${MIN_PRICE}.</div>
+                )}
+              </div>
             </div>
 
             <div className="field" id="packagePriceField">
               <label htmlFor="packagePrice">
-                {essayRows.length > 1 ? `Your price (all ${essayRows.length} essays)` : 'Your price'}{' '}
-                <span className="floor-hint">{suggestedTier ? `(min $${packageFloor(suggestedTier, essayRows.length)})` : ''}</span>
+                {essayRows.length > 1 ? `Your price (all ${essayRows.length} essays)` : 'Your price'}
               </label>
-              <div className="price-wrap"><span>$</span><input type="number" id="packagePrice" min={1} max={MAX_PACKAGE_PRICE} step={1} placeholder="29" value={packagePrice} onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }} onBlur={handlePackagePriceBlur} /></div>
-              <div className="field-hint">One price covers this whole listing. Buyers get every essay in it. {wholeDollarHint}</div>
+              <div className="price-wrap">
+                <span>$</span>
+                <input
+                  type="number"
+                  id="packagePrice"
+                  min={MIN_PRICE}
+                  max={MAX_PACKAGE_PRICE}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder={recommendedListingPrice != null ? String(recommendedListingPrice) : ''}
+                  value={packagePrice}
+                  aria-invalid={packagePriceError ? true : undefined}
+                  aria-describedby={packagePriceError ? 'packagePriceError packagePriceHint' : 'packagePriceHint'}
+                  onChange={(e) => { setPackagePrice(e.target.value); setDetailsErr(''); }}
+                />
+              </div>
+              {packagePriceError && <div className="field-error show" id="packagePriceError">{packagePriceError}</div>}
+              <div className="field-hint" id="packagePriceHint">
+                Any whole-dollar price from ${MIN_PRICE} to ${MAX_PACKAGE_PRICE}. One price covers every essay in this listing.
+              </div>
+              <PriceGuidance price={packagePrice} essayCount={essayRows.length} catalog={catalogPrices} />
             </div>
 
             <div className="field">
@@ -3692,6 +3720,7 @@ export default function Page() {
               activeListingId={activeListingControlId}
               onCloseListingControls={() => setActiveListingControlId(null)}
               onSaveListingPrice={saveListingPrice}
+              catalogPrices={catalogPrices}
             />
           </section>
 
