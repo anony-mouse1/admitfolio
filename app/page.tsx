@@ -131,12 +131,6 @@ type SellerEssay = {
   question: string | null;
   wordCount?: number | null;
   price: number | null;
-  sales: number;
-  gross: number;
-  grossCents?: number;
-  sellerEarningsCents?: number;
-  platformFeeCents?: number;
-  stripeProcessingFeeCents?: number;
 };
 type SellerListing = {
   id: string;
@@ -3631,39 +3625,6 @@ export default function Page() {
                 </button>
                 <span className={`notify-msg ${profMsg.kind}`} style={{ marginTop: 0 }}>{profMsg.text}</span>
               </div>
-            </div>
-          </section>
-
-          {/* Per-essay performance */}
-          <section className="dash-section">
-            <div className="dash-section-head">
-              <h2 className="dash-h2">Per-essay performance</h2>
-            </div>
-            <div className="dash-table">
-              {publishedListings.length === 0 ? (
-                <div className="dash-empty-state">No published essays yet. Your net revenue will appear here once your first listing goes live.</div>
-              ) : (
-                <>
-                  <div className="dash-table-head">
-                    <div>Essay</div><div>Sales</div><div>Price</div><div>Your payout</div>
-                  </div>
-                  {publishedListings.flatMap((l) =>
-                    l.essays.map((e) => (
-                      <div className="dash-table-row" key={e.id}>
-                        <div>
-                          <div className="dash-table-essay">{e.question || e.prompt}</div>
-                          <div className="dash-table-school">{resolveListingHeadline({ ...l, essays: l.essays })}{e.price == null && l.packagePrice != null ? ' · package' : ''}</div>
-                        </div>
-                        <div className="dash-table-num">{e.sales}</div>
-                        <div className="dash-table-num">{fmt(e.price ?? l.packagePrice ?? 0)}</div>
-                        <div className="dash-table-rev">
-                          {fmt(e.sellerEarningsCents != null ? e.sellerEarningsCents / 100 : round2(e.gross * SELLER_SHARE))}
-                        </div>
-                      </div>
-                    )),
-                  )}
-                </>
-              )}
             </div>
           </section>
 
