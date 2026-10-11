@@ -6,7 +6,8 @@ Read `AGENTS.md` first. This file records only the current work in flight.
 
 Branch: `codex/remove-price-minimum`
 
-Base: `origin/main` at `a18fce4`.
+Current base: `origin/main` at `7cfcb7a`, including the completed Ritvik PR
+review and production verification recorded there.
 
 ## What changed
 
@@ -36,7 +37,9 @@ Base: `origin/main` at `a18fce4`.
 - Direct `npx next build` with production variables loaded, without running
   `prisma migrate deploy`.
 - Email dry-run against production data: 114 sellers, 190 approved listings,
-  two Resend batches. No seller email was sent during the dry-run.
+  two Resend batches.
+- One campaign test message was accepted by Resend for
+  `hello@admitfolio.com`. No seller email was sent during the test.
 
 ## Production status
 
@@ -48,10 +51,8 @@ The campaign command is:
 
 `node --env-file=.env scripts/send-seller-pricing-options.mjs --send`
 
-Run a single test to `hello@admitfolio.com` first with `--test
---test-email=hello@admitfolio.com`, then verify receipt in the Admitfolio inbox.
-The email is idempotent at the Resend batch level, but do not change the
-campaign constant and rerun `--send` unless a resend is intentional.
+The email is idempotent at the Resend batch level. Do not change the campaign
+constant and rerun `--send` unless a resend is intentional.
 
 No migration or database backfill is required. Existing listing prices remain
 unchanged until a seller edits them or explicitly replies `choose for me`.

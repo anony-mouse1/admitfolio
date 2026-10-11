@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { COLLECTIONS_PATH, collectionPath, collections } from '@/lib/collections';
 import { GUIDES_PATH, guidePath, guides } from '@/lib/guides';
+import { LEGIT_PATH } from '@/lib/legit';
 import { crawlOrigin } from '@/lib/site';
 
 // Every page a search engine should index, and nothing else.
@@ -21,6 +22,11 @@ import { crawlOrigin } from '@/lib/site';
 // and the pages themselves read, so this cannot list a collection that does not
 // exist or miss one that does. They carry no lastModified either: their content
 // changes whenever a listing is approved, and there is no date recording that.
+//
+// /legit sits with the homepage rather than with the guides. It answers the
+// site's third biggest query and it is not an article, so it carries no
+// lastModified for the same reason / does not: there is no date recording when
+// its claims last changed, and a build timestamp would be a lie.
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = crawlOrigin();
@@ -29,6 +35,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${origin}/` },
     { url: `${origin}${GUIDES_PATH}`, lastModified: newestGuideChange },
     ...guides.map((guide) => ({ url: `${origin}${guidePath(guide.slug)}`, lastModified: guide.modified })),
+    { url: `${origin}${LEGIT_PATH}` },
     { url: `${origin}${COLLECTIONS_PATH}` },
     ...collections.map((collection) => ({ url: `${origin}${collectionPath(collection.slug)}` })),
     { url: `${origin}/privacy` },

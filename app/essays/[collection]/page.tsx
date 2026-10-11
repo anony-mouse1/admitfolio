@@ -14,6 +14,7 @@ import {
 } from '@/lib/collections';
 import { collectionSummary } from '@/lib/collectionSummary';
 import { guideBySlug, guidePath } from '@/lib/guides';
+import { LEGIT_PATH } from '@/lib/legit';
 import { publicCatalogListings } from '@/lib/publicCatalog';
 import { publicListingTitle } from '@/lib/publicListing';
 import { absoluteUrl, itemListSchema, serializeJsonLd } from '@/lib/structuredData';
@@ -162,6 +163,16 @@ export default async function CollectionPage({ params, searchParams }: Params) {
                 <Link href={guidePath(guide.slug)}>{guide.title}</Link>.
               </p>
             )}
+            {/* These six pages are the site's search landing pages, so a good
+                share of the people reading this arrived from Google and have
+                never seen the homepage. One link, high on the page, for the
+                question they are actually holding: whether any of this is real.
+                Once per page and no more; a block repeated under every section
+                reads as persuasion rather than an answer. */}
+            <p className={styles.trustNote}>
+              First time here? <Link href={LEGIT_PATH}>How we verify the students who sell these</Link>,
+              what arrives when you buy, and what happens if something goes wrong.
+            </p>
           </div>
 
           {/* Everything here is aggregated from the listings already on the page.

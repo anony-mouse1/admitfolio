@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadStripe, type StripeEmbeddedCheckout } from '@stripe/stripe-js';
 import { ANALYTICS_EVENTS, trackConversion } from '@/lib/analyticsEvents';
+import { browserVisitSource } from '@/lib/visitSource';
 
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
 const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
@@ -113,7 +114,13 @@ export default function EmbeddedListingCheckout({
         const response = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listingId, deliveryEmail }),
+          // `source` is which page earned this sale: the first page of the
+          // session, recorded at landing by components/VisitSource, plus the
+          // page the buyer is on now. Read here rather than passed down as a
+          // prop, because it is the same answer for both mounts and neither
+          // caller knows it. Reported to Stripe, never to Vercel Analytics:
+          // Checkout Email Submitted and Checkout Payment Loaded are untouched.
+          body: JSON.stringify({ listingId, deliveryEmail, source: browserVisitSource() }),
         });
         const data = (await response.json().catch(() => ({}))) as {
           clientSecret?: string;

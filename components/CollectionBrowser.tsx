@@ -88,7 +88,11 @@ export default function CollectionBrowser({ listings, basePath, initialListingId
     checkoutPushedRef.current = true;
   }, [basePath]);
 
-  const checkoutPushedRef = useRef(Boolean(!initialCheckoutId));
+  // Nothing has been pushed on either entry path, so this starts false on both.
+  // A ?checkout= URL the visitor arrived on is the browser's own entry and not
+  // ours to pop, and without one the dialog is closed. openCheckout below is
+  // the only thing that makes this true.
+  const checkoutPushedRef = useRef(false);
   const closeCheckout = useCallback(() => {
     if (checkoutPushedRef.current) { window.history.back(); return; }
     setCheckoutOpen(false);
@@ -175,7 +179,9 @@ export default function CollectionBrowser({ listings, basePath, initialListingId
           onUnlock={() => openCheckout(listing)}
         />
       )}
-      <ListingCheckout open={checkoutOpen} item={checkoutItem} onClose={closeCheckout} />
+      {/* Checkout is only reachable from the open sheet here, never from a card,
+          so closing always returns to the listing. The homepage has both. */}
+      <ListingCheckout open={checkoutOpen} item={checkoutItem} onClose={closeCheckout} returnTo="listing" />
     </>
   );
 }

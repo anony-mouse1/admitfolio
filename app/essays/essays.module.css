@@ -97,6 +97,19 @@
 
 .guideNote a { color: var(--accent); font-weight: 600; }
 
+/* The single link to /legit. Deliberately lighter than .guideNote: the guide
+   note is an offer, this is an answer to a question the reader may not have
+   asked out loud, and it should not look like another call to action. */
+.trustNote {
+  margin: 14px 0 0;
+  max-width: 76ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.trustNote a { color: var(--accent); font-weight: 600; }
+
 .notes h2 {
   font-family: var(--serif);
   font-size: 24px;

@@ -6,9 +6,12 @@ import {
   cardTagLabel,
   collegeAdmitTags,
   contentsLine,
+  essayGroupMeta,
+  essayGroups,
   headlineSchool,
   isQuestBridgeTag,
   majorsOf,
+  perEssayPrice,
   priceLabel,
   publicListingTitle,
   questBridgeLabel,
@@ -42,6 +45,16 @@ function SchoolChip({ name, verified }: { name: string; verified?: boolean }) {
       {label}
       {verified && <span className="d-verified" title="Acceptance letter checked by a human">✓</span>}
     </span>
+  );
+}
+
+/* One tick for the included-with-every-purchase list. Presentational only, so
+   it is hidden from the accessibility tree and the sentence carries the meaning. */
+function ValueTick() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m5 13 4 4L19 7" />
+    </svg>
   );
 }
 
@@ -93,18 +106,12 @@ export default function ListingDetail({
     year: 'numeric',
   });
   const count = listing.essays.length;
-  const firstEssayLabel = listing.essays[0]?.prompt
-    .replace(/\s*·\s*/g, ' ')
-    .replace(/Personal Statement/g, 'personal statement')
-    .replace(/Supplement/g, 'supplement') || 'Essay';
-  const remainingEssays = listing.essays.slice(1);
-  const remainingAreSupplements = remainingEssays.length > 0
-    && remainingEssays.every((essay) => /supplement/i.test(essay.prompt));
-  const essayPreview = count === 1
-    ? firstEssayLabel
-    : `${firstEssayLabel} + ${count - 1} ${remainingAreSupplements
-      ? `supplement${count === 2 ? '' : 's'}`
-      : 'more'}`;
+  const groups = essayGroups(listing);
+  const unit = perEssayPrice(listing);
+  // The college this package belongs under: Listing.targetSchool, or the single
+  // claimed admit on a legacy listing. Set on 100 of the 192 purchasable
+  // listings; the other 92 get no line rather than a guess.
+  const packageSchool = listing.targetSchool?.trim() || null;
   const title = publicListingTitle(listing);
   const admittedColleges = collegeAdmitTags(listing);
   const questBridge = questBridgeLabel(listing);
@@ -155,10 +162,76 @@ export default function ListingDetail({
           <div className="d-teaser">Seller&apos;s summary: {listing.teaser}</div>
         )}
 
+        {/* What you get, above the price and never collapsed.
+            This replaced a <details> that shipped closed and sat BELOW the price
+            and the Unlock button, so the only statement of what a package
+            contained was one click away and behind the decision it informed.
+            The biggest raw drop in the funnel is listing view to unlock. */}
+        <div className="d-value" aria-label="What you get">
+          <div className="d-value-head">
+            {/* "All N essays, sold together", not "N essays".
+                The panel used to head a nine essay listing with "9 essays" and
+                then print "$21 an essay" under the price, and the two together
+                read like a menu you could order one item from. The unit of
+                purchase is a listing (AGENTS.md), so the heading says so before
+                the per-essay figure appears anywhere on screen. A single essay
+                listing has nothing to disambiguate and keeps its old line. */}
+            <span className="d-value-count">{count === 1 ? 'One essay' : `All ${count} essays, sold together`}</span>
+            {/* "from their X application" rather than "written for X". 109 of
+                192 listings contain a Common App personal statement, and that
+                one essay goes to every college on the seller's list, so "written
+                for" would be false for the row directly underneath this line.
+                Every essay in a package really is from that application. */}
+            {packageSchool && (
+              <span className="d-value-for">
+                from their <b>{schoolShortName(packageSchool)}</b> application
+              </span>
+            )}
+          </div>
+          <ul className="d-value-list">
+            {groups.map((group, i) => {
+              const meta = essayGroupMeta(group, groups.length);
+              return (
+                <li key={i}>
+                  <span className="d-value-label">{group.label}</span>
+                  {meta && <span className="d-value-meta">{meta}</span>}
+                  {/* Only "Other" rows carry this, and it is the seller's own
+                      free text, up to 1,201 characters in the live data. */}
+                  {group.question && <p className="d-value-q">{group.question}</p>}
+                </li>
+              );
+            })}
+          </ul>
+          {/* True of every purchase, not of this listing. The one-year figure is
+              ACCESS_TTL_MS in lib/accessToken.ts; the watermark is enforced in
+              app/api/essay/[essayId]/route.ts, which refuses to serve at all
+              rather than serve a copy it could not stamp. */}
+          <ul className="d-value-inc">
+            <li>
+              <ValueTick />
+              <span>The <b>full text</b> of {count === 1 ? 'the essay' : 'every essay'}, as the seller submitted it.</span>
+            </li>
+            <li>
+              <ValueTick />
+              <span>A reading link by email, <b>good for a year</b>.</span>
+            </li>
+            <li>
+              <ValueTick />
+              <span>Every page <b>watermarked to you</b>, so a leaked copy traces back.</span>
+            </li>
+          </ul>
+        </div>
+
         <div className="d-foot d-foot-top">
           <div className="d-price">
             {priceLabel(listing.price)}
             <span>{count > 1 ? 'for the whole set' : 'for the full essay'}</span>
+            {/* "works out at", because this is arithmetic on the price above
+                rather than a price anything can be bought at. The figure earns
+                its place: it is what makes a $189 package legible next to a $40
+                single. Removing it would cost the comparison; printing it bare
+                offered a purchase that does not exist. */}
+            {unit != null && <small>works out at ${unit} an essay</small>}
           </div>
           <button className="d-unlock-btn" type="button" onClick={onUnlock}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -168,32 +241,6 @@ export default function ListingDetail({
             {count > 1 ? `Unlock ${count} essays` : 'Unlock full essay'}
             <span className="d-unlock-arrow" aria-hidden="true">→</span>
           </button>
-        </div>
-
-        <div className="d-sec">
-          <details className="d-essay-details">
-            <summary>
-              <span className="d-essay-summary-copy">
-                <strong>{count === 1 ? 'One essay included' : `${count} essays included`}</strong>
-                <span>{essayPreview}</span>
-              </span>
-              <span className="d-essay-summary-count">{count} {count === 1 ? 'essay' : 'essays'}</span>
-              <span className="d-essay-chevron" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            </summary>
-            <ul className="d-essays">
-              {listing.essays.map((e, i) => (
-                <li key={i}>
-                  <div className="p">{e.prompt}</div>
-                  {e.question && <div className="q">{e.question}</div>}
-                  {e.wordCount ? <div className="q">{e.wordCount} words</div> : null}
-                </li>
-              ))}
-            </ul>
-          </details>
         </div>
 
         <div className="d-sec d-overview" aria-label="Listing overview">

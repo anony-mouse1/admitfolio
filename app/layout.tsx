@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import SiteAnalytics from '@/components/SiteAnalytics';
+import VisitSource from '@/components/VisitSource';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
@@ -57,6 +58,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Cookieless analytics - exactly what the privacy policy describes.
             Wrapped so buyer reading tokens are stripped from reported URLs. */}
         <SiteAnalytics />
+        {/* Records the first page of the session in sessionStorage, so a
+            purchase can be credited to the page that earned it. Not a cookie,
+            nothing leaves the tab until the buyer starts a checkout. */}
+        <VisitSource />
       </body>
     </html>
   );

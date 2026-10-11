@@ -1,0 +1,95 @@
+/* The article shell, body type and CTA all come from app/guides/guides.module.css,
+   so this page sits in the same frame as a guide and inherits every change made
+   there. Only what a guide has no equivalent of is written here. */
+
+/* The verification steps. A guide's <ol> is a numbered list of instructions;
+   this is a list of things that already happened to every listing, so each row
+   gets a heading line and a plain-language line under it. Same shape as the
+   checkout proof panel, which is where the wording comes from. */
+.steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 26px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 18px 20px;
+  border: 1px solid var(--card-line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.steps strong {
+  display: block;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.steps span {
+  display: block;
+  margin-top: 5px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* The FAQ. Questions are h3 so they sit under one h2 in the outline, and h3 has
+   no styling of its own anywhere in the article body. No <details>: a question
+   someone searched for should be answered in the open, not behind a click. */
+.faq {
+  margin: 26px 0 0;
+  display: grid;
+  gap: 4px;
+}
+
+.faq h3 {
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.015em;
+  color: var(--ink);
+  margin: 22px 0 0;
+}
+
+.faq h3:first-child { margin-top: 0; }
+
+.faq p {
+  margin: 9px 0 0;
+  font-size: 16.5px;
+  line-height: 1.62;
+  color: var(--muted);
+}
+
+.faq a { color: var(--accent); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .steps li { padding: 16px; grid-template-columns: 28px minmax(0, 1fr); gap: 13px; }
+  .steps li::before { width: 28px; height: 28px; font-size: 14px; }
+  .faq h3 { font-size: 19px; }
+}

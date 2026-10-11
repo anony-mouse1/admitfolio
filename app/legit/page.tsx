@@ -1,0 +1,228 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { GuideFooter, GuideHeader } from '@/components/GuideShell';
+import { COLLECTIONS_PATH } from '@/lib/collections';
+import { GUIDES_PATH } from '@/lib/guides';
+import { legitUrl } from '@/lib/legit';
+import { CONTACT_EMAIL } from '@/lib/site';
+import { organizationSchema, serializeJsonLd } from '@/lib/structuredData';
+import guide from '@/app/guides/guides.module.css';
+import styles from './legit.module.css';
+
+// "Is admitfolio legit" is the third biggest search query the site gets, at
+// roughly 33 clicks a month, and until now nothing on the site answered it.
+// Google was building its own answer out of the checkout screen and the Terms,
+// because those were the only pages that mentioned verification or refunds at
+// all.
+//
+// Server rendered with no client component of its own, so the whole answer is
+// in the served HTML. That is the entire point: the homepage is one large
+// client component and a crawler without JavaScript sees "Loading essays..."
+// there, which is exactly why this could not be a section on `/`.
+//
+// Same shape as an article under app/guides/: metadata with a canonical and an
+// OpenGraph card, the shared GuideHeader and GuideFooter, and the guides CSS
+// module for the article frame.
+//
+// No FAQ schema on purpose. Google restricted FAQ rich results to government and
+// health sites, so FAQPage markup on this page would render nothing in the
+// results and only add a surface to get wrong. The questions are still real
+// headings in the HTML, which is what the ranking actually comes from.
+// ----------------------------------------------------------------------------
+
+const title = 'Is Admitfolio legit?';
+const description =
+  'How Admitfolio verifies the students who sell here, what you get when you buy, how refunds and delivery problems are handled, and what these essays are for.';
+
+export const metadata: Metadata = {
+  title: `${title} How verification, delivery and refunds work | Admitfolio`,
+  description,
+  alternates: { canonical: legitUrl() },
+  openGraph: { title, description, url: legitUrl(), siteName: 'Admitfolio', type: 'website' },
+};
+
+export default function LegitPage() {
+  return (
+    <div className={guide.page}>
+      <GuideHeader />
+      <main className={guide.articleMain}>
+        <article className={guide.articleShell}>
+          <Link className={guide.backLink} href="/">← Back to Admitfolio</Link>
+
+          <header className={guide.articleHeader}>
+            <span className="pill"><span className="dot" />Trust and safety</span>
+            <h1>Is Admitfolio legit?</h1>
+            <p className={guide.dek}>
+              Yes. Here is how the essays get here, what arrives when you buy one, and what happens if
+              something goes wrong.
+            </p>
+          </header>
+
+          <div className={guide.articleStat}>
+            <strong>The short answer:</strong> sellers confirm a college email, a person approves each listing
+            before it is published, and a reading link is sent by email after payment and stays usable for a
+            year.
+          </div>
+
+          <div className={guide.articleBody}>
+            <h2 id="verification">How a seller gets verified</h2>
+            <p>
+              Signing up and uploading a file does not publish a listing. Three checks happen first.
+            </p>
+
+            {/* Keep this aligned with the checkout proof panel. These are the
+                claims supported by the current code and reviewed listing records. */}
+            <ol className={styles.steps}>
+              <li>
+                <div>
+                  <strong>The seller proved a college email</strong>
+                  <span>
+                    Accounts are made with a .edu address and confirmed by a code sent to it. An address that
+                    never receives its code never becomes an account.
+                  </span>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <strong>A person reviewed the listing</strong>
+                  <span>
+                    A person reviews the listing and essay package before deciding whether it can be published.
+                  </span>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <strong>Automation does not publish it</strong>
+                  <span>
+                    Automated screening can assist the review, but no listing goes live on an automated
+                    decision alone.
+                  </span>
+                </div>
+              </li>
+            </ol>
+
+            <h2 id="what-you-get">What you get when you buy</h2>
+            <p>
+              You are buying a listing, which is one student&apos;s package: either a single essay or the full
+              set they sent to a school. The listing page tells you how many essays are in it and which prompt
+              each one answers before you pay anything.
+            </p>
+            <ul>
+              <li>
+                <strong>A reading link by email.</strong> It is sent after payment. If it is not there, check
+                spam before you write to us.
+              </li>
+              <li>
+                <strong>A year of access.</strong> The link keeps working for twelve months from the day you
+                buy. Read the essays as often as you want in that time.
+              </li>
+              <li>
+                <strong>Your own copy of every page.</strong> Each essay is stamped for you at the moment you
+                open it, so what you read is a copy that exists only for your purchase.
+              </li>
+            </ul>
+            <p>
+              You do not need an account to buy. The reading link is the key, so keep the receipt email
+              somewhere you can find it.
+            </p>
+
+            <h2 id="support">If something goes wrong</h2>
+            <p>
+              Write to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Refunds and any problem with
+              delivery go to that address, a person on the team reads it, and that is the fastest route for
+              both.
+            </p>
+            <p>
+              If you have lost your reading link, say so and include the email address you bought with. The team
+              can review the purchase and help you recover access.
+            </p>
+
+            <h2 id="what-these-are-for">What these essays are for</h2>
+            <p>
+              They are reading material. Most applicants have never read a real admissions essay that worked,
+              only advice about them. Reading one settles questions that advice does not, like how much of the
+              essay is reflection rather than story.
+            </p>
+            <p>
+              The writer chose to build the essay around a small repeated moment rather than the biggest thing
+              that ever happened to them. That choice is yours to borrow, though their moment is not. Our{' '}
+              <Link href={`${GUIDES_PATH}/how-to-take-inspiration-from-college-essays`}>
+                guide to taking inspiration without copying
+              </Link>{' '}
+              is the longer version of that idea, with a method attached.
+            </p>
+            <p>
+              Every seller here published their own work knowing another applicant would read it. That is what
+              they agreed to, and it is all the site is for.
+            </p>
+
+            <h2 id="copying">What happens if someone copies one</h2>
+            <p>
+              Two things are worth knowing before you decide what to do with what you buy.
+            </p>
+            <div className={guide.callout}>
+              <strong>The file knows whose it is</strong>
+              Every copy carries a code tied to the purchase that produced it. A file that turns up somewhere
+              it should not be can be traced back to the person who bought it.
+            </div>
+            <p>
+              The protected reader adds the purchase-linked mark across every page. It can help trace a
+              redistributed screenshot or file, but no watermark can prevent copying.
+            </p>
+            <p>
+              Submitting another person&apos;s writing as your own is plagiarism and can jeopardize an
+              application or enrollment. These essays are examples to learn from, not text to submit.
+            </p>
+
+            <h2 id="faq">Questions people ask before they buy</h2>
+          </div>
+
+          <div className={styles.faq}>
+            <h3>Is Admitfolio legit?</h3>
+            <p>
+              It is a working marketplace. Sellers confirm access to a .edu address, and a person approves each
+              listing before publication. Nothing is published on an automated decision alone. Payment runs
+              through Stripe&apos;s own checkout, so your card details go to Stripe and never touch this site.
+            </p>
+
+            <h3>Is Admitfolio free?</h3>
+            <p>
+              Browsing is free and needs no account. You can see every listing, the school it was written for,
+              the prompt each essay answers, how many essays are in the package, and the price. Most listings
+              also show the real opening line of the writing itself. The essays themselves are paid, because a
+              student wrote each one and is paid when it sells. The{' '}
+              <Link href={GUIDES_PATH}>guides</Link> are free.
+            </p>
+
+            <h3>Is buying a college essay cheating?</h3>
+            <p>
+              Reading one is not. Submitting one is. The line is the same as it is for any other example you
+              might read while you write: you can study how a piece of writing works, and you cannot hand it in
+              as yours. Everything on this site is sold to be read, and an essay you submit has to be about
+              your own life and written in your own words.
+            </p>
+
+            <h3>What happens after I pay?</h3>
+            <p>
+              A receipt and reading link are sent by email after payment. The link opens the essays in your
+              browser and keeps working for a year. Each page is stamped with a code tied to your purchase. You
+              do not need to make an account, so keep that email. If it has not arrived, check spam first, then
+              write to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <aside className={guide.articleCta}>
+            <h2>See what is actually on sale</h2>
+            <p>
+              Every listing shows its school and its prompts before you pay, and most show the real opening
+              line of the writing too. Read a few and judge for yourself.
+            </p>
+            <Link className="btn-primary" href={COLLECTIONS_PATH}>Browse the essay collections →</Link>
+          </aside>
+        </article>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationSchema()) }} />
+      </main>
+      <GuideFooter />
+    </div>
+  );
+}
