@@ -4,7 +4,6 @@ import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
 import { makeUploadToken } from '@/lib/uploadToken';
 import { currentSeller } from '@/lib/sellerAuth';
-import { packageFloor, perEssayFloor, schoolTier, TIER } from '@/lib/pricing';
 import { schoolKey } from '@/lib/admitProof';
 import { normalizeAnonymity } from '@/lib/anonymity';
 import { sameSchool } from '@/lib/schools';
@@ -79,9 +78,9 @@ export async function POST(req: Request) {
   const teaser = String(body?.teaser || '').trim().slice(0, 90) || null;
   const appliedMajors = String(body?.appliedMajors || '').trim().slice(0, 120) || null;
 
-  // The tier is fixed by the seller's admits and its floor is enforced here,
-  // not just in the wizard UI - a direct request can't undercut it. Admits are
-  // required server-side too: with none, no tier (and no floor) would apply.
+  // Admits are still required to verify that the seller was accepted and to
+  // identify the college this package was written for. They no longer set a
+  // minimum price.
   const admitTags = (Array.isArray(body?.admitTags) ? body.admitTags : [])
     .slice(0, 20)
     .map((t) => String(t).trim().slice(0, 80))
@@ -97,8 +96,6 @@ export async function POST(req: Request) {
   if (!applicationSystem) {
     return NextResponse.json({ error: 'Choose the application system for these essays.' }, { status: 400 });
   }
-  const tier = schoolTier(targetSchool);
-
   // Prices must be real finite numbers - NaN slips past `<` comparisons.
   const asPrice = (v: unknown): number | null => {
     if (v == null) return null;
@@ -108,20 +105,12 @@ export async function POST(req: Request) {
   const packagePrice = asPrice(body?.packagePrice);
   const essayPrices = essays.map((e) => asPrice(e?.price));
   if (pricingMode === 'package') {
-    const floor = packageFloor(tier, essays.length);
-    if (packagePrice == null || packagePrice < floor) {
-      return NextResponse.json(
-        { error: `Your ${TIER[tier].label} package floor is $${floor}. You can charge that or more.` },
-        { status: 400 },
-      );
+    if (packagePrice == null || packagePrice < 1) {
+      return NextResponse.json({ error: 'Enter a package price of $1 or more.' }, { status: 400 });
     }
   } else {
-    const floor = perEssayFloor(tier);
-    if (essayPrices.some((p) => p == null || p < floor)) {
-      return NextResponse.json(
-        { error: `Each essay's floor at ${TIER[tier].label} is $${floor}. You can charge that or more.` },
-        { status: 400 },
-      );
+    if (essayPrices.some((p) => p == null || p < 1)) {
+      return NextResponse.json({ error: 'Enter a price of $1 or more for every essay.' }, { status: 400 });
     }
   }
 

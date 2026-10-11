@@ -29,8 +29,8 @@ export type SellerApplicationListing = {
   pricingMode: 'package' | 'separate';
   /** Whole dollars, as stored. Null when the listing has no package price. */
   packagePrice: number | null;
-  /** Lowest price this listing may carry, resolved from its tier server-side. */
-  priceFloor: number;
+  /** Optional suggestion based only on how many essays are included. */
+  recommendedPrice: number;
   sales: number;
   createdAt: string;
   essays: Array<{ id: string; label: string; price: number | null }>;

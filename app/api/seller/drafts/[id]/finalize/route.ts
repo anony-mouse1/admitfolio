@@ -7,7 +7,6 @@ import { normalizeAnonymity } from '@/lib/anonymity';
 import { schoolKey } from '@/lib/admitProof';
 import { sameSchool } from '@/lib/schools';
 import { findSameSchoolConflict } from '@/lib/essayDuplication';
-import { packageFloor, schoolTier, TIER } from '@/lib/pricing';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { sendAdminSubmissionNotification, sendSubmissionConfirmation } from '@/lib/email';
 import { reviewListing } from '@/lib/reviewRunner';
@@ -71,12 +70,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'The same essay file was added more than once.' }, { status: 400 });
   }
 
-  const priceFloor = packageFloor(schoolTier(state.targetSchool), state.essays.length);
-  if (state.packagePrice == null || state.packagePrice < priceFloor) {
-    return NextResponse.json(
-      { error: `Your ${TIER[schoolTier(state.targetSchool)].label} package floor is $${priceFloor}. You can charge that or more.` },
-      { status: 400 },
-    );
+  if (state.packagePrice == null || state.packagePrice < 1) {
+    return NextResponse.json({ error: 'Enter a package price of $1 or more.' }, { status: 400 });
   }
 
   // Reusing a file across packages for DIFFERENT colleges is allowed: one

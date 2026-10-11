@@ -42,7 +42,7 @@ export default function ListingPricePanel({
 
   function priceProblem(value: string): string | null {
     const amount = parseFloat(value);
-    if (isNaN(amount) || amount < listing.priceFloor) return `Minimum for your tier is $${listing.priceFloor}.`;
+    if (isNaN(amount) || amount < 1) return 'Enter a price of $1 or more.';
     if (!Number.isInteger(amount)) return `${WHOLE_DOLLARS} Round to the nearest dollar.`;
     if (amount > max) return `The most you can charge is $${max}.`;
     return null;
@@ -88,21 +88,21 @@ export default function ListingPricePanel({
         <div className={styles.priceRow}>
           <input
             type="number"
-            min={listing.priceFloor}
+            min={1}
             max={max}
             step={1}
             value={pkgInput}
             aria-label="Package price in dollars"
             onChange={(event) => { setPkgInput(event.target.value); setError(''); }}
           />
-          <span>{`$${listing.priceFloor} to $${max}, whole dollars`}</span>
+          <span>{`Recommended: $${listing.recommendedPrice}. Choose any whole-dollar price from $1 to $${max}.`}</span>
         </div>
       ) : (
         listing.essays.map((essay) => (
           <div className={styles.priceRow} key={essay.id}>
             <input
               type="number"
-              min={listing.priceFloor}
+              min={1}
               max={max}
               step={1}
               value={essayInputs[essay.id] || ''}
@@ -112,7 +112,7 @@ export default function ListingPricePanel({
                 setError('');
               }}
             />
-            <span>{essay.label.slice(0, 48)}</span>
+            <span>{`${essay.label.slice(0, 36)} · recommended $${listing.recommendedPrice}`}</span>
           </div>
         ))
       )}

@@ -1,5 +1,5 @@
-// Smart pricing engine - shared by the sell wizard (client) and the seller
-// price-edit API (server), so floors can't be bypassed with a direct request.
+// School tiers are retained for catalogue ordering. Seller pricing is no longer
+// tied to a school's tier: recommendations depend only on package size.
 
 import { schoolInfo } from './schools';
 
@@ -36,11 +36,15 @@ export function schoolTier(name: string): 1 | 2 | 3 {
   return 3;
 }
 
-export const TIER: Record<1 | 2 | 3, { label: string; base: number; extra: number; perEssay: number }> = {
-  1: { label: 'Tier 1 · Top', base: 40, extra: 18, perEssay: 30 },
-  2: { label: 'Tier 2 · Strong', base: 30, extra: 13, perEssay: 22 },
-  3: { label: 'Tier 3 · Standard', base: 20, extra: 9, perEssay: 15 },
-};
+export function recommendedPackagePrice(count: number): number {
+  const essayCount = Math.max(1, Math.round(count));
+  if (essayCount === 1) return 15;
+  if (essayCount <= 3) return 19;
+  if (essayCount <= 6) return 24;
+  return 29;
+}
+
+export const RECOMMENDED_ESSAY_PRICE = 15;
 
 // Revenue split: sellers keep this share of every sale, the platform keeps the
 // rest. New purchases snapshot this value in cents. The dashboard reads those
@@ -52,16 +56,6 @@ export const SELLER_SHARE = SELLER_SHARE_BPS / 10_000;
 // The marketplace has not had a live paid purchase yet, so there is no older
 // revenue promise to preserve. Rows created by prototypes also use 60/40.
 export const UNSNAPSHOTTED_SELLER_SHARE_BPS = SELLER_SHARE_BPS;
-
-export const packageFloor = (tier: 1 | 2 | 3, count: number) => TIER[tier].base + TIER[tier].extra * (Math.max(1, count) - 1);
-export const perEssayFloor = (tier: 1 | 2 | 3) => TIER[tier].perEssay;
-
-// A seller who submitted under the floor in force at the time can keep that
-// exact price. Any change must meet today's floor. This prevents a school alias
-// correction from trapping an existing listing in the price editor.
-export function priceAllowedAtFloor(price: number, floor: number, currentPrice: number | null): boolean {
-  return price >= floor || (currentPrice != null && currentPrice < floor && price === currentPrice);
-}
 
 // Best (lowest-numbered) tier among a seller's admit schools; null without admits.
 export function admitsTier(admits: string[]): 1 | 2 | 3 | null {
