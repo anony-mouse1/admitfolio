@@ -35,7 +35,8 @@ assert(!/function ListingCard\(/.test(page), 'ListingCard is replaced by the inl
 assert(/listing\.sales/.test(panel) && /Added \{added\}/.test(panel), 'the panel must keep the sales count and added date');
 assert(/Number\.isInteger\(amount\)/.test(panel), 'whole dollars only');
 assert(/step=\{1\}/.test(panel), 'price inputs stay whole-dollar stepped');
-assert(/listing\.priceFloor/.test(panel), 'the tier floor is resolved server-side and honoured here');
+assert(/listing\.recommendedPrice/.test(panel), 'the optional recommendation is shown in the inline panel');
+assert(!/priceFloor/.test(panel), 'the inline panel must not enforce the old school-based floor');
 
 // Item 22: refetch, never patch by a key the save just invalidated.
 const saveBody = page.slice(page.indexOf('async function saveApplicationOutcome'), page.indexOf('function editWorkspaceListing'));

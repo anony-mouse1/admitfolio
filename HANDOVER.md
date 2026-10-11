@@ -1,46 +1,58 @@
-# Handover: Ritvik PR review complete
+# Handover: optional seller pricing
 
-Read `AGENTS.md` first. This file records only the current state.
+Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-`main` after PRs #89, #92, #94 and #96 were reviewed, corrected where needed,
-and merged on Sep 19 2026.
+Branch: `codex/remove-price-minimum`
 
-## What landed
+Current base: `origin/main` at `7cfcb7a`, including the completed Ritvik PR
+review and production verification recorded there.
 
-- Checkout Back and close actions return to the surface that opened checkout.
-- Listing detail panels show the complete package before the Unlock click, with
-  a phone-safe sticky action area.
-- Checkout records privacy-bounded landing and campaign attribution in Stripe.
-  The checkout API sanitizes browser input again, and the privacy policy
-  discloses what is recorded.
-- `/legit` answers the site's trust questions, is linked from relevant public
-  surfaces, and is included in the sitemap.
-- Unsupported public claims were removed from `/legit` and the checkout trust
-  panel. The site does not claim every seller uploaded an acceptance letter,
-  promise sub-minute delivery, imply every submission was automatically
-  screened, or announce a plagiarism-detection partnership.
+## What changed
+
+- Removed school-based minimum prices from both listing submission paths and
+  the seller dashboard price editor.
+- Sellers may now choose any whole-dollar amount from $1 to the existing caps.
+- Added optional package recommendations based only on essay count: $15 for one
+  essay, $19 for two or three, $24 for four to six, and $29 for seven or more.
+- Replaced the seller-facing tier and floor language with recommendation copy.
+- Updated the Terms to say sellers choose their own prices.
+- Added `scripts/send-seller-pricing-options.mjs`. It creates one private,
+  personalized email per seller with current and suggested prices and four
+  choices: keep the current price, edit it, reply `choose for me`, or reply
+  `take it down`.
 
 ## Verification completed
 
-- TypeScript and every pure `scripts/*.test.mjs` test passed on the combined
-  branches.
-- A direct production build passed. `/legit` is statically rendered.
-- Production verification ran on application commit
-  `50f11e84ffbb1ff8cb9229fc02ae1bc64ff32bb8`.
-- Checkout history passed all 12 production scenarios.
-- The listing value panel passed 432 production checks across six catalogue
-  shapes at 390px and 1440px.
-- `/legit` passed its production HTML, sitemap, link, claim, desktop, and phone
-  checks with no overflow, clipped text, or console errors.
+- `node scripts/pricing.test.mjs`
+- `node scripts/seller-listing-filters.test.mjs`
+- `node scripts/verify-inline-controls.mjs`
+- `npm run test:commerce`
+- `npm run test:listing-schools`
+- `npm run test:purchase-fulfillment`
+- `npm run test:seller-payouts`
+- `npm run test:analytics`
+- `npx tsc --noEmit`
+- Direct `npx next build` with production variables loaded, without running
+  `prisma migrate deploy`.
+- Email dry-run against production data: 114 sellers, 190 approved listings,
+  two Resend batches.
+- One campaign test message was accepted by Resend for
+  `hello@admitfolio.com`. No seller email was sent during the test.
 
-## What is left
+## Production status
 
-No current Ritvik-authored PR remains open. No migration, backfill, production
-database write, or other hand-run deploy step is required.
+Nothing is deployed and no seller prices were changed. Merge this branch into
+`main`, wait for Vercel to become Ready, and verify the live seller price editor
+before sending the seller email campaign.
 
-Full Stripe sandbox checkout creation could not be repeated locally because the
-checked-out `.env` contains a placeholder test secret and no publishable test
-key. The attribution logic is covered by server-boundary and privacy regression
-tests, and its Vercel preview and production deployment both passed.
+The campaign command is:
+
+`node --env-file=.env scripts/send-seller-pricing-options.mjs --send`
+
+The email is idempotent at the Resend batch level. Do not change the campaign
+constant and rerun `--send` unless a resend is intentional.
+
+No migration or database backfill is required. Existing listing prices remain
+unchanged until a seller edits them or explicitly replies `choose for me`.

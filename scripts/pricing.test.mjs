@@ -23,7 +23,7 @@ try {
     fs.writeFileSync(path.join(outDir, path.basename(file, '.ts') + '.js'), output);
   }
 
-  const { schoolTier, priceAllowedAtFloor } = require(path.join(outDir, 'pricing.js'));
+  const { schoolTier, recommendedPackagePrice, RECOMMENDED_ESSAY_PRICE } = require(path.join(outDir, 'pricing.js'));
 
   for (const school of [
     'Wisconsin',
@@ -54,11 +54,14 @@ try {
   assert.equal(schoolTier('University of Pennsylvania'), 1);
   assert.equal(schoolTier('University of Washington'), 2);
 
-  assert.equal(priceAllowedAtFloor(30, 30, 23), true, 'a price at the new floor is allowed');
-  assert.equal(priceAllowedAtFloor(23, 30, 23), true, 'the exact existing price is grandfathered');
-  assert.equal(priceAllowedAtFloor(24, 30, 23), false, 'a changed price below the new floor is rejected');
-  assert.equal(priceAllowedAtFloor(20, 30, 23), false, 'a lower price below the new floor is rejected');
-  assert.equal(priceAllowedAtFloor(23, 30, null), false, 'new listings do not receive grandfathering');
+  assert.equal(recommendedPackagePrice(1), 15);
+  assert.equal(recommendedPackagePrice(2), 19);
+  assert.equal(recommendedPackagePrice(3), 19);
+  assert.equal(recommendedPackagePrice(4), 24);
+  assert.equal(recommendedPackagePrice(6), 24);
+  assert.equal(recommendedPackagePrice(7), 29);
+  assert.equal(recommendedPackagePrice(18), 29);
+  assert.equal(RECOMMENDED_ESSAY_PRICE, 15);
 
   console.log('pricing tests passed');
 } finally {

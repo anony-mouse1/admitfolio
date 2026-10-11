@@ -96,8 +96,8 @@ export default function TermsPage() {
         listing at any time (for example, if we learn a listing is inaccurate or infringing).
       </p>
       <p>
-        <b>Pricing.</b> Prices are subject to minimum price floors that we set based on the schools
-        involved. We may adjust floor levels over time; changes apply only to future sales.
+        <b>Pricing.</b> Sellers choose their own prices. We may provide optional recommended prices based
+        on the number of essays in a listing, but sellers may charge any valid amount supported by the Service.
       </p>
       <p>
         <b>Identity display.</b> You choose how you appear to Buyers: always anonymous, anonymous until
