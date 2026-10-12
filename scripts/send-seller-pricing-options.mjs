@@ -1,13 +1,12 @@
 import { createHash } from 'node:crypto';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 const FROM = 'Fatimah from Admitfolio <hello@admitfolio.com>';
 const REPLY_TO = 'hello@admitfolio.com';
-const SUBJECT = 'Your Admitfolio price is now up to you';
+const SUBJECT = 'We lowered your Admitfolio essay prices';
 const DASHBOARD_URL = 'https://admitfolio.com/?utm_source=seller_email&utm_medium=email&utm_campaign=pricing_options';
-const CAMPAIGN = 'admitfolio-seller-pricing-options-2026-10-11';
+const CAMPAIGN = 'admitfolio-seller-price-reduction-2026-10-11';
 const BATCH_SIZE = 100;
 
 const mode = process.argv.includes('--send')
@@ -17,6 +16,7 @@ const mode = process.argv.includes('--send')
     : 'dry-run';
 const testArg = process.argv.find((arg) => arg.startsWith('--test-email='));
 const testEmail = testArg?.slice('--test-email='.length).trim().toLowerCase();
+const planArg = process.argv.find((arg) => arg.startsWith('--plan='));
 
 function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -32,13 +32,6 @@ function chunks(values, size) {
   return result;
 }
 
-function recommendedPrice(count) {
-  if (count <= 1) return 15;
-  if (count <= 3) return 19;
-  if (count <= 6) return 24;
-  return 29;
-}
-
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -51,7 +44,7 @@ function firstName(name) {
 }
 
 function listingLabel(listing) {
-  const count = listing.essays.length;
+  const count = listing.essayCount;
   const packageName = `${count}-essay package`;
   return listing.targetSchool?.trim()
     ? `${listing.targetSchool.trim()} ${packageName}`
@@ -61,28 +54,30 @@ function listingLabel(listing) {
 function lines(recipient) {
   return recipient.listings.map((listing) => ({
     label: listingLabel(listing),
-    current: listing.packagePrice,
-    recommended: recommendedPrice(listing.essays.length),
+    oldPrice: listing.oldPrice,
+    newPrice: listing.newPrice,
   }));
 }
 
 function textBody(recipient) {
   const suggestions = lines(recipient)
-    .map((listing) => `• ${listing.label}: currently $${listing.current}, suggested $${listing.recommended}`)
+    .map((listing) => `• ${listing.label}: was $${listing.oldPrice}, now $${listing.newPrice}`)
     .join('\n');
   return `Hi ${firstName(recipient.name)},
 
-We removed Admitfolio's school-based pricing minimum, so your listing price is now completely up to you.
+We removed Admitfolio's school-based pricing minimum. In the meantime, we have significantly reduced prices across everyone's essays to make them more affordable and help sellers get more sales.
 
-Here are our suggestions based on how many essays are included:
+Your updated prices:
 
 ${suggestions}
 
-These prices are optional. You can:
+We used the number of schools the application was accepted to when setting the temporary price, so listings with more admission results kept more of their premium.
 
-• Keep your current price. No action is needed.
+You can:
+
+• Keep the new lower price. No action is needed.
 • Log in and choose a different price yourself.
-• Reply “choose for me” and we will update your listing to the suggested price.
+• Reply “choose for me” and we will recommend the price we think gives you the best chance of a sale.
 • Reply “take it down” and we will remove your listing.
 
 Overall, we believe lower prices can be a win-win. More students may be able to purchase your essays, which can help you earn more over time through additional sales.
@@ -98,7 +93,7 @@ ${REPLY_TO}`;
 
 function htmlBody(recipient) {
   const suggestions = lines(recipient)
-    .map((listing) => `<li style="margin-bottom:8px"><strong>${escapeHtml(listing.label)}</strong>: currently $${listing.current}, suggested $${listing.recommended}</li>`)
+    .map((listing) => `<li style="margin-bottom:8px"><strong>${escapeHtml(listing.label)}</strong>: was $${listing.oldPrice}, now $${listing.newPrice}</li>`)
     .join('');
   return `<!doctype html>
 <html lang="en">
@@ -110,14 +105,15 @@ function htmlBody(recipient) {
       <div style="padding:24px 30px;border-bottom:1px solid #ebe7e1;font-family:Georgia,'Times New Roman',serif;font-size:25px;font-weight:700">Admitfolio<span style="color:#7d1d2d">.</span></div>
       <div style="padding:32px 30px;color:#49443f;font-size:16px;line-height:1.65">
         <p style="margin:0 0 18px">Hi ${escapeHtml(firstName(recipient.name))},</p>
-        <p style="margin:0 0 18px">We removed Admitfolio's school-based pricing minimum, so your listing price is now completely up to you.</p>
-        <p style="margin:0 0 10px">Here are our suggestions based on how many essays are included:</p>
+        <p style="margin:0 0 18px">We removed Admitfolio's school-based pricing minimum. In the meantime, we have significantly reduced prices across everyone's essays to make them more affordable and help sellers get more sales.</p>
+        <p style="margin:0 0 10px">Your updated prices:</p>
         <ul style="margin:0 0 22px;padding-left:22px">${suggestions}</ul>
-        <p style="margin:0 0 10px"><strong style="color:#24211e">These prices are optional.</strong> You can:</p>
+        <p style="margin:0 0 18px">We used the number of schools the application was accepted to when setting the temporary price, so listings with more admission results kept more of their premium.</p>
+        <p style="margin:0 0 10px"><strong style="color:#24211e">You can:</strong></p>
         <ul style="margin:0 0 22px;padding-left:22px">
-          <li style="margin-bottom:7px">Keep your current price. No action is needed.</li>
+          <li style="margin-bottom:7px">Keep the new lower price. No action is needed.</li>
           <li style="margin-bottom:7px">Log in and choose a different price yourself.</li>
-          <li style="margin-bottom:7px">Reply <strong>choose for me</strong> and we will update your listing to the suggested price.</li>
+          <li style="margin-bottom:7px">Reply <strong>choose for me</strong> and we will recommend the price we think gives you the best chance of a sale.</li>
           <li>Reply <strong>take it down</strong> and we will remove your listing.</li>
         </ul>
         <p style="margin:0 0 24px">Overall, we believe lower prices can be a win-win. More students may be able to purchase your essays, which can help you earn more over time through additional sales.</p>
@@ -140,7 +136,7 @@ function message(recipient, to = recipient.email) {
     html: htmlBody(recipient),
     text: textBody(recipient),
     tags: [
-      { name: 'campaign', value: 'seller_pricing_options_2026_10_11' },
+      { name: 'campaign', value: 'seller_price_reduction_2026_10_11' },
       { name: 'audience', value: 'admitfolio_sellers' },
     ],
   };
@@ -168,22 +164,18 @@ async function sendBatch(messages, batchIndex) {
 
 async function main() {
   if ((mode === 'send' || mode === 'test') && !process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is missing');
+  if (!planArg) throw new Error('Pass the locked pricing plan with --plan=/absolute/path');
+  const plan = JSON.parse(await readFile(resolve(planArg.slice('--plan='.length)), 'utf8'));
+  if (!Array.isArray(plan.listings) || !plan.listings.length) throw new Error('The pricing plan is empty or invalid');
   const excluded = new Set([...emailSet(process.env.ADMIN_EMAILS), ...emailSet(process.env.TEST_EMAILS)]);
-  const sellers = await prisma.seller.findMany({
-    where: { listings: { some: { status: 'approved', packagePrice: { not: null } } } },
-    select: {
-      email: true,
-      name: true,
-      listings: {
-        where: { status: 'approved', packagePrice: { not: null } },
-        orderBy: { createdAt: 'asc' },
-        select: { targetSchool: true, packagePrice: true, essays: { select: { id: true } } },
-      },
-    },
-    orderBy: { email: 'asc' },
-  });
-  const recipients = sellers
-    .map((seller) => ({ ...seller, email: seller.email.trim().toLowerCase() }))
+  const byEmail = new Map();
+  for (const listing of plan.listings) {
+    const email = String(listing.sellerEmail || '').trim().toLowerCase();
+    if (!byEmail.has(email)) byEmail.set(email, { email, name: listing.sellerName, listings: [] });
+    byEmail.get(email).listings.push(listing);
+  }
+  const recipients = [...byEmail.values()]
+    .sort((a, b) => a.email.localeCompare(b.email))
     .filter((seller) => validEmail(seller.email) && !excluded.has(seller.email));
 
   if (mode === 'dry-run') {
@@ -194,7 +186,7 @@ async function main() {
 
   if (mode === 'test') {
     if (!testEmail || !validEmail(testEmail)) throw new Error('Pass a valid --test-email address');
-    const sample = recipients[0] || { email: testEmail, name: 'Fatimah', listings: [{ targetSchool: 'Stanford', packagePrice: 56, essays: [{}, {}, {}] }] };
+    const sample = recipients[0] || { email: testEmail, name: 'Fatimah', listings: [{ targetSchool: 'Stanford', oldPrice: 56, newPrice: 25, essayCount: 3 }] };
     console.log(JSON.stringify({ campaign: CAMPAIGN, mode, results: [await sendBatch([message(sample, testEmail)], 0)] }, null, 2));
     return;
   }
@@ -206,5 +198,4 @@ async function main() {
 }
 
 main()
-  .catch((error) => { console.error(error); process.exitCode = 1; })
-  .finally(async () => { await prisma.$disconnect(); });
+  .catch((error) => { console.error(error); process.exitCode = 1; });

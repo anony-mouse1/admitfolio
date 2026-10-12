@@ -1,58 +1,52 @@
-# Handover: optional seller pricing
+# Handover: live seller repricing
 
 Read `AGENTS.md` first. This file records only the current work in flight.
 
 ## Branch and base
 
-Branch: `codex/remove-price-minimum`
+Branch: `codex/reprice-live-listings`
 
-Current base: `origin/main` at `7cfcb7a`, including the completed Ritvik PR
-review and production verification recorded there.
+Base: `origin/main` at `2338457`, which is deployed to production and includes
+the flexible seller-pricing changes from PR #103.
 
 ## What changed
 
-- Removed school-based minimum prices from both listing submission paths and
-  the seller dashboard price editor.
-- Sellers may now choose any whole-dollar amount from $1 to the existing caps.
-- Added optional package recommendations based only on essay count: $15 for one
-  essay, $19 for two or three, $24 for four to six, and $29 for seven or more.
-- Replaced the seller-facing tier and floor language with recommendation copy.
-- Updated the Terms to say sellers choose their own prices.
-- Added `scripts/send-seller-pricing-options.mjs`. It creates one private,
-  personalized email per seller with current and suggested prices and four
-  choices: keep the current price, edit it, reply `choose for me`, or reply
-  `take it down`.
+- Added `scripts/reprice-approved-listings.mjs`. It creates a locked pricing
+  plan, applies that exact plan transactionally, and verifies the live result.
+- The approved temporary formula gives listings with one acceptance 60% off,
+  listings with two to four acceptances 55% off, and listings with five or more
+  acceptances 50% off. Prices are constrained to $9 through $49 and can never
+  increase.
+- Updated `scripts/send-seller-pricing-options.mjs` to read the same locked plan
+  and privately email each seller their exact old and new prices. The email
+  offers four choices: keep the new price, edit it, reply `choose for me`, or
+  reply `take it down`.
 
 ## Verification completed
 
-- `node scripts/pricing.test.mjs`
-- `node scripts/seller-listing-filters.test.mjs`
-- `node scripts/verify-inline-controls.mjs`
-- `npm run test:commerce`
-- `npm run test:listing-schools`
-- `npm run test:purchase-fulfillment`
-- `npm run test:seller-payouts`
-- `npm run test:analytics`
-- `npx tsc --noEmit`
-- Direct `npx next build` with production variables loaded, without running
-  `prisma migrate deploy`.
-- Email dry-run against production data: 114 sellers, 190 approved listings,
-  two Resend batches.
-- One campaign test message was accepted by Resend for
-  `hello@admitfolio.com`. No seller email was sent during the test.
+- Both scripts pass Node syntax checks and `git diff --check`.
+- The plan passed invariant checks: all 190 listings change, no price rises,
+  every new price is an integer, and all new prices are between $9 and $49.
+- Email dry-run against the locked plan: 114 sellers, 190 approved listings,
+  two private Resend batches.
 
-## Production status
+## Locked plan
 
-Nothing is deployed and no seller prices were changed. Merge this branch into
-`main`, wait for Vercel to become Ready, and verify the live seller price editor
-before sending the seller email campaign.
+The private plan is stored outside this worktree at:
 
-The campaign command is:
+`/Users/fatimah/admitly-claude/review-drafts/admitfolio-pricing-reduction-2026-10-11.json`
 
-`node --env-file=.env scripts/send-seller-pricing-options.mjs --send`
+It is mode `0600` and is not committed because it contains seller emails. It
+covers 190 approved listings from 114 sellers. All 190 prices change. The new
+distribution is $9 minimum, $22 median, $31 at p75, and $49 maximum.
 
-The email is idempotent at the Resend batch level. Do not change the campaign
-constant and rerun `--send` unless a resend is intentional.
+## Required operational order
 
-No migration or database backfill is required. Existing listing prices remain
-unchanged until a seller edits them or explicitly replies `choose for me`.
+1. Merge this branch to `main` and confirm Vercel is Ready.
+2. Apply and verify the locked plan with the production `.env`.
+3. Send a test email to `hello@admitfolio.com`.
+4. Send the two private seller-email batches only after the database verifies.
+5. Verify live catalogue prices through the public listings API.
+
+No migration or backfill is required. Do not regenerate the plan after prices
+change. Applying the same plan again is safe and reports `already-applied`.
