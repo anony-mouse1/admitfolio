@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import SiteAnalytics from '@/components/SiteAnalytics';
 import VisitSource from '@/components/VisitSource';
+import MetaConsent from '@/components/MetaConsent';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             purchase can be credited to the page that earned it. Not a cookie,
             nothing leaves the tab until the buyer starts a checkout. */}
         <VisitSource />
+        <MetaConsent />
       </body>
     </html>
   );

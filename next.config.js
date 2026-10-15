@@ -5,7 +5,7 @@ const contentSecurityPolicy = [
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ''} https://js.stripe.com https://checkout.stripe.com https://va.vercel-scripts.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.stripe.com",
+  "img-src 'self' data: blob: https://*.stripe.com https://www.facebook.com/tr",
   "connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://*.stripe.com https://vitals.vercel-insights.com https://*.vercel-insights.com",
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
   "worker-src 'self' blob:",
