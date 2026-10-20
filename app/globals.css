@@ -231,6 +231,9 @@ a { color: inherit; }
   backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center;
   padding: 28px; animation: overlayIn .2s ease;
 }
+/* The sheet takes focus itself when it opens, so a screen reader announces it.
+   It is the whole overlay, and a ring round the viewport would read as an error. */
+.ov:focus { outline: none; }
 .sheet {
   background: #fff; border-radius: 24px; width: 100%; max-width: 720px; max-height: 100%;
   overflow-y: auto; padding: 30px 34px 34px; position: relative; animation: sheetIn .25s ease;
@@ -520,6 +523,19 @@ a { color: inherit; }
 .ecard-price .w { font-size: 12.5px; color: var(--faint); }
 .ecard-unlock { font-size: 13px; font-weight: 600; color: #fff; background: var(--accent); padding: 8px 17px; border-radius: 999px; transition: filter .2s; }
 .ecard-unlock:hover { filter: brightness(0.92); }
+/* The homepage renders Unlock as a button, the collection pages as a span
+   inside the card's link. Undo what a button brings with it, so both look the
+   same as the div this used to be. */
+button.ecard-unlock { -webkit-appearance: none; appearance: none; margin: 0; font-family: inherit; line-height: inherit; text-align: inherit; cursor: pointer; }
+/* Keyboard focus on a card and on Unlock. The browser's default was a 1px
+   blue line pressed against the button's own dark border, which disappeared
+   on the burgundy. A 3px ring with a gap reads as a halo, not as the button. */
+.catalog-card:focus-visible,
+.ecard-unlock:focus-visible,
+.d-unlock-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
 
 /* ---- Releasing soon / notify banner ---- */
 .notify-banner {
@@ -3299,3 +3315,20 @@ a.ecard-link:hover { text-decoration: none; }
    was still two across. */
 @media (max-width: 900px) { .home-collections-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .home-collections-grid { grid-template-columns: 1fr; } }
+
+/* ===== Error pages =====
+   app/error.tsx and app/global-error.tsx, both through components/ErrorScreen. */
+.error-screen {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 48px 20px; text-align: center; background: var(--bg); color: var(--ink);
+}
+.error-screen .logo { margin-bottom: 44px; }
+.error-screen h1 {
+  margin: 0; font-family: var(--serif); font-size: clamp(34px, 6vw, 52px);
+  font-weight: 700; letter-spacing: -0.02em; line-height: 1.08;
+}
+.error-screen p { margin: 16px 0 0; max-width: 34ch; font-size: 17px; line-height: 1.55; color: var(--muted); }
+.error-screen-actions { margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.error-screen-actions .btn-primary,
+.error-screen-actions .btn-ghost { padding: 14px 26px; font-family: inherit; font-size: 15px; }

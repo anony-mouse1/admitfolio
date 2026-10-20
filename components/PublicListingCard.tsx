@@ -23,6 +23,10 @@ export default function PublicListingCard({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => {
+        // Only the card's own keys. Enter or Space on the Unlock button bubbles
+        // here, and preventDefault would cancel that button's click and open
+        // the sheet instead.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onOpen();
@@ -33,16 +37,18 @@ export default function PublicListingCard({
         listing={listing}
         unlock={
           /* Decided buyers keep the one-click path; stopPropagation so it does
-             not also open the sheet behind the buy modal. */
-          <div
+             not also open the sheet behind the buy modal. A real button, so a
+             keyboard can reach it: as a div it was mouse only. */
+          <button
             className="ecard-unlock"
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onUnlock();
             }}
           >
             Unlock
-          </div>
+          </button>
         }
       />
     </div>
