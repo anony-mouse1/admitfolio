@@ -3299,3 +3299,89 @@ a.ecard-link:hover { text-decoration: none; }
    was still two across. */
 @media (max-width: 900px) { .home-collections-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .home-collections-grid { grid-template-columns: 1fr; } }
+
+/* ===== Fatimah's Guide cross-promo banner (components/CrossPromoBanner.tsx) =====
+   Fixed to the bottom of every page except /admin and /purchase/*. z-index 85
+   keeps it under the nav and the matches nudge (90), every overlay (100 to
+   210) and the refresh toast (200), so the detail sheet, its sticky price bar
+   and the mobile checkout always cover it and never the other way round.
+
+   While it shows, <html> carries .fg-promo-on and --fg-promo-h, the banner's
+   measured height (safe-area padding included), and the rules after it make
+   room: the page gets that much bottom padding and the other bottom-docked
+   controls lift by the same amount. Dismissing removes both and every offset
+   falls back to what it was. */
+.fg-promo {
+  position: fixed; z-index: 85; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  color: #efe7da; background: var(--ink);
+  border-top: 1px solid rgba(255,255,255,.08);
+  font-family: var(--sans); font-size: 14px; line-height: 1.35;
+  transition: transform .22s ease, visibility 0s;
+}
+/* Stepped aside while an inline cross-promo card is on screen. visibility
+   takes it out of the tab order too; it flips only after the slide ends. */
+.fg-promo[data-suspended='true'] {
+  transform: translateY(100%); visibility: hidden;
+  transition: transform .22s ease, visibility 0s .22s;
+}
+.fg-promo a {
+  grid-column: 2; justify-self: center;
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+  color: inherit; text-decoration: none; white-space: nowrap;
+}
+.fg-promo a b {
+  color: #fff; font-weight: 600;
+  text-decoration: underline; text-decoration-color: rgba(255,255,255,.35); text-underline-offset: 3px;
+}
+.fg-promo a:hover b { text-decoration-color: #fff; }
+.fg-promo-arrow { color: #fff; }
+.fg-promo-short { display: none; }
+.fg-promo-x {
+  grid-column: 3; justify-self: end;
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
+  color: #cfc6b8; background: transparent; font-size: 20px; line-height: 1; cursor: pointer;
+}
+.fg-promo-x:hover { color: #fff; background: rgba(255,255,255,.1); }
+.fg-promo-x:focus-visible, .fg-promo a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+html.fg-promo-on body { padding-bottom: var(--fg-promo-h, 44px); }
+html.fg-promo-on .mf-nudge { bottom: calc(24px + var(--fg-promo-h, 44px)); }
+html.fg-promo-on .site-update { bottom: calc(max(18px, env(safe-area-inset-bottom)) + var(--fg-promo-h, 44px)); }
+
+/* Below 900px the shorter line, left aligned, and allowed to wrap: the close
+   button keeps its own column, so text never runs underneath it. */
+@media (max-width: 900px) {
+  .fg-promo { grid-template-columns: minmax(0, 1fr) 36px; padding-left: 16px; padding-right: 6px; font-size: 13.5px; }
+  .fg-promo a { grid-column: 1; justify-self: start; white-space: normal; }
+  .fg-promo-x { grid-column: 2; }
+  .fg-promo-long { display: none; }
+  .fg-promo-short { display: inline; }
+  .fg-promo-arrow { display: none; }
+}
+@media (max-width: 560px) {
+  html.fg-promo-on .mf-nudge { bottom: calc(14px + var(--fg-promo-h, 44px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fg-promo, .fg-promo[data-suspended='true'] { transition: none; }
+}
+
+/* ===== Fatimah's Guide card on the purchase pages ===== */
+.fg-read {
+  margin: 30px 0 0; padding: 20px 22px;
+  border: 1px solid var(--card-line); border-radius: 16px; background: #fff;
+}
+.legal-page .fg-read h2 { margin: 0 0 6px; font-size: 20px; line-height: 1.3; }
+.legal-page .fg-read p { margin: 0 0 14px; font-size: 15px; }
+.legal-page .fg-read a.fg-read-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 18px; border: 1px solid #ddd9d0; border-radius: 999px;
+  color: var(--ink); background: #fff; font-size: 14px; font-weight: 700;
+  box-shadow: inset 0 -2px rgba(20,18,15,.05), 0 6px 16px rgba(20,18,15,.07);
+}
+.legal-page .fg-read a.fg-read-btn:hover { border-color: var(--ink); text-decoration: none; }
+@media (max-width: 560px) {
+  .legal-page .fg-read a.fg-read-btn { display: flex; justify-content: center; }
+}

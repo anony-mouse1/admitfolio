@@ -6,6 +6,7 @@ import { ANONYMOUS_LABEL, buyerDisplayName } from '@/lib/anonymity';
 import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
 import { makePurchaseFingerprint } from '@/lib/purchaseFingerprint';
 import { SESSION_SECRET } from '@/lib/config';
+import { CROSS_PROMO_COPY, crossPromoUrl } from '@/lib/crossPromo';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -112,6 +113,16 @@ export default async function PurchasePage({ params }: { params: Promise<{ token
       <p>
         Bookmark <b>this page</b> (or keep your purchase email) to come back to these essays.
       </p>
+      {/* Fatimah's Guide cross-promo. Opens in a new tab so the essays stay
+          open here, and noreferrer on top of the page-wide no-referrer policy
+          so this URL's access token can never ride out with the click. */}
+      <aside className="fg-read" aria-label="Free call with Fatimah's Guide">
+        <h2>{CROSS_PROMO_COPY.readingHeading}</h2>
+        <p>{CROSS_PROMO_COPY.purchaseBody}</p>
+        <a className="fg-read-btn" href={crossPromoUrl('purchase', 'reading')} target="_blank" rel="noopener noreferrer">
+          {CROSS_PROMO_COPY.button} &rarr;
+        </a>
+      </aside>
     </Shell>
   );
 }

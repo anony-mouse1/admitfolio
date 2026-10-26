@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CrossPromoCard } from '@/components/CrossPromoCard';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
@@ -234,6 +235,8 @@ export default function EngineeringApplicationEssaysPage() {
               Browse engineering essays →
             </Link>
           </aside>
+
+          <CrossPromoCard guide={guide.slug} />
         </article>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
       </main>

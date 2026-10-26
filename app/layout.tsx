@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import CrossPromoBanner from '@/components/CrossPromoBanner';
 import SiteAnalytics from '@/components/SiteAnalytics';
 import VisitSource from '@/components/VisitSource';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
@@ -62,6 +63,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             purchase can be credited to the page that earned it. Not a cookie,
             nothing leaves the tab until the buyer starts a checkout. */}
         <VisitSource />
+        {/* Fatimah's Guide cross-promo. Skips /admin and /purchase/* itself. */}
+        <CrossPromoBanner />
       </body>
     </html>
   );
