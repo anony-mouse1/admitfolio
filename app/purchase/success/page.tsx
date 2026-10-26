@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { makeAccessToken } from '@/lib/accessToken';
+import { CROSS_PROMO_COPY, crossPromoUrl } from '@/lib/crossPromo';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -44,6 +45,13 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
       <p>
         Remember: essays on Admitfolio are for <b>inspiration and learning only</b>, never for copying;
         see our <a href="/terms">Terms</a>.
+      </p>
+      {/* Fatimah's Guide cross-promo, one line. New tab so the reading link
+          above stays on screen. */}
+      <p>
+        <a href={crossPromoUrl('purchase', 'success')} target="_blank" rel="noopener noreferrer">
+          {CROSS_PROMO_COPY.purchaseBody}
+        </a>
       </p>
     </main>
   );

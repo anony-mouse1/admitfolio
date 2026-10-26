@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CrossPromoCard } from '@/components/CrossPromoCard';
 import { GuideArticleOverview } from '@/components/GuideArticleOverview';
 import { GuideFooter, GuideHeader } from '@/components/GuideShell';
 import { RelatedGuides } from '@/components/RelatedGuides';
@@ -171,6 +172,8 @@ export default function HowToStartACollegeEssayPage() {
             <p>Compare different openings, then close the examples and draft from your own experience.</p>
             <Link className="btn-primary" href="/#browse">Browse college essays →</Link>
           </aside>
+
+          <CrossPromoCard guide={guide.slug} />
         </article>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
       </main>
