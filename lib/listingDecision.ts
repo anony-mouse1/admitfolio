@@ -4,6 +4,7 @@ import { listingAdmissionClaims } from '@/lib/admitProof';
 import { sendListingDecisionNotification } from '@/lib/email';
 import { listingHeadline, parseAdmitTags } from '@/lib/listingSchool';
 import { ensureListingOpeningLine } from '@/lib/openingLine';
+import { revalidatePublicCatalog } from '@/lib/publicCatalogCache';
 
 // Apply an approve/reject decision to a listing and notify the seller.
 //
@@ -114,6 +115,12 @@ export async function applyListingDecision(
       console.error(`opening-line extraction failed for listing ${id}:`, opening.error);
     }
   }
+
+  // Both writes above have committed: the decision (status, reviewedAt, which
+  // orders the catalogue, humanReviewedAt, which drives the verified ticks) and
+  // the opening line that becomes the card title. Expire the catalogue once,
+  // after both. Re-confirming an approved listing changes its reviewedAt too.
+  revalidatePublicCatalog();
 
   if (existing.status !== decision) {
     const listingTitle = listingHeadline({
