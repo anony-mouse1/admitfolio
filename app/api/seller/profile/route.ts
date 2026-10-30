@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
+import { revalidatePublicCatalog } from '@/lib/publicCatalogCache';
 import { PROFILE_TAGS } from '@/lib/site';
 
 export const runtime = 'nodejs';
@@ -86,6 +87,8 @@ export async function POST(req: Request) {
       ...(body.graduationYear !== undefined ? { graduationYear } : {}),
     },
   });
+  // The name and background tags appear on catalogue cards.
+  revalidatePublicCatalog();
 
   return NextResponse.json({ ok: true, ...shape(seller) });
 }

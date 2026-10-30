@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
+import { revalidatePublicCatalog } from '@/lib/publicCatalogCache';
 
 export const runtime = 'nodejs';
 
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Enter a valid package price.' }, { status: 400 });
     }
     await prisma.listing.update({ where: { id: listing.id }, data: { packagePrice: price } });
+    revalidatePublicCatalog();
     return NextResponse.json({ ok: true, packagePrice: price });
   }
 
@@ -56,5 +58,8 @@ export async function POST(req: Request) {
   await prisma.$transaction(
     updates.map((u) => prisma.essay.update({ where: { id: u.id }, data: { price: u.price } })),
   );
+  // No card shows Essay.price today. Expired anyway, so a future card that
+  // does cannot go stale.
+  revalidatePublicCatalog();
   return NextResponse.json({ ok: true, essayPrices: Object.fromEntries(updates.map((u) => [u.id, u.price])) });
 }

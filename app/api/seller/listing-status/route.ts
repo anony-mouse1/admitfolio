@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentSeller } from '@/lib/sellerAuth';
+import { revalidatePublicCatalog } from '@/lib/publicCatalogCache';
 
 export const runtime = 'nodejs';
 
@@ -39,5 +40,6 @@ export async function POST(req: Request) {
     where: { id: listing.id },
     data: { status },
   });
+  revalidatePublicCatalog();
   return NextResponse.json({ ok: true, status });
 }

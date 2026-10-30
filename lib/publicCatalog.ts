@@ -1,5 +1,7 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { PUBLIC_CATALOG_TAG } from '@/lib/publicCatalogCache';
 import { isAdminEmail, TEST_EMAILS } from '@/lib/config';
 import { isAdminApprovedListing, verifiedAdmissionTags } from '@/lib/admitProof';
 import { publicDisplayName, normalizeAnonymity } from '@/lib/anonymity';
@@ -73,6 +75,80 @@ function hookKey(value: string): string {
 export async function publicCatalogListings(): Promise<PublicCatalogListing[] | null> {
   if (!marketplaceIsLaunched()) return null;
 
+  // A fingerprint failure must never take the catalogue down with it: read it
+  // uncached, exactly as before the cache existed.
+  let fingerprint: string;
+  try {
+    fingerprint = await catalogFingerprint();
+  } catch (error) {
+    console.error('public catalog fingerprint failed, reading uncached:', error instanceof Error ? error.message : error);
+    return loadPublicCatalog();
+  }
+  return cachedPublicCatalog(fingerprint);
+}
+
+// The catalogue was read on every homepage load and every collection page view,
+// about 535 times a day at roughly 640 KB each, which is what used up the
+// Supabase egress quota in October 2026. It is now cached in Next's data cache,
+// shared by every caller and every instance, and read from the database only
+// when something it shows has changed.
+//
+// Three things decide when the cache is fresh:
+//
+// - The fingerprint below is part of the cache key. It changes whenever any row
+//   the catalogue is built from is inserted, updated or deleted, whoever wrote
+//   it: the app, a maintenance script, the Supabase SQL editor, or a localhost
+//   or preview server, all of which share the production database but not
+//   production's cache. So a change shows on the very next request.
+// - In-app writes also expire the PUBLIC_CATALOG_TAG through
+//   revalidatePublicCatalog, which is what refreshes the /essays page as well.
+// - An hour is the backstop. The deployment key means a deploy, which is the
+//   only way code or environment changes reach production, never reads an
+//   entry an older build wrote. The cache persists across deployments.
+const DEPLOYMENT_KEY = process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || 'local';
+
+const cachedPublicCatalog = unstable_cache(
+  // The fingerprint is unused inside: as an argument it is part of the key.
+  async (fingerprint: string) => {
+    void fingerprint;
+    return loadPublicCatalog();
+  },
+  ['public-catalog', DEPLOYMENT_KEY],
+  { tags: [PUBLIC_CATALOG_TAG], revalidate: 3600 },
+);
+
+// One short value that changes whenever a catalogue input changes. Every
+// Postgres row version carries the id of the transaction that wrote it
+// (xmin), so an update anywhere in these rows, a new approval entering the
+// set, and a takedown or deletion leaving it all change the hash. The row sets
+// mirror the findMany below: approved, priced listings, their essays, and
+// their sellers. ORDER BY inside string_agg keeps it stable from one query plan
+// to the next; without it the key would change at random and the cache would
+// never hit. About 100 bytes over the wire instead of the catalogue's 175 KB.
+async function catalogFingerprint(): Promise<string> {
+  const rows = await prisma.$queryRaw<{ fingerprint: string }[]>`
+    SELECT coalesce(md5(string_agg(k, ',' ORDER BY k)), 'empty') AS fingerprint FROM (
+      SELECT 'l:' || l.id || ':' || l.xmin::text AS k
+        FROM "Listing" l
+        WHERE l.status = 'approved' AND l."packagePrice" IS NOT NULL
+      UNION ALL
+      SELECT 'e:' || e.id || ':' || e.xmin::text
+        FROM "Essay" e
+        JOIN "Listing" l ON l.id = e."listingId"
+        WHERE l.status = 'approved' AND l."packagePrice" IS NOT NULL
+      UNION ALL
+      SELECT 's:' || s.id || ':' || s.xmin::text
+        FROM "Seller" s
+        WHERE s.id IN (
+          SELECT "sellerId" FROM "Listing" WHERE status = 'approved' AND "packagePrice" IS NOT NULL
+        )
+    ) catalogue_rows`;
+  return rows[0]?.fingerprint ?? 'empty';
+}
+
+// The uncached read: the query and the shaping. Only the cache above and the
+// fingerprint fallback call it.
+async function loadPublicCatalog(): Promise<PublicCatalogListing[]> {
   const rows = await prisma.listing.findMany({
     // Only whole-set priced listings are purchasable; price-less legacy rows
     // would render as unbuyable cards.
@@ -85,7 +161,28 @@ export async function publicCatalogListings(): Promise<PublicCatalogListing[] | 
     // 18.2 KB gzipped, so it is cheaper to send it all and page on the client
     // than to build cursor pagination for this size.
     take: 200,
-    include: {
+    // Exactly the columns the catalogue returns or decides with. `include`
+    // pulled every Listing column, and the review panel's aiLenses and
+    // aiReasons alone were two thirds of each read without ever reaching a
+    // card. status, humanReviewedAt and aiDecision are read only by
+    // isAdminApprovedListing, for the verified ticks.
+    select: {
+      id: true,
+      sellerId: true,
+      school: true,
+      targetSchool: true,
+      applicationSystem: true,
+      admitTags: true,
+      anonymity: true,
+      packagePrice: true,
+      teaser: true,
+      openingLine: true,
+      appliedMajors: true,
+      major: true,
+      createdAt: true,
+      status: true,
+      humanReviewedAt: true,
+      aiDecision: true,
       seller: {
         select: {
           email: true,

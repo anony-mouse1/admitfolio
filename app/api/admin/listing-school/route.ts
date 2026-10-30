@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { currentAdmin } from '@/lib/adminAuth';
 import { sameSchool } from '@/lib/schools';
 import { parseAdmitTags } from '@/lib/listingSchool';
+import { revalidatePublicCatalog } from '@/lib/publicCatalogCache';
 
 export const runtime = 'nodejs';
 
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
   if (result.count !== 1) {
     return NextResponse.json({ error: 'The listing changed. Refresh and try again.' }, { status: 409 });
   }
+  revalidatePublicCatalog();
 
   return NextResponse.json({ ok: true, targetSchool: canonicalSchool });
 }
