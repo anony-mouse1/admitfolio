@@ -152,6 +152,12 @@ assert(!/round2\(totalGross \* SELLER_SHARE\)/.test(page), 'Net earnings must no
 assert(/n == null \? 'Not available'/.test(page), 'A figure the API never sent must render as "Not available"');
 assert(/accountingPending && n === 0 \? 'Pending'/.test(page), 'A zero total with sales still settling must render as "Pending"');
 assert(!/: 'Free'/.test(page), 'An unpriced listing must never render as "Free"');
+// Per-essay sales and payout could only ever read zero: a purchase buys the
+// whole listing and is stored with essayId null. The table is gone, and so is
+// the server code that computed it, so neither can quietly come back.
+const dashboardView = fs.readFileSync(new URL('../lib/sellerDashboardView.ts', import.meta.url), 'utf8');
+assert(!/Per-essay performance/.test(page) && !/dash-table/.test(page), 'the always-zero per-essay performance table must stay removed');
+assert(!/purchase\.essayId/.test(dashboardView), 'the dashboard must not attribute sales to single essays');
 // The wizard keeps its two inputs; the dashboard's two moved into the inline
 // price panel when that stopped rendering after the whole workspace. Still four
 // in total, still whole-dollar stepped and still capped.

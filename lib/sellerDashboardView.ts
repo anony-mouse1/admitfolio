@@ -61,7 +61,6 @@ export async function getSellerDashboardView(sellerId: string) {
     },
     select: {
       listingId: true,
-      essayId: true,
       amount: true,
       grossAmountCents: true,
       sellerEarningsCents: true,
@@ -129,23 +128,16 @@ export async function getSellerDashboardView(sellerId: string) {
       sellerEarningsCents,
       platformFeeCents,
       stripeProcessingFeeCents,
-      essays: listing.essays.map((essay) => {
-        const forEssay = forListing.filter((purchase) => purchase.essayId === essay.id);
-        const essayGrossCents = sum(forEssay, 'grossAmountCents');
-        return {
-          id: essay.id,
-          prompt: essay.prompt,
-          question: essay.question,
-          wordCount: essay.wordCount,
-          price: essay.price,
-          sales: forEssay.length,
-          gross: essayGrossCents / 100,
-          grossCents: essayGrossCents,
-          sellerEarningsCents: sum(forEssay, 'sellerEarningsCents'),
-          platformFeeCents: sum(forEssay, 'platformFeeCents'),
-          stripeProcessingFeeCents: sum(forEssay, 'stripeProcessingFeeCents'),
-        };
-      }),
+      // No per-essay sales or earnings. The unit of purchase is the listing and
+      // every purchase is stored with essayId null, so per-essay figures could
+      // only ever be zero. The dashboard table that showed them is gone.
+      essays: listing.essays.map((essay) => ({
+        id: essay.id,
+        prompt: essay.prompt,
+        question: essay.question,
+        wordCount: essay.wordCount,
+        price: essay.price,
+      })),
     };
   });
 
