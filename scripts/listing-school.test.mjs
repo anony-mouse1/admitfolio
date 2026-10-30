@@ -204,6 +204,25 @@ assert.equal(schools.sameSchool('UMass Amherst', 'University of Massachusetts Am
 assert.equal(schools.sameSchool('George Washington University', 'GWU'), true);
 assert.equal(schools.sameSchool('University of Maryland Baltimore County', 'UMBC'), true);
 
+// Fordham and Trinity College Dublin had logo files but no entry in the table,
+// so their cards showed a monogram. University of Arizona resolved to nothing.
+// These are the spellings in the live catalogue.
+const ADDED_SCHOOLS = [
+  ['Fordham University', 'fordham.edu', 'Fordham'],
+  ['Fordham', 'fordham.edu', 'Fordham'],
+  ['fordham', 'fordham.edu', 'Fordham'],
+  ['Trinity College Dublin', 'tcd.ie', 'Trinity College Dublin'],
+  ['University of Arizona', 'arizona.edu', 'Arizona'],
+];
+for (const [typed, domain, short] of ADDED_SCHOOLS) {
+  assert.deepEqual(schools.schoolInfo(typed), { domain, short }, `${typed} must resolve to ${domain}`);
+}
+// And the neighbours they must not swallow. Trinity College in Hartford is a
+// different school, which is why there is no bare 'trinity college' key.
+assert.equal(schools.schoolInfo('Arizona State University')?.domain, 'asu.edu');
+assert.equal(schools.schoolInfo('Northern Arizona University'), null);
+assert.equal(schools.schoolInfo('Trinity College'), null);
+
 // "Duke Kunshan College" has the same shape as the seven above: Duke Kunshan
 // University is a separate degree-granting school in Kunshan, China, and 'duke'
 // matches inside it. It is deliberately left resolving to Duke, because
